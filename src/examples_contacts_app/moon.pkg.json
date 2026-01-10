@@ -1,0 +1,8 @@
+{
+  "is-main": true,
+  "import": [
+    "bikallem/postgresql/pgsql",
+    "bikallem/postgresql/protocol",
+    "moonbitlang/async"
+  ]
+}

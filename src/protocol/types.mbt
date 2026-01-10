@@ -1,0 +1,462 @@
+///| PostgreSQL Type System
+///
+/// This module defines PostgreSQL type OIDs and provides value conversion
+/// between MoonBit types and PostgreSQL text format representations.
+
+// =============================================================================
+// PostgreSQL Type OIDs
+// =============================================================================
+
+// Boolean
+pub const OID_BOOL : UInt = 16
+
+// Numeric Types
+pub const OID_INT2 : UInt = 21 // smallint
+pub const OID_INT4 : UInt = 23 // integer
+pub const OID_INT8 : UInt = 20 // bigint
+pub const OID_FLOAT4 : UInt = 700 // real
+pub const OID_FLOAT8 : UInt = 701 // double precision
+pub const OID_NUMERIC : UInt = 1700 // numeric/decimal
+
+// Character Types
+pub const OID_CHAR : UInt = 18 // "char" (single character)
+pub const OID_NAME : UInt = 19 // name (63 chars)
+pub const OID_TEXT : UInt = 25 // text
+pub const OID_VARCHAR : UInt = 1043 // varchar
+pub const OID_BPCHAR : UInt = 1042 // char(n)
+
+// Binary Types
+pub const OID_BYTEA : UInt = 17 // bytea
+
+// Date/Time Types - for future use
+let _oid_date : UInt = 1082
+let _oid_time : UInt = 1083
+let _oid_timestamp : UInt = 1114
+let _oid_timestamptz : UInt = 1184
+let _oid_interval : UInt = 1186
+
+// JSON Types - for future use
+let _oid_json : UInt = 114
+let _oid_jsonb : UInt = 3802
+
+// UUID - for future use
+let _oid_uuid : UInt = 2950
+
+// Network Types - for future use
+let _oid_inet : UInt = 869
+let _oid_cidr : UInt = 650
+let _oid_macaddr : UInt = 829
+
+// Array Types (common ones) - for future use
+let _oid_int4_array : UInt = 1007
+let _oid_text_array : UInt = 1009
+let _oid_float8_array : UInt = 1022
+
+// Special - for future use
+let _oid_void : UInt = 2278
+let _oid_unknown : UInt = 705
+
+// =============================================================================
+// Byte/String Conversion Helpers
+// =============================================================================
+
+/// Convert ASCII bytes to string (each byte becomes one character)
+fn bytes_to_ascii_string(data : Bytes) -> String {
+  let chars : Array[Char] = Array::new(capacity=data.length())
+  for i = 0; i < data.length(); i = i + 1 {
+    chars.push(data[i].to_int().unsafe_to_char())
+  }
+  String::from_array(chars)
+}
+
+// =============================================================================
+// Value Type
+// =============================================================================
+
+/// Represents a PostgreSQL value in MoonBit
+pub(all) enum Value {
+  /// NULL value
+  Null
+  /// Boolean value
+  Bool(Bool)
+  /// 32-bit integer
+  Int(Int)
+  /// 64-bit integer
+  Int64(Int64)
+  /// Floating point number
+  Float(Double)
+  /// String/text value
+  String(String)
+  /// Binary data
+  Bytes(Bytes)
+} derive(Show, Eq)
+
+// =============================================================================
+// Text Format Parsing (PostgreSQL -> MoonBit)
+// =============================================================================
+
+/// Parse a PostgreSQL text-format value to a MoonBit Value
+/// Returns Null if the input is None (SQL NULL)
+pub fn parse_text_value(data : Bytes?, type_oid : UInt) -> Value {
+  match data {
+    None => Null
+    Some(bytes) => {
+      let text = bytes_to_ascii_string(bytes)
+      parse_text_value_inner(text, type_oid)
+    }
+  }
+}
+
+/// Parse text value based on type OID
+fn parse_text_value_inner(text : String, type_oid : UInt) -> Value {
+  // Use inline OID values:
+  // OID_BOOL = 16, OID_INT2 = 21, OID_INT4 = 23, OID_INT8 = 20
+  // OID_FLOAT4 = 700, OID_FLOAT8 = 701, OID_NUMERIC = 1700, OID_BYTEA = 17
+  if type_oid == 16U {
+    // BOOL
+    parse_bool(text)
+  } else if type_oid == 21U || type_oid == 23U {
+    // INT2 or INT4
+    parse_int(text)
+  } else if type_oid == 20U {
+    // INT8
+    parse_int64(text)
+  } else if type_oid == 700U || type_oid == 701U || type_oid == 1700U {
+    // FLOAT4, FLOAT8, or NUMERIC
+    parse_float(text)
+  } else if type_oid == 17U {
+    // BYTEA
+    parse_bytea(text)
+  } else {
+    // Default: treat as string
+    String(text)
+  }
+}
+
+/// Parse boolean value
+fn parse_bool(text : String) -> Value {
+  if text == "t" || text == "true" || text == "TRUE" || text == "1" {
+    Bool(true)
+  } else {
+    Bool(false)
+  }
+}
+
+/// Parse integer value
+fn parse_int(text : String) -> Value {
+  let mut result = 0
+  let mut negative = false
+  let mut started = false
+  for c in text {
+    if c == '-' && not(started) {
+      negative = true
+      started = true
+    } else if c >= '0' && c <= '9' {
+      result = result * 10 + (c.to_int() - '0'.to_int())
+      started = true
+    } else if c == '+' && not(started) {
+      started = true
+    } else {
+      return String(text) // invalid character
+    }
+  }
+  if not(started) {
+    return String(text)
+  }
+  Int(if negative { -result } else { result })
+}
+
+/// Parse 64-bit integer value
+fn parse_int64(text : String) -> Value {
+  let mut result : Int64 = 0L
+  let mut negative = false
+  let mut started = false
+  for c in text {
+    if c == '-' && not(started) {
+      negative = true
+      started = true
+    } else if c >= '0' && c <= '9' {
+      result = result * 10L + (c.to_int() - '0'.to_int()).to_int64()
+      started = true
+    } else if c == '+' && not(started) {
+      started = true
+    } else {
+      return String(text) // invalid character
+    }
+  }
+  if not(started) {
+    return String(text)
+  }
+  Int64(if negative { -result } else { result })
+}
+
+/// Parse floating point value
+fn parse_float(text : String) -> Value {
+  // Simple float parsing: integer part + optional decimal
+  let mut int_part : Double = 0.0
+  let mut frac_part : Double = 0.0
+  let mut frac_div : Double = 1.0
+  let mut negative = false
+  let mut in_fraction = false
+  let mut started = false
+  let mut in_exponent = false
+  let mut exp_value = 0
+  let mut exp_negative = false
+
+  for c in text {
+    if c == '-' && not(started) && not(in_exponent) {
+      negative = true
+      started = true
+    } else if c == '-' && in_exponent {
+      exp_negative = true
+    } else if c == '+' && not(started) {
+      started = true
+    } else if c == '+' && in_exponent {
+      // skip
+      ()
+    } else if c == '.' && not(in_fraction) && not(in_exponent) {
+      in_fraction = true
+      started = true
+    } else if (c == 'e' || c == 'E') && not(in_exponent) {
+      in_exponent = true
+    } else if c >= '0' && c <= '9' {
+      if in_exponent {
+        exp_value = exp_value * 10 + (c.to_int() - '0'.to_int())
+      } else if in_fraction {
+        frac_div = frac_div * 10.0
+        frac_part = frac_part + (c.to_int() - '0'.to_int()).to_double() / frac_div
+      } else {
+        int_part = int_part * 10.0 + (c.to_int() - '0'.to_int()).to_double()
+      }
+      started = true
+    } else {
+      return String(text) // invalid character
+    }
+  }
+  if not(started) {
+    return String(text)
+  }
+  let mut result = int_part + frac_part
+  if negative {
+    result = -result
+  }
+  // Apply exponent
+  if in_exponent {
+    let mut exp_mult : Double = 1.0
+    for i = 0; i < exp_value; i = i + 1 {
+      exp_mult = exp_mult * 10.0
+    }
+    if exp_negative {
+      result = result / exp_mult
+    } else {
+      result = result * exp_mult
+    }
+  }
+  Float(result)
+}
+
+/// Parse bytea value (hex format: \x...)
+fn parse_bytea(text : String) -> Value {
+  if text.length() >= 2 {
+    // Check for hex format: \xHEXHEX...
+    let bytes = string_to_bytes_local(text)
+    if bytes[0] == b'\\' && bytes[1] == b'x' {
+      // Extract hex part (skip first 2 characters)
+      let hex_str = substring_from(text, 2)
+      match hex_decode(hex_str) {
+        Some(decoded) => Bytes(decoded)
+        None => String(text)
+      }
+    } else {
+      // Escape format - simplified handling
+      Bytes(bytes)
+    }
+  } else {
+    Bytes(string_to_bytes_local(text))
+  }
+}
+
+/// Get substring starting from given index
+fn substring_from(s : String, start : Int) -> String {
+  let chars : Array[Char] = []
+  let mut idx = 0
+  for c in s {
+    if idx >= start {
+      chars.push(c)
+    }
+    idx += 1
+  }
+  String::from_array(chars)
+}
+
+/// Convert string to bytes (local helper)
+fn string_to_bytes_local(s : String) -> Bytes {
+  let arr : Array[Byte] = []
+  for c in s {
+    let code = c.to_int()
+    if code < 0x80 {
+      arr.push(code.to_byte())
+    } else if code < 0x800 {
+      arr.push((0xC0 | (code >> 6)).to_byte())
+      arr.push((0x80 | (code & 0x3F)).to_byte())
+    } else if code < 0x10000 {
+      arr.push((0xE0 | (code >> 12)).to_byte())
+      arr.push((0x80 | ((code >> 6) & 0x3F)).to_byte())
+      arr.push((0x80 | (code & 0x3F)).to_byte())
+    } else {
+      arr.push((0xF0 | (code >> 18)).to_byte())
+      arr.push((0x80 | ((code >> 12) & 0x3F)).to_byte())
+      arr.push((0x80 | ((code >> 6) & 0x3F)).to_byte())
+      arr.push((0x80 | (code & 0x3F)).to_byte())
+    }
+  }
+  Bytes::from_array(arr)
+}
+
+/// Decode hex string to bytes
+fn hex_decode(hex : String) -> Bytes? {
+  let hex_bytes = string_to_bytes_local(hex)
+  if hex_bytes.length() % 2 != 0 {
+    return None
+  }
+
+  let result : Array[Byte] = []
+  for i = 0; i < hex_bytes.length(); i = i + 2 {
+    let high = hex_digit_value(hex_bytes[i])
+    let low = hex_digit_value(hex_bytes[i + 1])
+    match (high, low) {
+      (Some(h), Some(l)) => result.push(((h << 4) | l).to_byte())
+      _ => return None
+    }
+  }
+  Some(Bytes::from_array(result))
+}
+
+/// Get numeric value of hex digit
+fn hex_digit_value(b : Byte) -> Int? {
+  if b >= b'0' && b <= b'9' {
+    Some(b.to_int() - b'0'.to_int())
+  } else if b >= b'a' && b <= b'f' {
+    Some(b.to_int() - b'a'.to_int() + 10)
+  } else if b >= b'A' && b <= b'F' {
+    Some(b.to_int() - b'A'.to_int() + 10)
+  } else {
+    None
+  }
+}
+
+// =============================================================================
+// Text Format Serialization (MoonBit -> PostgreSQL)
+// =============================================================================
+
+/// Serialize a Value to PostgreSQL text format
+/// Returns None for Null values
+pub fn serialize_value(value : Value) -> Bytes? {
+  match value {
+    Null => None
+    Bool(b) => Some(string_to_bytes_local(if b { "t" } else { "f" }))
+    Int(n) => Some(string_to_bytes_local(n.to_string()))
+    Int64(n) => Some(string_to_bytes_local(n.to_string()))
+    Float(n) => Some(string_to_bytes_local(n.to_string()))
+    String(s) => Some(string_to_bytes_local(s))
+    Bytes(b) => Some(bytea_to_hex(b))
+  }
+}
+
+/// Convert bytes to hex-encoded bytea format
+fn bytea_to_hex(data : Bytes) -> Bytes {
+  let hex_chars = "0123456789abcdef"
+  let result : Array[Byte] = []
+  result.push(b'\\')
+  result.push(b'x')
+  for i = 0; i < data.length(); i = i + 1 {
+    let b = data[i].to_int()
+    result.push(hex_char_at_local(hex_chars, (b >> 4) & 0xF))
+    result.push(hex_char_at_local(hex_chars, b & 0xF))
+  }
+  Bytes::from_array(result)
+}
+
+/// Get hex character at index
+fn hex_char_at_local(s : String, idx : Int) -> Byte {
+  let mut i = 0
+  for c in s {
+    if i == idx {
+      return c.to_int().to_byte()
+    }
+    i += 1
+  }
+  b'0'
+}
+
+// =============================================================================
+// Value Helper Methods
+// =============================================================================
+
+/// Check if value is null
+pub fn Value::is_null(self : Value) -> Bool {
+  match self {
+    Null => true
+    _ => false
+  }
+}
+
+/// Get value as Bool (returns None if not Bool or Null)
+pub fn Value::as_bool(self : Value) -> Bool? {
+  match self {
+    Bool(b) => Some(b)
+    _ => None
+  }
+}
+
+/// Get value as Int (returns None if not numeric or Null)
+pub fn Value::as_int(self : Value) -> Int? {
+  match self {
+    Int(n) => Some(n)
+    Int64(n) => Some(n.to_int())
+    Float(n) => Some(n.to_int())
+    _ => None
+  }
+}
+
+/// Get value as Int64 (returns None if not numeric or Null)
+pub fn Value::as_int64(self : Value) -> Int64? {
+  match self {
+    Int(n) => Some(n.to_int64())
+    Int64(n) => Some(n)
+    Float(n) => Some(n.to_int64())
+    _ => None
+  }
+}
+
+/// Get value as Double (returns None if not numeric or Null)
+pub fn Value::as_float(self : Value) -> Double? {
+  match self {
+    Int(n) => Some(n.to_double())
+    Int64(n) => Some(n.to_double())
+    Float(n) => Some(n)
+    _ => None
+  }
+}
+
+/// Get value as String (returns None if Null, converts other types)
+pub fn Value::as_string(self : Value) -> String? {
+  match self {
+    Null => None
+    Bool(b) => Some(if b { "true" } else { "false" })
+    Int(n) => Some(n.to_string())
+    Int64(n) => Some(n.to_string())
+    Float(n) => Some(n.to_string())
+    String(s) => Some(s)
+    Bytes(b) => Some(bytes_to_ascii_string(b))
+  }
+}
+
+/// Get value as Bytes (returns None if not Bytes or Null)
+pub fn Value::as_bytes(self : Value) -> Bytes? {
+  match self {
+    Bytes(b) => Some(b)
+    String(s) => Some(string_to_bytes_local(s))
+    _ => None
+  }
+}
