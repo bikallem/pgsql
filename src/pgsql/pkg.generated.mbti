@@ -1,0 +1,169 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bikallem/postgresql/pgsql"
+
+import {
+  "bikallem/postgresql/pgsql/protocol",
+}
+
+// Values
+
+// Errors
+pub suberror AuthError {
+  AuthError(String)
+}
+pub impl Show for AuthError
+
+pub suberror ConnectionClosedError
+pub impl Show for ConnectionClosedError
+
+pub suberror ServerErr {
+  ServerErr(ServerErrorInfo)
+}
+pub impl Show for ServerErr
+
+pub suberror TxError {
+  TxError(String)
+}
+pub impl Show for TxError
+
+// Types and methods
+pub struct Client {
+  conn : Connection
+  mut stmt_counter : Int
+}
+pub async fn Client::begin(Self) -> Unit
+pub fn Client::close(Self) -> Unit
+pub async fn Client::commit(Self) -> Unit
+pub async fn Client::connect(Config) -> Self
+pub async fn Client::execute(Self, String) -> Int
+pub async fn Client::execute_params(Self, String, Array[Value]) -> Int
+pub fn Client::get_process_id(Self) -> Int
+pub fn Client::get_server_param(Self, String) -> String?
+pub fn Client::get_transaction_status(Self) -> TransactionStatus
+pub fn Client::in_transaction(Self) -> Bool
+pub async fn Client::query(Self, String) -> QueryResult
+pub async fn Client::query_params(Self, String, Array[Value]) -> QueryResult
+pub async fn Client::rollback(Self) -> Unit
+pub async fn[T] Client::transaction(Self, async (Transaction) -> T) -> T
+
+pub struct ColumnInfo {
+  name : String
+  type_oid : UInt
+  type_size : Int
+}
+pub fn ColumnInfo::get_name(Self) -> String
+pub fn ColumnInfo::get_type_oid(Self) -> UInt
+pub fn ColumnInfo::get_type_size(Self) -> Int
+pub fn ColumnInfo::new(String, UInt, Int) -> Self
+pub impl Eq for ColumnInfo
+pub impl Show for ColumnInfo
+
+pub struct Config {
+  host : String
+  port : Int
+  user : String
+  password : String
+  database : String
+}
+pub fn Config::get_database(Self) -> String
+pub fn Config::get_host(Self) -> String
+pub fn Config::get_password(Self) -> String
+pub fn Config::get_port(Self) -> Int
+pub fn Config::get_user(Self) -> String
+pub fn Config::new(String, String, String, host? : String, port? : Int) -> Self
+pub impl Show for Config
+
+type Connection
+pub fn Connection::get_process_id(Self) -> Int
+pub fn Connection::get_secret_key(Self) -> Int
+pub fn Connection::get_transaction_status(Self) -> @protocol.TransactionStatus
+
+pub struct QueryResult {
+  fields : Array[ColumnInfo]
+  rows : Array[Row]
+  command_tag : String
+}
+pub fn QueryResult::column_count(Self) -> Int
+pub fn QueryResult::get_command_tag(Self) -> String
+pub fn QueryResult::get_fields(Self) -> Array[ColumnInfo]
+pub fn QueryResult::get_row(Self, Int) -> Row?
+pub fn QueryResult::get_rows(Self) -> Array[Row]
+pub fn QueryResult::iter(Self) -> Iter[Row]
+pub fn QueryResult::row_count(Self) -> Int
+pub impl Show for QueryResult
+
+pub struct Row {
+  values : Array[Value]
+  fields : Array[ColumnInfo]
+}
+pub fn Row::column_count(Self) -> Int
+pub fn Row::get(Self, Int) -> Value?
+pub fn Row::get_bool(Self, Int) -> Bool?
+pub fn Row::get_by_name(Self, String) -> Value?
+pub fn Row::get_float(Self, Int) -> Double?
+pub fn Row::get_int(Self, Int) -> Int?
+pub fn Row::get_int64(Self, Int) -> Int64?
+pub fn Row::get_string(Self, Int) -> String?
+pub fn Row::is_null(Self, Int) -> Bool
+pub impl Show for Row
+
+pub struct ServerErrorInfo {
+  severity : String
+  code : String
+  message : String
+  detail : String?
+  hint : String?
+  table : String?
+  column : String?
+  constraint : String?
+}
+pub fn ServerErrorInfo::from_fields(Map[String, String]) -> Self
+pub impl Eq for ServerErrorInfo
+pub impl Show for ServerErrorInfo
+
+pub struct Transaction {
+  client : Client
+  mut active : Bool
+}
+pub async fn Transaction::commit(Self) -> Unit
+pub async fn Transaction::execute(Self, String) -> Int
+pub async fn Transaction::execute_params(Self, String, Array[Value]) -> Int
+pub fn Transaction::is_active(Self) -> Bool
+pub async fn Transaction::query(Self, String) -> QueryResult
+pub async fn Transaction::query_params(Self, String, Array[Value]) -> QueryResult
+pub async fn Transaction::release(Self, String) -> Unit
+pub async fn Transaction::rollback(Self) -> Unit
+pub async fn Transaction::rollback_to(Self, String) -> Unit
+pub async fn Transaction::savepoint(Self, String) -> Unit
+
+pub(all) enum TransactionStatus {
+  Idle
+  InTransaction
+  Failed
+}
+pub impl Eq for TransactionStatus
+pub impl Show for TransactionStatus
+
+pub(all) enum Value {
+  Null
+  Bool(Bool)
+  Int(Int)
+  Int64(Int64)
+  Float(Double)
+  String(String)
+  Bytes(Bytes)
+}
+pub fn Value::as_bool(Self) -> Bool?
+pub fn Value::as_bytes(Self) -> Bytes?
+pub fn Value::as_float(Self) -> Double?
+pub fn Value::as_int(Self) -> Int?
+pub fn Value::as_int64(Self) -> Int64?
+pub fn Value::as_string(Self) -> String?
+pub fn Value::is_null(Self) -> Bool
+pub impl Eq for Value
+pub impl Show for Value
+
+// Type aliases
+
+// Traits
+

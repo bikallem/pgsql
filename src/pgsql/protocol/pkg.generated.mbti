@@ -1,0 +1,191 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "bikallem/postgresql/pgsql/protocol"
+
+// Values
+pub const OID_BOOL : UInt = 16
+
+pub const OID_BPCHAR : UInt = 1042
+
+pub const OID_BYTEA : UInt = 17
+
+pub const OID_CHAR : UInt = 18
+
+pub const OID_FLOAT4 : UInt = 700
+
+pub const OID_FLOAT8 : UInt = 701
+
+pub const OID_INT2 : UInt = 21
+
+pub const OID_INT4 : UInt = 23
+
+pub const OID_INT8 : UInt = 20
+
+pub const OID_NAME : UInt = 19
+
+pub const OID_NUMERIC : UInt = 1700
+
+pub const OID_TEXT : UInt = 25
+
+pub const OID_VARCHAR : UInt = 1043
+
+pub const PROTOCOL_VERSION : Int = 196608
+
+pub fn encode(FrontendMessage) -> Bytes
+
+pub fn md5_password(String, String, Bytes) -> String
+
+pub fn parse_text_value(Bytes?, UInt) -> Value
+
+pub fn serialize_value(Value) -> Bytes?
+
+// Errors
+
+// Types and methods
+pub(all) enum BackendMessage {
+  AuthenticationOk
+  AuthenticationCleartextPassword
+  AuthenticationMD5Password(Bytes)
+  AuthenticationSASL(Array[String])
+  AuthenticationSASLContinue(Bytes)
+  AuthenticationSASLFinal(Bytes)
+  BackendKeyData(Int, Int)
+  ParameterStatus(String, String)
+  ReadyForQuery(TransactionStatus)
+  NegotiateProtocolVersion(Int, Array[String])
+  RowDescription(Array[FieldDescription])
+  DataRow(Array[Bytes?])
+  CommandComplete(String)
+  EmptyQueryResponse
+  ParseComplete
+  BindComplete
+  CloseComplete
+  NoData
+  ParameterDescription(Array[UInt])
+  PortalSuspended
+  ErrorResponse(Map[String, String])
+  NoticeResponse(Map[String, String])
+  NotificationResponse(Int, String, String)
+  CopyInResponse(FormatCode, Array[FormatCode])
+  CopyOutResponse(FormatCode, Array[FormatCode])
+  CopyData(Bytes)
+  CopyDone
+}
+pub impl Show for BackendMessage
+
+pub struct BufferReader {
+  data : Bytes
+  mut offset : Int
+}
+pub fn BufferReader::byte(Self) -> Byte
+pub fn BufferReader::bytes(Self, Int) -> Bytes
+pub fn BufferReader::cstring(Self) -> String
+pub fn BufferReader::empty() -> Self
+pub fn BufferReader::has_remaining(Self, Int) -> Bool
+pub fn BufferReader::int16(Self) -> Int
+pub fn BufferReader::int32(Self) -> Int
+pub fn BufferReader::new(Bytes) -> Self
+pub fn BufferReader::peek_byte(Self) -> Byte
+pub fn BufferReader::position(Self) -> Int
+pub fn BufferReader::remaining(Self) -> Int
+pub fn BufferReader::skip(Self, Int) -> Unit
+pub fn BufferReader::string(Self, Int) -> String
+pub fn BufferReader::uint16(Self) -> Int
+pub fn BufferReader::uint32(Self) -> UInt
+
+pub struct BufferWriter {
+  data : Array[Byte]
+}
+pub fn BufferWriter::add_byte(Self, Byte) -> Self
+pub fn BufferWriter::add_bytes(Self, Bytes) -> Self
+pub fn BufferWriter::add_cstring(Self, String) -> Self
+pub fn BufferWriter::add_fixed_array(Self, FixedArray[Byte]) -> Self
+pub fn BufferWriter::add_int16(Self, Int) -> Self
+pub fn BufferWriter::add_int32(Self, Int) -> Self
+pub fn BufferWriter::add_string(Self, String) -> Self
+pub fn BufferWriter::clear(Self) -> Unit
+pub fn BufferWriter::flush(Self, Byte) -> Bytes
+pub fn BufferWriter::flush_startup(Self) -> Bytes
+pub fn BufferWriter::length(Self) -> Int
+pub fn BufferWriter::new(capacity? : Int) -> Self
+pub fn BufferWriter::to_bytes(Self) -> Bytes
+
+pub struct Decoder {
+  mut buffer : Array[Byte]
+}
+pub fn Decoder::clear(Self) -> Unit
+pub fn Decoder::has_pending(Self) -> Bool
+pub fn Decoder::new() -> Self
+pub fn Decoder::parse(Self, Bytes) -> Array[BackendMessage]
+
+pub struct FieldDescription {
+  name : String
+  table_oid : UInt
+  column_id : Int
+  type_oid : UInt
+  type_size : Int
+  type_modifier : Int
+  format : FormatCode
+}
+pub fn FieldDescription::new(String, UInt, Int, UInt, Int, Int, FormatCode) -> Self
+pub impl Show for FieldDescription
+
+pub(all) enum FormatCode {
+  Text
+  Binary
+}
+pub impl Eq for FormatCode
+pub impl Show for FormatCode
+
+pub(all) enum FrontendMessage {
+  StartupMessage(Map[String, String])
+  SSLRequest
+  CancelRequest(Int, Int)
+  PasswordMessage(String)
+  SASLInitialResponse(String, Bytes)
+  SASLResponse(Bytes)
+  Query(String)
+  Parse(String, String, Array[UInt])
+  Bind(String, String, Array[FormatCode], Array[Bytes?], Array[FormatCode])
+  Describe(Byte, String)
+  Execute(String, Int)
+  Close(Byte, String)
+  Sync
+  Flush
+  CopyData(Bytes)
+  CopyDone
+  CopyFail(String)
+  Terminate
+}
+pub impl Show for FrontendMessage
+
+pub(all) enum TransactionStatus {
+  Idle
+  InTransaction
+  Failed
+}
+pub impl Eq for TransactionStatus
+pub impl Show for TransactionStatus
+
+pub(all) enum Value {
+  Null
+  Bool(Bool)
+  Int(Int)
+  Int64(Int64)
+  Float(Double)
+  String(String)
+  Bytes(Bytes)
+}
+pub fn Value::as_bool(Self) -> Bool?
+pub fn Value::as_bytes(Self) -> Bytes?
+pub fn Value::as_float(Self) -> Double?
+pub fn Value::as_int(Self) -> Int?
+pub fn Value::as_int64(Self) -> Int64?
+pub fn Value::as_string(Self) -> String?
+pub fn Value::is_null(Self) -> Bool
+pub impl Eq for Value
+pub impl Show for Value
+
+// Type aliases
+
+// Traits
+

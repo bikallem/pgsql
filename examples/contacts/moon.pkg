@@ -1,0 +1,10 @@
+import {
+  "bikallem/postgresql/pgsql",
+  "moonbitlang/async",
+  "moonbitlang/core/env",
+}
+
+options(
+  "is-main": true,
+  "supported-targets": [ "native" ],
+)
