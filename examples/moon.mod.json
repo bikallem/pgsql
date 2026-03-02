@@ -5,7 +5,8 @@
     "deps": {
         "moonbitlang/async": "0.16.7",
         "bikallem/postgresql": {
-            "path": "../"
+            "path": ".."
         }
-    }
+    },
+    "preferred-target": "native"
 }

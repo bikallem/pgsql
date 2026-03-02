@@ -9,5 +9,6 @@
   "description": "PostgreSQL database driver for MoonBit",
   "deps": {
     "moonbitlang/async": "0.16.7"
-  }
+  },
+  "preferred-target": "native"
 }

@@ -1,7 +1,11 @@
 import {
-  "bikallem/postgresql/pgsql/protocol",
+  "bikallem/postgresql/protocol",
   "moonbitlang/async/socket",
 }
+
+import {
+  "bikallem/postgresql" @pgsql,
+} for "test"
 
 options(
   "supported-targets": [ "native" ],

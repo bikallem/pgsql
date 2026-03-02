@@ -1,7 +1,7 @@
 ///|
 /// Integration Tests
 ///
-/// Requires a running PostgreSQL instance at localhost:5432
+/// Requires a running PostgreSQL instance at 127.0.0.1:5432
 /// with user/password/database = postgres/postgres/postgres.
 ///
 /// Run with: moon test --target native src/tests/integration/
