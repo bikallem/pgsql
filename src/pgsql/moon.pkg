@@ -1,0 +1,15 @@
+import {
+  "bikallem/postgresql/protocol",
+  "moonbitlang/async/socket",
+}
+
+options(
+  targets: {
+    "client.mbt": ["native"],
+    "config.mbt": ["native"],
+    "connection.mbt": ["native"],
+    "error.mbt": ["native"],
+    "query.mbt": ["native"],
+    "transaction.mbt": ["native"],
+  },
+)

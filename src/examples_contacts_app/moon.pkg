@@ -1,0 +1,13 @@
+import {
+  "bikallem/postgresql/pgsql",
+  "bikallem/postgresql/protocol",
+  "moonbitlang/async",
+}
+
+options(
+  "is-main": true,
+  targets: {
+    "main.mbt": ["native"],
+    "stub.mbt": ["wasm-gc", "wasm", "js"],
+  },
+)

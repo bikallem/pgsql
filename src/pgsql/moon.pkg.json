@@ -1,7 +1,0 @@
-{
-  "import": [
-    "bikallem/postgresql/protocol",
-    "moonbitlang/async/socket",
-    "moonbitlang/async/io"
-  ]
-}

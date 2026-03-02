@@ -8,6 +8,6 @@
   "source": "src",
   "description": "PostgreSQL database driver for MoonBit",
   "deps": {
-    "moonbitlang/async": "0.16.0"
+    "moonbitlang/async": "0.16.7"
   }
 }
