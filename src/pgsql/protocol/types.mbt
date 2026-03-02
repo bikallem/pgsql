@@ -1,4 +1,5 @@
-///| PostgreSQL Type System
+///|
+/// PostgreSQL Type System
 ///
 /// This module defines PostgreSQL type OIDs and provides value conversion
 /// between MoonBit types and PostgreSQL text format representations.
@@ -11,55 +12,112 @@
 pub const OID_BOOL : UInt = 16
 
 // Numeric Types
+
+///|
 pub const OID_INT2 : UInt = 21 // smallint
+
+///|
 pub const OID_INT4 : UInt = 23 // integer
+
+///|
 pub const OID_INT8 : UInt = 20 // bigint
+
+///|
 pub const OID_FLOAT4 : UInt = 700 // real
+
+///|
 pub const OID_FLOAT8 : UInt = 701 // double precision
+
+///|
 pub const OID_NUMERIC : UInt = 1700 // numeric/decimal
 
 // Character Types
+
+///|
 pub const OID_CHAR : UInt = 18 // "char" (single character)
+
+///|
 pub const OID_NAME : UInt = 19 // name (63 chars)
+
+///|
 pub const OID_TEXT : UInt = 25 // text
+
+///|
 pub const OID_VARCHAR : UInt = 1043 // varchar
+
+///|
 pub const OID_BPCHAR : UInt = 1042 // char(n)
 
 // Binary Types
+
+///|
 pub const OID_BYTEA : UInt = 17 // bytea
 
 // Date/Time Types - for future use
+
+///|
 let _oid_date : UInt = 1082
+
+///|
 let _oid_time : UInt = 1083
+
+///|
 let _oid_timestamp : UInt = 1114
+
+///|
 let _oid_timestamptz : UInt = 1184
+
+///|
 let _oid_interval : UInt = 1186
 
 // JSON Types - for future use
+
+///|
 let _oid_json : UInt = 114
+
+///|
 let _oid_jsonb : UInt = 3802
 
 // UUID - for future use
+
+///|
 let _oid_uuid : UInt = 2950
 
 // Network Types - for future use
+
+///|
 let _oid_inet : UInt = 869
+
+///|
 let _oid_cidr : UInt = 650
+
+///|
 let _oid_macaddr : UInt = 829
 
 // Array Types (common ones) - for future use
+
+///|
 let _oid_int4_array : UInt = 1007
+
+///|
 let _oid_text_array : UInt = 1009
+
+///|
 let _oid_float8_array : UInt = 1022
 
 // Special - for future use
+
+///|
 let _oid_void : UInt = 2278
+
+///|
 let _oid_unknown : UInt = 705
 
 // =============================================================================
 // Byte/String Conversion Helpers
 // =============================================================================
 
+///|
 /// Convert ASCII bytes to string (each byte becomes one character)
 fn bytes_to_ascii_string(data : Bytes) -> String {
   let chars : Array[Char] = Array::new(capacity=data.length())
@@ -73,6 +131,7 @@ fn bytes_to_ascii_string(data : Bytes) -> String {
 // Value Type
 // =============================================================================
 
+///|
 /// Represents a PostgreSQL value in MoonBit
 pub(all) enum Value {
   /// NULL value
@@ -95,6 +154,7 @@ pub(all) enum Value {
 // Text Format Parsing (PostgreSQL -> MoonBit)
 // =============================================================================
 
+///|
 /// Parse a PostgreSQL text-format value to a MoonBit Value
 /// Returns Null if the input is None (SQL NULL)
 pub fn parse_text_value(data : Bytes?, type_oid : UInt) -> Value {
@@ -107,6 +167,7 @@ pub fn parse_text_value(data : Bytes?, type_oid : UInt) -> Value {
   }
 }
 
+///|
 /// Parse text value based on type OID
 fn parse_text_value_inner(text : String, type_oid : UInt) -> Value {
   // Use inline OID values:
@@ -133,6 +194,7 @@ fn parse_text_value_inner(text : String, type_oid : UInt) -> Value {
   }
 }
 
+///|
 /// Parse boolean value
 fn parse_bool(text : String) -> Value {
   if text == "t" || text == "true" || text == "TRUE" || text == "1" {
@@ -142,6 +204,7 @@ fn parse_bool(text : String) -> Value {
   }
 }
 
+///|
 /// Parse integer value
 fn parse_int(text : String) -> Value {
   let mut result = 0
@@ -166,6 +229,7 @@ fn parse_int(text : String) -> Value {
   Int(if negative { -result } else { result })
 }
 
+///|
 /// Parse 64-bit integer value
 fn parse_int64(text : String) -> Value {
   let mut result : Int64 = 0L
@@ -190,6 +254,7 @@ fn parse_int64(text : String) -> Value {
   Int64(if negative { -result } else { result })
 }
 
+///|
 /// Parse floating point value
 fn parse_float(text : String) -> Value {
   // Simple float parsing: integer part + optional decimal
@@ -224,7 +289,8 @@ fn parse_float(text : String) -> Value {
         exp_value = exp_value * 10 + (c.to_int() - '0'.to_int())
       } else if in_fraction {
         frac_div = frac_div * 10.0
-        frac_part = frac_part + (c.to_int() - '0'.to_int()).to_double() / frac_div
+        frac_part = frac_part +
+          (c.to_int() - '0'.to_int()).to_double() / frac_div
       } else {
         int_part = int_part * 10.0 + (c.to_int() - '0'.to_int()).to_double()
       }
@@ -255,6 +321,7 @@ fn parse_float(text : String) -> Value {
   Float(result)
 }
 
+///|
 /// Parse bytea value (hex format: \x...)
 fn parse_bytea(text : String) -> Value {
   if text.length() >= 2 {
@@ -276,6 +343,7 @@ fn parse_bytea(text : String) -> Value {
   }
 }
 
+///|
 /// Get substring starting from given index
 fn substring_from(s : String, start : Int) -> String {
   let chars : Array[Char] = []
@@ -289,6 +357,7 @@ fn substring_from(s : String, start : Int) -> String {
   String::from_array(chars)
 }
 
+///|
 /// Convert string to bytes (local helper)
 fn string_to_bytes_local(s : String) -> Bytes {
   let arr : Array[Byte] = []
@@ -313,6 +382,7 @@ fn string_to_bytes_local(s : String) -> Bytes {
   Bytes::from_array(arr)
 }
 
+///|
 /// Decode hex string to bytes
 fn hex_decode(hex : String) -> Bytes? {
   let hex_bytes = string_to_bytes_local(hex)
@@ -332,6 +402,7 @@ fn hex_decode(hex : String) -> Bytes? {
   Some(Bytes::from_array(result))
 }
 
+///|
 /// Get numeric value of hex digit
 fn hex_digit_value(b : Byte) -> Int? {
   if b >= b'0' && b <= b'9' {
@@ -349,6 +420,7 @@ fn hex_digit_value(b : Byte) -> Int? {
 // Text Format Serialization (MoonBit -> PostgreSQL)
 // =============================================================================
 
+///|
 /// Serialize a Value to PostgreSQL text format
 /// Returns None for Null values
 pub fn serialize_value(value : Value) -> Bytes? {
@@ -363,6 +435,7 @@ pub fn serialize_value(value : Value) -> Bytes? {
   }
 }
 
+///|
 /// Convert bytes to hex-encoded bytea format
 fn bytea_to_hex(data : Bytes) -> Bytes {
   let hex_chars = "0123456789abcdef"
@@ -377,6 +450,7 @@ fn bytea_to_hex(data : Bytes) -> Bytes {
   Bytes::from_array(result)
 }
 
+///|
 /// Get hex character at index
 fn hex_char_at_local(s : String, idx : Int) -> Byte {
   let mut i = 0
@@ -393,6 +467,7 @@ fn hex_char_at_local(s : String, idx : Int) -> Byte {
 // Value Helper Methods
 // =============================================================================
 
+///|
 /// Check if value is null
 pub fn Value::is_null(self : Value) -> Bool {
   match self {
@@ -401,6 +476,7 @@ pub fn Value::is_null(self : Value) -> Bool {
   }
 }
 
+///|
 /// Get value as Bool (returns None if not Bool or Null)
 pub fn Value::as_bool(self : Value) -> Bool? {
   match self {
@@ -409,6 +485,7 @@ pub fn Value::as_bool(self : Value) -> Bool? {
   }
 }
 
+///|
 /// Get value as Int (returns None if not numeric or Null)
 pub fn Value::as_int(self : Value) -> Int? {
   match self {
@@ -419,6 +496,7 @@ pub fn Value::as_int(self : Value) -> Int? {
   }
 }
 
+///|
 /// Get value as Int64 (returns None if not numeric or Null)
 pub fn Value::as_int64(self : Value) -> Int64? {
   match self {
@@ -429,6 +507,7 @@ pub fn Value::as_int64(self : Value) -> Int64? {
   }
 }
 
+///|
 /// Get value as Double (returns None if not numeric or Null)
 pub fn Value::as_float(self : Value) -> Double? {
   match self {
@@ -439,6 +518,7 @@ pub fn Value::as_float(self : Value) -> Double? {
   }
 }
 
+///|
 /// Get value as String (returns None if Null, converts other types)
 pub fn Value::as_string(self : Value) -> String? {
   match self {
@@ -452,6 +532,7 @@ pub fn Value::as_string(self : Value) -> String? {
   }
 }
 
+///|
 /// Get value as Bytes (returns None if not Bytes or Null)
 pub fn Value::as_bytes(self : Value) -> Bytes? {
   match self {

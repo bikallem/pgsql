@@ -6,8 +6,5 @@ import {
 
 options(
   "is-main": true,
-  targets: {
-    "main.mbt": ["native"],
-    "stub.mbt": ["wasm-gc", "wasm", "js"],
-  },
+  "supported-targets": [ "native" ],
 )

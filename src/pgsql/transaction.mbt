@@ -2,6 +2,7 @@
 ///
 /// Provides transaction support for PostgreSQL operations.
 
+///|
 /// Transaction handle for executing queries within a transaction
 pub struct Transaction {
   /// Reference to the client
@@ -10,11 +11,12 @@ pub struct Transaction {
   mut active : Bool
 }
 
+///|
 /// Execute a function within a transaction
 /// Automatically commits on success and rolls back on failure
 pub async fn[T] Client::transaction(
   self : Client,
-  f : async (Transaction) -> T
+  f : async (Transaction) -> T,
 ) -> T {
   // Begin transaction
   self.begin()
@@ -22,14 +24,10 @@ pub async fn[T] Client::transaction(
   let tx = { client: self, active: true }
 
   // Execute the function
-  let result = try {
-    f(tx)
-  } catch {
+  let result = f(tx) catch {
     e => {
       // Rollback on error
-      try {
-        self.rollback()
-      } catch {
+      self.rollback() catch {
         _ => () // Ignore rollback errors
       }
       tx.active = false
@@ -46,10 +44,11 @@ pub async fn[T] Client::transaction(
   result
 }
 
+///|
 /// Execute a query within the transaction
 pub async fn Transaction::query(
   self : Transaction,
-  sql : String
+  sql : String,
 ) -> QueryResult {
   if not(self.active) {
     raise TxError("Transaction is no longer active")
@@ -57,11 +56,12 @@ pub async fn Transaction::query(
   self.client.query(sql)
 }
 
+///|
 /// Execute a parameterized query within the transaction
 pub async fn Transaction::query_params(
   self : Transaction,
   sql : String,
-  params : Array[Value]
+  params : Array[Value],
 ) -> QueryResult {
   if not(self.active) {
     raise TxError("Transaction is no longer active")
@@ -69,22 +69,21 @@ pub async fn Transaction::query_params(
   self.client.query_params(sql, params)
 }
 
+///|
 /// Execute a statement within the transaction
-pub async fn Transaction::execute(
-  self : Transaction,
-  sql : String
-) -> Int {
+pub async fn Transaction::execute(self : Transaction, sql : String) -> Int {
   if not(self.active) {
     raise TxError("Transaction is no longer active")
   }
   self.client.execute(sql)
 }
 
+///|
 /// Execute a parameterized statement within the transaction
 pub async fn Transaction::execute_params(
   self : Transaction,
   sql : String,
-  params : Array[Value]
+  params : Array[Value],
 ) -> Int {
   if not(self.active) {
     raise TxError("Transaction is no longer active")
@@ -92,6 +91,7 @@ pub async fn Transaction::execute_params(
   self.client.execute_params(sql, params)
 }
 
+///|
 /// Explicitly commit the transaction
 pub async fn Transaction::commit(self : Transaction) -> Unit {
   if not(self.active) {
@@ -101,6 +101,7 @@ pub async fn Transaction::commit(self : Transaction) -> Unit {
   self.active = false
 }
 
+///|
 /// Explicitly rollback the transaction
 pub async fn Transaction::rollback(self : Transaction) -> Unit {
   if not(self.active) {
@@ -110,26 +111,26 @@ pub async fn Transaction::rollback(self : Transaction) -> Unit {
   self.active = false
 }
 
+///|
 /// Check if the transaction is still active
 pub fn Transaction::is_active(self : Transaction) -> Bool {
   self.active
 }
 
+///|
 /// Create a savepoint within the transaction
-pub async fn Transaction::savepoint(
-  self : Transaction,
-  name : String
-) -> Unit {
+pub async fn Transaction::savepoint(self : Transaction, name : String) -> Unit {
   if not(self.active) {
     raise TxError("Transaction is no longer active")
   }
   let _ = self.client.execute("SAVEPOINT " + name)
 }
 
+///|
 /// Rollback to a savepoint
 pub async fn Transaction::rollback_to(
   self : Transaction,
-  name : String
+  name : String,
 ) -> Unit {
   if not(self.active) {
     raise TxError("Transaction is no longer active")
@@ -137,11 +138,9 @@ pub async fn Transaction::rollback_to(
   let _ = self.client.execute("ROLLBACK TO SAVEPOINT " + name)
 }
 
+///|
 /// Release a savepoint
-pub async fn Transaction::release(
-  self : Transaction,
-  name : String
-) -> Unit {
+pub async fn Transaction::release(self : Transaction, name : String) -> Unit {
   if not(self.active) {
     raise TxError("Transaction is no longer active")
   }

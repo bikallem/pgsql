@@ -3,6 +3,7 @@
 /// Private functions to convert between user-facing types and
 /// internal protocol types.
 
+///|
 /// Convert protocol Value to public Value
 fn value_from_protocol(v : @protocol.Value) -> Value {
   match v {
@@ -16,6 +17,7 @@ fn value_from_protocol(v : @protocol.Value) -> Value {
   }
 }
 
+///|
 /// Convert public Value to protocol Value
 fn value_to_protocol(v : Value) -> @protocol.Value {
   match v {
@@ -29,13 +31,17 @@ fn value_to_protocol(v : Value) -> @protocol.Value {
   }
 }
 
+///|
 /// Convert protocol FieldDescription to public ColumnInfo
 fn column_info_from_field(fd : @protocol.FieldDescription) -> ColumnInfo {
   { name: fd.name, type_oid: fd.type_oid, type_size: fd.type_size }
 }
 
+///|
 /// Convert protocol TransactionStatus to public TransactionStatus
-fn tx_status_from_protocol(s : @protocol.TransactionStatus) -> TransactionStatus {
+fn tx_status_from_protocol(
+  s : @protocol.TransactionStatus,
+) -> TransactionStatus {
   match s {
     @protocol.Idle => Idle
     @protocol.InTransaction => InTransaction

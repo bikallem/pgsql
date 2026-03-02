@@ -1,5 +1,5 @@
-///| Unit tests for error types
-
+///|
+/// Unit tests for error types
 test "ServerErrorInfo::from_fields basic" {
   let fields : Map[String, String] = {}
   fields["S"] = "ERROR"
@@ -13,6 +13,7 @@ test "ServerErrorInfo::from_fields basic" {
   inspect(info.hint, content="None")
 }
 
+///|
 test "ServerErrorInfo::from_fields with detail and hint" {
   let fields : Map[String, String] = {}
   fields["S"] = "FATAL"
@@ -22,14 +23,21 @@ test "ServerErrorInfo::from_fields with detail and hint" {
   fields["H"] = "Check your pg_hba.conf"
   let info = @pgsql.ServerErrorInfo::from_fields(fields)
   inspect(info.severity, content="FATAL")
-  inspect(info.detail, content=(
-    #|Some("User does not exist")
-  ))
-  inspect(info.hint, content=(
-    #|Some("Check your pg_hba.conf")
-  ))
+  inspect(
+    info.detail,
+    content=(
+      #|Some("User does not exist")
+    ),
+  )
+  inspect(
+    info.hint,
+    content=(
+      #|Some("Check your pg_hba.conf")
+    ),
+  )
 }
 
+///|
 test "ServerErrorInfo::from_fields with table and constraint" {
   let fields : Map[String, String] = {}
   fields["S"] = "ERROR"
@@ -38,15 +46,22 @@ test "ServerErrorInfo::from_fields with table and constraint" {
   fields["t"] = "users"
   fields["n"] = "users_email_key"
   let info = @pgsql.ServerErrorInfo::from_fields(fields)
-  inspect(info.table, content=(
-    #|Some("users")
-  ))
-  inspect(info.constraint, content=(
-    #|Some("users_email_key")
-  ))
+  inspect(
+    info.table,
+    content=(
+      #|Some("users")
+    ),
+  )
+  inspect(
+    info.constraint,
+    content=(
+      #|Some("users_email_key")
+    ),
+  )
   inspect(info.column, content="None")
 }
 
+///|
 test "ServerErrorInfo::from_fields fallback severity" {
   let fields : Map[String, String] = {}
   fields["V"] = "PANIC"
@@ -56,6 +71,7 @@ test "ServerErrorInfo::from_fields fallback severity" {
   inspect(info.severity, content="PANIC")
 }
 
+///|
 test "ServerErrorInfo::from_fields missing severity" {
   let fields : Map[String, String] = {}
   fields["M"] = "something"
@@ -63,6 +79,7 @@ test "ServerErrorInfo::from_fields missing severity" {
   inspect(info.severity, content="ERROR")
 }
 
+///|
 test "ServerErrorInfo::from_fields missing message" {
   let fields : Map[String, String] = {}
   fields["S"] = "ERROR"

@@ -7,51 +7,117 @@
 // Protocol Constants
 // =============================================================================
 
+///|
 /// Protocol version 3.0 (major=3, minor=0)
 /// Encoded as Int32: (3 << 16) | 0 = 196608
 pub const PROTOCOL_VERSION : Int = 196608
 
 // Message type codes (Backend -> Frontend) - for documentation reference
 // Note: decoder.mbt uses literal bytes directly for performance
+
+///|
 let _code_authentication : Byte = b'R'
+
+///|
 let _code_backend_key_data : Byte = b'K'
+
+///|
 let _code_parameter_status : Byte = b'S'
+
+///|
 let _code_ready_for_query : Byte = b'Z'
+
+///|
 let _code_row_description : Byte = b'T'
+
+///|
 let _code_data_row : Byte = b'D'
+
+///|
 let _code_command_complete : Byte = b'C'
+
+///|
 let _code_error_response : Byte = b'E'
+
+///|
 let _code_notice_response : Byte = b'N'
+
+///|
 let _code_parse_complete : Byte = b'1'
+
+///|
 let _code_bind_complete : Byte = b'2'
+
+///|
 let _code_close_complete : Byte = b'3'
+
+///|
 let _code_no_data : Byte = b'n'
+
+///|
 let _code_empty_query : Byte = b'I'
+
+///|
 let _code_portal_suspended : Byte = b's'
+
+///|
 let _code_parameter_description : Byte = b't'
+
+///|
 let _code_notification : Byte = b'A'
+
+///|
 let _code_copy_in_response : Byte = b'G'
+
+///|
 let _code_copy_out_response : Byte = b'H'
+
+///|
 let _code_copy_data : Byte = b'd'
+
+///|
 let _code_copy_done : Byte = b'c'
 
 // Message type codes (Frontend -> Backend) - for documentation reference
+
+///|
 let _code_query : Byte = b'Q'
+
+///|
 let _code_parse : Byte = b'P'
+
+///|
 let _code_bind : Byte = b'B'
+
+///|
 let _code_execute : Byte = b'E'
+
+///|
 let _code_describe : Byte = b'D'
+
+///|
 let _code_close : Byte = b'C'
+
+///|
 let _code_sync : Byte = b'S'
+
+///|
 let _code_flush : Byte = b'H'
+
+///|
 let _code_terminate : Byte = b'X'
+
+///|
 let _code_password : Byte = b'p'
+
+///|
 let _code_copy_fail : Byte = b'f'
 
 // =============================================================================
 // Common Types
 // =============================================================================
 
+///|
 /// Transaction status indicator from ReadyForQuery message
 pub(all) enum TransactionStatus {
   /// Not in a transaction block
@@ -62,6 +128,7 @@ pub(all) enum TransactionStatus {
   Failed
 } derive(Show, Eq)
 
+///|
 /// Format code for data transmission
 pub(all) enum FormatCode {
   /// Text format (default, human-readable)
@@ -70,6 +137,7 @@ pub(all) enum FormatCode {
   Binary
 } derive(Show, Eq)
 
+///|
 /// Description of a field/column in query results
 pub struct FieldDescription {
   /// Column name
@@ -88,6 +156,7 @@ pub struct FieldDescription {
   format : FormatCode
 } derive(Show)
 
+///|
 /// Create a new FieldDescription
 pub fn FieldDescription::new(
   name : String,
@@ -96,7 +165,7 @@ pub fn FieldDescription::new(
   type_oid : UInt,
   type_size : Int,
   type_modifier : Int,
-  format : FormatCode
+  format : FormatCode,
 ) -> FieldDescription {
   { name, table_oid, column_id, type_oid, type_size, type_modifier, format }
 }
@@ -105,6 +174,7 @@ pub fn FieldDescription::new(
 // Backend Messages (Server -> Client)
 // =============================================================================
 
+///|
 /// Messages sent from PostgreSQL server to client
 pub(all) enum BackendMessage {
   // --- Authentication Messages ---
@@ -180,6 +250,7 @@ pub(all) enum BackendMessage {
 // Frontend Messages (Client -> Server)
 // =============================================================================
 
+///|
 /// Messages sent from client to PostgreSQL server
 pub(all) enum FrontendMessage {
   // --- Startup Messages ---
@@ -206,13 +277,7 @@ pub(all) enum FrontendMessage {
   /// Parse SQL statement into prepared statement
   Parse(String, String, Array[UInt]) // name, query, param_type_oids
   /// Bind parameters to prepared statement, create portal
-  Bind(
-    String,
-    String,
-    Array[FormatCode],
-    Array[Bytes?],
-    Array[FormatCode]
-  ) // portal, statement, param_formats, params, result_formats
+  Bind(String, String, Array[FormatCode], Array[Bytes?], Array[FormatCode]) // portal, statement, param_formats, params, result_formats
   /// Describe prepared statement or portal
   Describe(Byte, String) // 'S' or 'P', name
   /// Execute portal
@@ -241,23 +306,58 @@ pub(all) enum FrontendMessage {
 // Error Field Codes
 // =============================================================================
 
+///|
 /// Error/Notice field identifiers
 /// See https://www.postgresql.org/docs/current/protocol-error-fields.html
 let _error_field_severity : String = "S"
+
+///|
 let _error_field_severity_v : String = "V" // non-localized severity
+
+///|
 let _error_field_code : String = "C" // SQLSTATE code
+
+///|
 let _error_field_message : String = "M"
+
+///|
 let _error_field_detail : String = "D"
+
+///|
 let _error_field_hint : String = "H"
+
+///|
 let _error_field_position : String = "P"
+
+///|
 let _error_field_internal_position : String = "p"
+
+///|
 let _error_field_internal_query : String = "q"
+
+///|
 let _error_field_where : String = "W"
+
+///|
 let _error_field_schema : String = "s"
+
+///|
 let _error_field_table : String = "t"
+
+///|
 let _error_field_column : String = "c"
+
+///|
 let _error_field_datatype : String = "d"
+
+///|
 let _error_field_constraint : String = "n"
+
+///|
 let _error_field_file : String = "F"
+
+///|
 let _error_field_line : String = "L"
+
+///|
 let _error_field_routine : String = "R"

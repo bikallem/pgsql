@@ -3,6 +3,7 @@
 /// Public types that wrap internal protocol types so end-users
 /// never need to import the protocol package directly.
 
+///|
 /// Represents a PostgreSQL value in MoonBit
 pub(all) enum Value {
   /// NULL value
@@ -21,6 +22,7 @@ pub(all) enum Value {
   Bytes(Bytes)
 } derive(Show, Eq)
 
+///|
 /// Check if value is null
 pub fn Value::is_null(self : Value) -> Bool {
   match self {
@@ -29,6 +31,7 @@ pub fn Value::is_null(self : Value) -> Bool {
   }
 }
 
+///|
 /// Get value as Bool
 pub fn Value::as_bool(self : Value) -> Bool? {
   match self {
@@ -37,6 +40,7 @@ pub fn Value::as_bool(self : Value) -> Bool? {
   }
 }
 
+///|
 /// Get value as Int (coerces Int64 and Float)
 pub fn Value::as_int(self : Value) -> Int? {
   match self {
@@ -47,6 +51,7 @@ pub fn Value::as_int(self : Value) -> Int? {
   }
 }
 
+///|
 /// Get value as Int64 (coerces Int and Float)
 pub fn Value::as_int64(self : Value) -> Int64? {
   match self {
@@ -57,6 +62,7 @@ pub fn Value::as_int64(self : Value) -> Int64? {
   }
 }
 
+///|
 /// Get value as Double (coerces Int and Int64)
 pub fn Value::as_float(self : Value) -> Double? {
   match self {
@@ -67,6 +73,7 @@ pub fn Value::as_float(self : Value) -> Double? {
   }
 }
 
+///|
 /// Get value as String (converts all non-Null types)
 pub fn Value::as_string(self : Value) -> String? {
   match self {
@@ -80,6 +87,7 @@ pub fn Value::as_string(self : Value) -> String? {
   }
 }
 
+///|
 /// Get value as Bytes
 pub fn Value::as_bytes(self : Value) -> Bytes? {
   match self {
@@ -88,6 +96,7 @@ pub fn Value::as_bytes(self : Value) -> Bytes? {
   }
 }
 
+///|
 /// Simplified column metadata exposed to end-users
 pub struct ColumnInfo {
   /// Column name
@@ -98,30 +107,35 @@ pub struct ColumnInfo {
   type_size : Int
 } derive(Show, Eq)
 
+///|
 /// Create a new ColumnInfo
 pub fn ColumnInfo::new(
   name : String,
   type_oid : UInt,
-  type_size : Int
+  type_size : Int,
 ) -> ColumnInfo {
   { name, type_oid, type_size }
 }
 
+///|
 /// Get column name
 pub fn ColumnInfo::get_name(self : ColumnInfo) -> String {
   self.name
 }
 
+///|
 /// Get type OID
 pub fn ColumnInfo::get_type_oid(self : ColumnInfo) -> UInt {
   self.type_oid
 }
 
+///|
 /// Get type size
 pub fn ColumnInfo::get_type_size(self : ColumnInfo) -> Int {
   self.type_size
 }
 
+///|
 /// Transaction status indicator
 pub(all) enum TransactionStatus {
   /// Not in a transaction block

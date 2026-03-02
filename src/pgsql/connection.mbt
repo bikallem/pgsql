@@ -2,6 +2,7 @@
 ///
 /// Handles TCP connection and PostgreSQL protocol message exchange.
 
+///|
 /// Internal connection state
 struct Connection {
   /// Configuration
@@ -20,11 +21,9 @@ struct Connection {
   server_params : Map[String, String]
 }
 
+///|
 /// Create a new connection (internal use)
-fn Connection::create(
-  config : Config,
-  socket : @socket.Tcp
-) -> Connection {
+fn Connection::create(config : Config, socket : @socket.Tcp) -> Connection {
   {
     config,
     socket,
@@ -36,17 +35,21 @@ fn Connection::create(
   }
 }
 
+///|
 /// Send a protocol message
 async fn Connection::send(
   self : Connection,
-  msg : @protocol.FrontendMessage
+  msg : @protocol.FrontendMessage,
 ) -> Unit {
   let bytes = @protocol.encode(msg)
   self.socket.write(bytes)
 }
 
+///|
 /// Receive messages from server
-async fn Connection::receive(self : Connection) -> Array[@protocol.BackendMessage] {
+async fn Connection::receive(
+  self : Connection,
+) -> Array[@protocol.BackendMessage] {
   // Read available data
   match self.socket.read_some() {
     Some(data) => self.decoder.parse(data)
@@ -54,9 +57,10 @@ async fn Connection::receive(self : Connection) -> Array[@protocol.BackendMessag
   }
 }
 
+///|
 /// Receive messages until ReadyForQuery
 async fn Connection::receive_until_ready(
-  self : Connection
+  self : Connection,
 ) -> Array[@protocol.BackendMessage] {
   let all_messages : Array[@protocol.BackendMessage] = []
 
@@ -69,10 +73,9 @@ async fn Connection::receive_until_ready(
           self.transaction_status = status
           return all_messages
         }
-        @protocol.ErrorResponse(_) => {
+        @protocol.ErrorResponse(_) =>
           // Continue receiving but remember the error
           ()
-        }
         _ => ()
       }
     }
@@ -82,37 +85,46 @@ async fn Connection::receive_until_ready(
   all_messages
 }
 
+///|
 /// Check if there's an error in messages
 fn find_error(messages : Array[@protocol.BackendMessage]) -> ServerErrorInfo? {
   for msg in messages {
     match msg {
-      @protocol.ErrorResponse(fields) => return Some(ServerErrorInfo::from_fields(fields))
+      @protocol.ErrorResponse(fields) =>
+        return Some(ServerErrorInfo::from_fields(fields))
       _ => ()
     }
   }
   None
 }
 
+///|
 /// Get process ID
-fn Connection::get_process_id(self : Connection) -> Int {
+pub fn Connection::get_process_id(self : Connection) -> Int {
   self.process_id
 }
 
+///|
 /// Get secret key
-fn Connection::get_secret_key(self : Connection) -> Int {
+pub fn Connection::get_secret_key(self : Connection) -> Int {
   self.secret_key
 }
 
+///|
 /// Get current transaction status
-fn Connection::get_transaction_status(self : Connection) -> @protocol.TransactionStatus {
+pub fn Connection::get_transaction_status(
+  self : Connection,
+) -> @protocol.TransactionStatus {
   self.transaction_status
 }
 
+///|
 /// Get server parameter
 fn Connection::get_server_param(self : Connection, name : String) -> String? {
   self.server_params.get(name)
 }
 
+///|
 /// Close the connection
 fn Connection::close(self : Connection) -> Unit {
   self.socket.close()
@@ -122,6 +134,7 @@ fn Connection::close(self : Connection) -> Unit {
 // Connection Establishment
 // =============================================================================
 
+///|
 /// Connect to PostgreSQL server
 async fn connect(config : Config) -> Connection {
   // Resolve address
@@ -138,6 +151,7 @@ async fn connect(config : Config) -> Connection {
   conn
 }
 
+///|
 /// Perform startup and authentication
 async fn Connection::startup(self : Connection) -> Unit {
   // Build startup parameters
@@ -152,6 +166,7 @@ async fn Connection::startup(self : Connection) -> Unit {
   self.authenticate()
 }
 
+///|
 /// Handle authentication flow
 async fn Connection::authenticate(self : Connection) -> Unit {
   while true {
@@ -159,14 +174,12 @@ async fn Connection::authenticate(self : Connection) -> Unit {
 
     for msg in messages {
       match msg {
-        @protocol.AuthenticationOk => {
+        @protocol.AuthenticationOk =>
           // Authentication successful, continue to receive startup messages
           ()
-        }
-        @protocol.AuthenticationCleartextPassword => {
+        @protocol.AuthenticationCleartextPassword =>
           // Send password in cleartext
           self.send(@protocol.PasswordMessage(self.config.password))
-        }
         @protocol.AuthenticationMD5Password(salt) => {
           // Compute MD5 hash
           let hash = @protocol.md5_password(
@@ -176,9 +189,8 @@ async fn Connection::authenticate(self : Connection) -> Unit {
           )
           self.send(@protocol.PasswordMessage(hash))
         }
-        @protocol.ParameterStatus(name, value) => {
+        @protocol.ParameterStatus(name, value) =>
           self.server_params[name] = value
-        }
         @protocol.BackendKeyData(pid, key) => {
           self.process_id = pid
           self.secret_key = key

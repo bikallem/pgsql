@@ -2,6 +2,7 @@
 ///
 /// Types for representing PostgreSQL query results.
 
+///|
 /// Result of a query execution
 pub struct QueryResult {
   /// Column descriptions
@@ -12,6 +13,7 @@ pub struct QueryResult {
   command_tag : String
 } derive(Show)
 
+///|
 /// A single row of query results
 pub struct Row {
   /// Column values
@@ -20,40 +22,47 @@ pub struct Row {
   fields : Array[ColumnInfo]
 } derive(Show)
 
+///|
 /// Create a new QueryResult
 fn QueryResult::new(
   fields : Array[ColumnInfo],
   rows : Array[Row],
-  command_tag : String
+  command_tag : String,
 ) -> QueryResult {
   { fields, rows, command_tag }
 }
 
+///|
 /// Get column info
 pub fn QueryResult::get_fields(self : QueryResult) -> Array[ColumnInfo] {
   self.fields
 }
 
+///|
 /// Get rows
 pub fn QueryResult::get_rows(self : QueryResult) -> Array[Row] {
   self.rows
 }
 
+///|
 /// Get command tag
 pub fn QueryResult::get_command_tag(self : QueryResult) -> String {
   self.command_tag
 }
 
+///|
 /// Get row count
 pub fn QueryResult::row_count(self : QueryResult) -> Int {
   self.rows.length()
 }
 
+///|
 /// Get column count
 pub fn QueryResult::column_count(self : QueryResult) -> Int {
   self.fields.length()
 }
 
+///|
 /// Get a row by index
 pub fn QueryResult::get_row(self : QueryResult, index : Int) -> Row? {
   if index >= 0 && index < self.rows.length() {
@@ -63,6 +72,7 @@ pub fn QueryResult::get_row(self : QueryResult, index : Int) -> Row? {
   }
 }
 
+///|
 /// Iterator over rows
 pub fn QueryResult::iter(self : QueryResult) -> Iter[Row] {
   self.rows.iter()
@@ -72,19 +82,19 @@ pub fn QueryResult::iter(self : QueryResult) -> Iter[Row] {
 // Row Methods
 // =============================================================================
 
+///|
 /// Create a new Row
-fn Row::new(
-  values : Array[Value],
-  fields : Array[ColumnInfo]
-) -> Row {
+fn Row::new(values : Array[Value], fields : Array[ColumnInfo]) -> Row {
   { values, fields }
 }
 
+///|
 /// Get column count
 pub fn Row::column_count(self : Row) -> Int {
   self.values.length()
 }
 
+///|
 /// Get value at index
 pub fn Row::get(self : Row, index : Int) -> Value? {
   if index >= 0 && index < self.values.length() {
@@ -94,6 +104,7 @@ pub fn Row::get(self : Row, index : Int) -> Value? {
   }
 }
 
+///|
 /// Get value by column name
 pub fn Row::get_by_name(self : Row, name : String) -> Value? {
   for i = 0; i < self.fields.length(); i = i + 1 {
@@ -104,6 +115,7 @@ pub fn Row::get_by_name(self : Row, name : String) -> Value? {
   None
 }
 
+///|
 /// Get value as String at index
 pub fn Row::get_string(self : Row, index : Int) -> String? {
   match self.get(index) {
@@ -112,6 +124,7 @@ pub fn Row::get_string(self : Row, index : Int) -> String? {
   }
 }
 
+///|
 /// Get value as Int at index
 pub fn Row::get_int(self : Row, index : Int) -> Int? {
   match self.get(index) {
@@ -120,6 +133,7 @@ pub fn Row::get_int(self : Row, index : Int) -> Int? {
   }
 }
 
+///|
 /// Get value as Int64 at index
 pub fn Row::get_int64(self : Row, index : Int) -> Int64? {
   match self.get(index) {
@@ -128,6 +142,7 @@ pub fn Row::get_int64(self : Row, index : Int) -> Int64? {
   }
 }
 
+///|
 /// Get value as Double at index
 pub fn Row::get_float(self : Row, index : Int) -> Double? {
   match self.get(index) {
@@ -136,6 +151,7 @@ pub fn Row::get_float(self : Row, index : Int) -> Double? {
   }
 }
 
+///|
 /// Get value as Bool at index
 pub fn Row::get_bool(self : Row, index : Int) -> Bool? {
   match self.get(index) {
@@ -144,6 +160,7 @@ pub fn Row::get_bool(self : Row, index : Int) -> Bool? {
   }
 }
 
+///|
 /// Check if value at index is null
 pub fn Row::is_null(self : Row, index : Int) -> Bool {
   match self.get(index) {

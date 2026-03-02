@@ -1,4 +1,5 @@
-///| PostgreSQL Protocol Message Encoder
+///|
+/// PostgreSQL Protocol Message Encoder
 ///
 /// Serializes FrontendMessage values to Bytes for transmission to the server.
 
@@ -6,21 +7,47 @@
 let encoder_protocol_version : Int = 196608
 
 // Message type codes (Frontend -> Backend)
+
+///|
 let code_query : Byte = b'Q'
+
+///|
 let code_parse : Byte = b'P'
+
+///|
 let code_bind : Byte = b'B'
+
+///|
 let code_execute : Byte = b'E'
+
+///|
 let code_describe : Byte = b'D'
+
+///|
 let code_close : Byte = b'C'
+
+///|
 let code_sync : Byte = b'S'
+
+///|
 let code_flush : Byte = b'H'
+
+///|
 let code_terminate : Byte = b'X'
+
+///|
 let code_password : Byte = b'p'
+
+///|
 let code_copy_data : Byte = b'd'
+
+///|
 let code_copy_done : Byte = b'c'
+
+///|
 let code_copy_fail : Byte = b'f'
 
-
+///|
 /// Encode a FrontendMessage to Bytes
 pub fn encode(msg : FrontendMessage) -> Bytes {
   match msg {
@@ -51,6 +78,7 @@ pub fn encode(msg : FrontendMessage) -> Bytes {
 // Startup Messages
 // -----------------------------------------------------------------------------
 
+///|
 /// Encode StartupMessage
 /// Format: length (4) + protocol version (4) + parameters + terminator
 fn encode_startup(params : Map[String, String]) -> Bytes {
@@ -71,6 +99,7 @@ fn encode_startup(params : Map[String, String]) -> Bytes {
   writer.flush_startup()
 }
 
+///|
 /// Encode SSLRequest
 /// Format: length (4) + SSL request code (4)
 fn encode_ssl_request() -> Bytes {
@@ -88,6 +117,7 @@ fn encode_ssl_request() -> Bytes {
   Bytes::from_array(result)
 }
 
+///|
 /// Encode CancelRequest
 /// Format: length (4) + cancel code (4) + pid (4) + key (4)
 fn encode_cancel_request(process_id : Int, secret_key : Int) -> Bytes {
@@ -119,6 +149,7 @@ fn encode_cancel_request(process_id : Int, secret_key : Int) -> Bytes {
 // Authentication Messages
 // -----------------------------------------------------------------------------
 
+///|
 /// Encode PasswordMessage
 /// Format: 'p' + length + password (cstring)
 fn encode_password(password : String) -> Bytes {
@@ -127,6 +158,7 @@ fn encode_password(password : String) -> Bytes {
   writer.flush(code_password)
 }
 
+///|
 /// Encode SASLInitialResponse
 fn encode_sasl_initial_response(mechanism : String, data : Bytes) -> Bytes {
   let writer = BufferWriter::new()
@@ -140,6 +172,7 @@ fn encode_sasl_initial_response(mechanism : String, data : Bytes) -> Bytes {
   writer.flush(code_password)
 }
 
+///|
 /// Encode SASLResponse
 fn encode_sasl_response(data : Bytes) -> Bytes {
   let writer = BufferWriter::new()
@@ -151,6 +184,7 @@ fn encode_sasl_response(data : Bytes) -> Bytes {
 // Query Messages
 // -----------------------------------------------------------------------------
 
+///|
 /// Encode Query (simple query protocol)
 /// Format: 'Q' + length + query (cstring)
 fn encode_query(sql : String) -> Bytes {
@@ -163,12 +197,13 @@ fn encode_query(sql : String) -> Bytes {
 // Extended Query Protocol Messages
 // -----------------------------------------------------------------------------
 
+///|
 /// Encode Parse
 /// Format: 'P' + length + name (cstring) + query (cstring) + param count (int16) + param types (int32[])
 fn encode_parse(
   name : String,
   query : String,
-  type_oids : Array[UInt]
+  type_oids : Array[UInt],
 ) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_cstring(name) |> ignore
@@ -180,6 +215,7 @@ fn encode_parse(
   writer.flush(code_parse)
 }
 
+///|
 /// Encode Bind
 /// Format: 'B' + length + portal (cstring) + statement (cstring) +
 ///         param format count (int16) + param formats (int16[]) +
@@ -190,7 +226,7 @@ fn encode_bind(
   statement : String,
   param_formats : Array[FormatCode],
   params : Array[Bytes?],
-  result_formats : Array[FormatCode]
+  result_formats : Array[FormatCode],
 ) -> Bytes {
   let writer = BufferWriter::new()
 
@@ -225,6 +261,7 @@ fn encode_bind(
   writer.flush(code_bind)
 }
 
+///|
 /// Encode Describe
 /// Format: 'D' + length + type ('S' or 'P') + name (cstring)
 fn encode_describe(kind : Byte, name : String) -> Bytes {
@@ -234,6 +271,7 @@ fn encode_describe(kind : Byte, name : String) -> Bytes {
   writer.flush(code_describe)
 }
 
+///|
 /// Encode Execute
 /// Format: 'E' + length + portal (cstring) + max_rows (int32)
 fn encode_execute(portal : String, max_rows : Int) -> Bytes {
@@ -243,6 +281,7 @@ fn encode_execute(portal : String, max_rows : Int) -> Bytes {
   writer.flush(code_execute)
 }
 
+///|
 /// Encode Close
 /// Format: 'C' + length + type ('S' or 'P') + name (cstring)
 fn encode_close(kind : Byte, name : String) -> Bytes {
@@ -253,23 +292,42 @@ fn encode_close(kind : Byte, name : String) -> Bytes {
 }
 
 // Pre-computed constant messages for efficiency
-let sync_bytes : Bytes = Bytes::from_array([code_sync, b'\x00', b'\x00', b'\x00', b'\x04'])
-let flush_bytes : Bytes = Bytes::from_array([code_flush, b'\x00', b'\x00', b'\x00', b'\x04'])
-let terminate_bytes : Bytes = Bytes::from_array([code_terminate, b'\x00', b'\x00', b'\x00', b'\x04'])
-let copy_done_bytes : Bytes = Bytes::from_array([code_copy_done, b'\x00', b'\x00', b'\x00', b'\x04'])
 
+///|
+let sync_bytes : Bytes = Bytes::from_array([
+  code_sync, b'\x00', b'\x00', b'\x00', b'\x04',
+])
+
+///|
+let flush_bytes : Bytes = Bytes::from_array([
+  code_flush, b'\x00', b'\x00', b'\x00', b'\x04',
+])
+
+///|
+let terminate_bytes : Bytes = Bytes::from_array([
+  code_terminate, b'\x00', b'\x00', b'\x00', b'\x04',
+])
+
+///|
+let copy_done_bytes : Bytes = Bytes::from_array([
+  code_copy_done, b'\x00', b'\x00', b'\x00', b'\x04',
+])
+
+///|
 /// Encode Sync
 /// Format: 'S' + length (4)
 fn encode_sync() -> Bytes {
   sync_bytes
 }
 
+///|
 /// Encode Flush
 /// Format: 'H' + length (4)
 fn encode_flush() -> Bytes {
   flush_bytes
 }
 
+///|
 /// Encode Terminate
 /// Format: 'X' + length (4)
 fn encode_terminate() -> Bytes {
@@ -280,6 +338,7 @@ fn encode_terminate() -> Bytes {
 // Copy Messages
 // -----------------------------------------------------------------------------
 
+///|
 /// Encode CopyData
 /// Format: 'd' + length + data
 fn encode_copy_data(data : Bytes) -> Bytes {
@@ -288,12 +347,14 @@ fn encode_copy_data(data : Bytes) -> Bytes {
   writer.flush(code_copy_data)
 }
 
+///|
 /// Encode CopyDone
 /// Format: 'c' + length (4)
 fn encode_copy_done() -> Bytes {
   copy_done_bytes
 }
 
+///|
 /// Encode CopyFail
 /// Format: 'f' + length + message (cstring)
 fn encode_copy_fail(message : String) -> Bytes {
@@ -306,6 +367,7 @@ fn encode_copy_fail(message : String) -> Bytes {
 // Helper Functions
 // -----------------------------------------------------------------------------
 
+///|
 /// Convert FormatCode to Int16 value
 fn format_code_to_int(code : FormatCode) -> Int {
   match code {

@@ -1,14 +1,21 @@
-///| Integration Tests
+///|
+/// Integration Tests
 ///
 /// Requires a running PostgreSQL instance at localhost:5432
 /// with user/password/database = postgres/postgres/postgres.
 ///
 /// Run with: moon test --target native src/tests/integration/
-
 fn get_config() -> @pgsql.Config {
-  @pgsql.Config::new("postgres", "postgres", "postgres", host="localhost", port=5432)
+  @pgsql.Config::new(
+    "postgres",
+    "postgres",
+    "postgres",
+    host="localhost",
+    port=5432,
+  )
 }
 
+///|
 async test "connect and query version" {
   let client = @pgsql.Client::connect(get_config())
   let result = client.query("SELECT version()")
@@ -18,6 +25,7 @@ async test "connect and query version" {
   client.close()
 }
 
+///|
 async test "full CRUD lifecycle" {
   let client = @pgsql.Client::connect(get_config())
 
@@ -40,7 +48,9 @@ async test "full CRUD lifecycle" {
   )
 
   // Select
-  let result = client.query("SELECT id, name, value FROM test_crud ORDER BY name")
+  let result = client.query(
+    "SELECT id, name, value FROM test_crud ORDER BY name",
+  )
   assert_eq(result.row_count(), 2)
   assert_eq(result.get_row(0).unwrap().get_string(1), Some("Alice"))
   assert_eq(result.get_row(1).unwrap().get_string(1), Some("Bob"))
@@ -61,10 +71,9 @@ async test "full CRUD lifecycle" {
   assert_eq(result2.get_row(0).unwrap().get_int(0), Some(100))
 
   // Delete
-  let deleted = client.execute_params(
-    "DELETE FROM test_crud WHERE name = $1",
-    [@pgsql.String("Bob")],
-  )
+  let deleted = client.execute_params("DELETE FROM test_crud WHERE name = $1", [
+    @pgsql.String("Bob"),
+  ])
   assert_eq(deleted, 1)
 
   // Verify delete
@@ -76,6 +85,7 @@ async test "full CRUD lifecycle" {
   client.close()
 }
 
+///|
 async test "transaction commit" {
   let client = @pgsql.Client::connect(get_config())
   let _ = client.execute(
@@ -84,10 +94,9 @@ async test "transaction commit" {
   let _ = client.execute("DELETE FROM test_tx")
 
   client.transaction(async fn(tx) {
-    let _ = tx.execute_params(
-      "INSERT INTO test_tx (val) VALUES ($1)",
-      [@pgsql.String("committed")],
-    )
+    let _ = tx.execute_params("INSERT INTO test_tx (val) VALUES ($1)", [
+      @pgsql.String("committed"),
+    ])
     ()
   })
 
@@ -99,6 +108,7 @@ async test "transaction commit" {
   client.close()
 }
 
+///|
 async test "transaction rollback on error" {
   let client = @pgsql.Client::connect(get_config())
   let _ = client.execute(
@@ -107,26 +117,21 @@ async test "transaction rollback on error" {
   let _ = client.execute("DELETE FROM test_tx_rb")
 
   // Insert a valid row first
-  let _ = client.execute_params(
-    "INSERT INTO test_tx_rb (val) VALUES ($1)",
-    [@pgsql.String("before")],
-  )
+  let _ = client.execute_params("INSERT INTO test_tx_rb (val) VALUES ($1)", [
+    @pgsql.String("before"),
+  ])
 
   // This transaction should fail and rollback
-  try {
-    client.transaction(async fn(tx) {
-      let _ = tx.execute_params(
-        "INSERT INTO test_tx_rb (val) VALUES ($1)",
-        [@pgsql.String("inside")],
-      )
-      // This will fail: NULL for NOT NULL column
-      let _ = tx.execute_params(
-        "INSERT INTO test_tx_rb (val) VALUES ($1)",
-        [@pgsql.Null],
-      )
-      ()
-    })
-  } catch {
+  client.transaction(async fn(tx) {
+    let _ = tx.execute_params("INSERT INTO test_tx_rb (val) VALUES ($1)", [
+      @pgsql.String("inside"),
+    ])
+    // This will fail: NULL for NOT NULL column
+    let _ = tx.execute_params("INSERT INTO test_tx_rb (val) VALUES ($1)", [
+      @pgsql.Null,
+    ])
+    ()
+  }) catch {
     _ => () // Expected error
   }
 
@@ -139,6 +144,7 @@ async test "transaction rollback on error" {
   client.close()
 }
 
+///|
 async test "parameterized queries with all Value types" {
   let client = @pgsql.Client::connect(get_config())
   let _ = client.execute(
@@ -175,6 +181,7 @@ async test "parameterized queries with all Value types" {
   client.close()
 }
 
+///|
 async test "error handling: invalid SQL" {
   let client = @pgsql.Client::connect(get_config())
   let mut got_error = false
@@ -190,6 +197,7 @@ async test "error handling: invalid SQL" {
   client.close()
 }
 
+///|
 async test "error handling: constraint violation" {
   let client = @pgsql.Client::connect(get_config())
   let _ = client.execute(

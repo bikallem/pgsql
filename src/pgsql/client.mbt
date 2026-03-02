@@ -2,6 +2,7 @@
 ///
 /// Provides a high-level API for interacting with PostgreSQL.
 
+///|
 /// PostgreSQL client
 pub struct Client {
   /// Underlying connection
@@ -10,12 +11,14 @@ pub struct Client {
   mut stmt_counter : Int
 }
 
+///|
 /// Create a new client by connecting to PostgreSQL
 pub async fn Client::connect(config : Config) -> Client {
   let conn = connect(config)
   { conn, stmt_counter: 0 }
 }
 
+///|
 /// Execute a simple query (non-parameterized)
 /// Returns query results
 pub async fn Client::query(self : Client, sql : String) -> QueryResult {
@@ -35,11 +38,12 @@ pub async fn Client::query(self : Client, sql : String) -> QueryResult {
   build_query_result(messages)
 }
 
+///|
 /// Execute a query with parameters using extended query protocol
 pub async fn Client::query_params(
   self : Client,
   sql : String,
-  params : Array[Value]
+  params : Array[Value],
 ) -> QueryResult {
   // Generate unique statement name
   self.stmt_counter += 1
@@ -84,6 +88,7 @@ pub async fn Client::query_params(
   build_query_result(messages)
 }
 
+///|
 /// Execute a statement without returning rows (INSERT, UPDATE, DELETE, etc.)
 /// Returns the number of affected rows
 pub async fn Client::execute(self : Client, sql : String) -> Int {
@@ -91,31 +96,36 @@ pub async fn Client::execute(self : Client, sql : String) -> Int {
   parse_affected_rows(result.command_tag)
 }
 
+///|
 /// Execute a parameterized statement without returning rows
 pub async fn Client::execute_params(
   self : Client,
   sql : String,
-  params : Array[Value]
+  params : Array[Value],
 ) -> Int {
   let result = self.query_params(sql, params)
   parse_affected_rows(result.command_tag)
 }
 
+///|
 /// Begin a transaction
 pub async fn Client::begin(self : Client) -> Unit {
   let _ = self.execute("BEGIN")
 }
 
+///|
 /// Commit a transaction
 pub async fn Client::commit(self : Client) -> Unit {
   let _ = self.execute("COMMIT")
 }
 
+///|
 /// Rollback a transaction
 pub async fn Client::rollback(self : Client) -> Unit {
   let _ = self.execute("ROLLBACK")
 }
 
+///|
 /// Check if in a transaction
 pub fn Client::in_transaction(self : Client) -> Bool {
   match self.conn.transaction_status {
@@ -125,21 +135,25 @@ pub fn Client::in_transaction(self : Client) -> Bool {
   }
 }
 
+///|
 /// Get transaction status
 pub fn Client::get_transaction_status(self : Client) -> TransactionStatus {
   tx_status_from_protocol(self.conn.transaction_status)
 }
 
+///|
 /// Close the client connection
 pub fn Client::close(self : Client) -> Unit {
   self.conn.close()
 }
 
+///|
 /// Get server parameter
 pub fn Client::get_server_param(self : Client, name : String) -> String? {
   self.conn.get_server_param(name)
 }
 
+///|
 /// Get backend process ID
 pub fn Client::get_process_id(self : Client) -> Int {
   self.conn.process_id
@@ -149,8 +163,11 @@ pub fn Client::get_process_id(self : Client) -> Int {
 // Helper Functions
 // =============================================================================
 
+///|
 /// Build QueryResult from backend messages
-fn build_query_result(messages : Array[@protocol.BackendMessage]) -> QueryResult {
+fn build_query_result(
+  messages : Array[@protocol.BackendMessage],
+) -> QueryResult {
   let mut proto_fields : Array[@protocol.FieldDescription] = []
   let rows : Array[Row] = []
   let mut command_tag = ""
@@ -174,10 +191,11 @@ fn build_query_result(messages : Array[@protocol.BackendMessage]) -> QueryResult
   QueryResult::new(columns, rows, command_tag)
 }
 
+///|
 /// Convert raw DataRow values to typed Values
 fn convert_row_values(
   raw_values : Array[Bytes?],
-  fields : Array[@protocol.FieldDescription]
+  fields : Array[@protocol.FieldDescription],
 ) -> Array[Value] {
   let result : Array[Value] = []
 
@@ -194,6 +212,7 @@ fn convert_row_values(
   result
 }
 
+///|
 /// Serialize parameter values for Bind message
 fn serialize_params(params : Array[Value]) -> Array[Bytes?] {
   let result : Array[Bytes?] = []
@@ -203,6 +222,7 @@ fn serialize_params(params : Array[Value]) -> Array[Bytes?] {
   result
 }
 
+///|
 /// Parse affected rows from command tag
 fn parse_affected_rows(tag : String) -> Int {
   // Command tags like "INSERT 0 1", "UPDATE 5", "DELETE 3"
@@ -216,6 +236,7 @@ fn parse_affected_rows(tag : String) -> Int {
   }
 }
 
+///|
 /// Simple string split by character
 fn split_string(s : String, sep : Char) -> Array[String] {
   let result : Array[String] = []
@@ -239,6 +260,7 @@ fn split_string(s : String, sep : Char) -> Array[String] {
   result
 }
 
+///|
 /// Simple integer parsing
 fn parse_int_simple(s : String) -> Int {
   let mut result = 0
@@ -255,5 +277,9 @@ fn parse_int_simple(s : String) -> Int {
     }
   }
 
-  if negative { -result } else { result }
+  if negative {
+    -result
+  } else {
+    result
+  }
 }

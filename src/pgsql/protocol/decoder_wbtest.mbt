@@ -1,9 +1,8 @@
-///| Unit tests for the decoder
-
+///|
+/// Unit tests for the decoder
 test "decode_authentication_ok" {
   let data = Bytes::from_array([
-    b'R', b'\x00', b'\x00', b'\x00', b'\x08',
-    b'\x00', b'\x00', b'\x00', b'\x00',
+    b'R', b'\x00', b'\x00', b'\x00', b'\x08', b'\x00', b'\x00', b'\x00', b'\x00',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -14,10 +13,10 @@ test "decode_authentication_ok" {
   }
 }
 
+///|
 test "decode_authentication_cleartext" {
   let data = Bytes::from_array([
-    b'R', b'\x00', b'\x00', b'\x00', b'\x08',
-    b'\x00', b'\x00', b'\x00', b'\x03',
+    b'R', b'\x00', b'\x00', b'\x00', b'\x08', b'\x00', b'\x00', b'\x00', b'\x03',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -27,10 +26,10 @@ test "decode_authentication_cleartext" {
   }
 }
 
+///|
 test "decode_authentication_md5" {
   let data = Bytes::from_array([
-    b'R', b'\x00', b'\x00', b'\x00', b'\x0C',
-    b'\x00', b'\x00', b'\x00', b'\x05',
+    b'R', b'\x00', b'\x00', b'\x00', b'\x0C', b'\x00', b'\x00', b'\x00', b'\x05',
     b'\x01', b'\x02', b'\x03', b'\x04',
   ])
   let decoder = Decoder::new()
@@ -45,14 +44,14 @@ test "decode_authentication_md5" {
   }
 }
 
+///|
 test "decode_authentication_sasl" {
   // AuthenticationSASL: 'R' + length + type(10) + "SCRAM-SHA-256\0" + "\0"
   let data = Bytes::from_array([
-    b'R', b'\x00', b'\x00', b'\x00', b'\x17',
-    b'\x00', b'\x00', b'\x00', b'\x0A', // auth type = 10 (SASL)
-    b'S', b'C', b'R', b'A', b'M', b'-', b'S', b'H', b'A', b'-',
-    b'2', b'5', b'6', b'\x00', // "SCRAM-SHA-256\0"
-    b'\x00', // terminator
+    b'R', b'\x00', b'\x00', b'\x00', b'\x17', b'\x00', b'\x00', b'\x00', b'\x0A', // auth type = 10 (SASL)
+     b'S', b'C', b'R', b'A', b'M', b'-', b'S', b'H', b'A', b'-', b'2', b'5', b'6',
+    b'\x00', // "SCRAM-SHA-256\0"
+     b'\x00', // terminator
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -65,10 +64,9 @@ test "decode_authentication_sasl" {
   }
 }
 
+///|
 test "decode_ready_for_query_idle" {
-  let data = Bytes::from_array([
-    b'Z', b'\x00', b'\x00', b'\x00', b'\x05', b'I',
-  ])
+  let data = Bytes::from_array([b'Z', b'\x00', b'\x00', b'\x00', b'\x05', b'I'])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
   match messages[0] {
@@ -77,10 +75,9 @@ test "decode_ready_for_query_idle" {
   }
 }
 
+///|
 test "decode_ready_for_query_transaction" {
-  let data = Bytes::from_array([
-    b'Z', b'\x00', b'\x00', b'\x00', b'\x05', b'T',
-  ])
+  let data = Bytes::from_array([b'Z', b'\x00', b'\x00', b'\x00', b'\x05', b'T'])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
   match messages[0] {
@@ -89,10 +86,9 @@ test "decode_ready_for_query_transaction" {
   }
 }
 
+///|
 test "decode_ready_for_query_failed" {
-  let data = Bytes::from_array([
-    b'Z', b'\x00', b'\x00', b'\x00', b'\x05', b'E',
-  ])
+  let data = Bytes::from_array([b'Z', b'\x00', b'\x00', b'\x00', b'\x05', b'E'])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
   match messages[0] {
@@ -101,10 +97,11 @@ test "decode_ready_for_query_failed" {
   }
 }
 
+///|
 test "decode_command_complete" {
   let data = Bytes::from_array([
-    b'C', b'\x00', b'\x00', b'\x00', b'\x0D',
-    b'S', b'E', b'L', b'E', b'C', b'T', b' ', b'5', b'\x00',
+    b'C', b'\x00', b'\x00', b'\x00', b'\x0D', b'S', b'E', b'L', b'E', b'C', b'T',
+    b' ', b'5', b'\x00',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -114,6 +111,7 @@ test "decode_command_complete" {
   }
 }
 
+///|
 test "decode_parse_complete" {
   let data = Bytes::from_array([b'1', b'\x00', b'\x00', b'\x00', b'\x04'])
   let decoder = Decoder::new()
@@ -124,6 +122,7 @@ test "decode_parse_complete" {
   }
 }
 
+///|
 test "decode_bind_complete" {
   let data = Bytes::from_array([b'2', b'\x00', b'\x00', b'\x00', b'\x04'])
   let decoder = Decoder::new()
@@ -134,6 +133,7 @@ test "decode_bind_complete" {
   }
 }
 
+///|
 test "decode_close_complete" {
   let data = Bytes::from_array([b'3', b'\x00', b'\x00', b'\x00', b'\x04'])
   let decoder = Decoder::new()
@@ -144,6 +144,7 @@ test "decode_close_complete" {
   }
 }
 
+///|
 test "decode_no_data" {
   let data = Bytes::from_array([b'n', b'\x00', b'\x00', b'\x00', b'\x04'])
   let decoder = Decoder::new()
@@ -154,6 +155,7 @@ test "decode_no_data" {
   }
 }
 
+///|
 test "decode_empty_query" {
   let data = Bytes::from_array([b'I', b'\x00', b'\x00', b'\x00', b'\x04'])
   let decoder = Decoder::new()
@@ -164,6 +166,7 @@ test "decode_empty_query" {
   }
 }
 
+///|
 test "decode_portal_suspended" {
   let data = Bytes::from_array([b's', b'\x00', b'\x00', b'\x00', b'\x04'])
   let decoder = Decoder::new()
@@ -174,12 +177,12 @@ test "decode_portal_suspended" {
   }
 }
 
+///|
 test "decode_parameter_status" {
   let data = Bytes::from_array([
-    b'S', b'\x00', b'\x00', b'\x00', b'\x19',
-    b'c', b'l', b'i', b'e', b'n', b't', b'_', b'e', b'n', b'c', b'o', b'd',
-    b'i', b'n', b'g', b'\x00',
-    b'U', b'T', b'F', b'8', b'\x00',
+    b'S', b'\x00', b'\x00', b'\x00', b'\x19', b'c', b'l', b'i', b'e', b'n', b't',
+    b'_', b'e', b'n', b'c', b'o', b'd', b'i', b'n', b'g', b'\x00', b'U', b'T', b'F',
+    b'8', b'\x00',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -192,10 +195,10 @@ test "decode_parameter_status" {
   }
 }
 
+///|
 test "decode_backend_key_data" {
   let data = Bytes::from_array([
-    b'K', b'\x00', b'\x00', b'\x00', b'\x0C',
-    b'\x00', b'\x00', b'\x30', b'\x39',
+    b'K', b'\x00', b'\x00', b'\x00', b'\x0C', b'\x00', b'\x00', b'\x30', b'\x39',
     b'\x00', b'\x01', b'\x09', b'\x32',
   ])
   let decoder = Decoder::new()
@@ -209,17 +212,12 @@ test "decode_backend_key_data" {
   }
 }
 
+///|
 test "decode_row_description" {
   let data = Bytes::from_array([
-    b'T', b'\x00', b'\x00', b'\x00', b'\x1B',
-    b'\x00', b'\x01',
-    b'i', b'd', b'\x00',
-    b'\x00', b'\x00', b'\x00', b'\x00',
-    b'\x00', b'\x00',
-    b'\x00', b'\x00', b'\x00', b'\x17',
-    b'\x00', b'\x04',
-    b'\xFF', b'\xFF', b'\xFF', b'\xFF',
-    b'\x00', b'\x00',
+    b'T', b'\x00', b'\x00', b'\x00', b'\x1B', b'\x00', b'\x01', b'i', b'd', b'\x00',
+    b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    b'\x17', b'\x00', b'\x04', b'\xFF', b'\xFF', b'\xFF', b'\xFF', b'\x00', b'\x00',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -234,13 +232,11 @@ test "decode_row_description" {
   }
 }
 
+///|
 test "decode_data_row" {
   let data = Bytes::from_array([
-    b'D', b'\x00', b'\x00', b'\x00', b'\x13',
-    b'\x00', b'\x02',
-    b'\x00', b'\x00', b'\x00', b'\x05',
-    b'h', b'e', b'l', b'l', b'o',
-    b'\xFF', b'\xFF', b'\xFF', b'\xFF',
+    b'D', b'\x00', b'\x00', b'\x00', b'\x13', b'\x00', b'\x02', b'\x00', b'\x00',
+    b'\x00', b'\x05', b'h', b'e', b'l', b'l', b'o', b'\xFF', b'\xFF', b'\xFF', b'\xFF',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -254,65 +250,82 @@ test "decode_data_row" {
   }
 }
 
+///|
 test "decode_error_response" {
   // ErrorResponse: 'E' + length + fields
   // S=ERROR\0(7) + C=42P01\0(7) + M=table missing\0(15) + \0(1) = 30; length=34=0x22
   let data = Bytes::from_array([
-    b'E', b'\x00', b'\x00', b'\x00', b'\x22',
-    b'S', b'E', b'R', b'R', b'O', b'R', b'\x00', // S=ERROR
-    b'C', b'4', b'2', b'P', b'0', b'1', b'\x00', // C=42P01
-    b'M', b't', b'a', b'b', b'l', b'e', b' ', b'm', b'i', b's', b's', b'i',
-    b'n', b'g', b'\x00', // M=table missing
-    b'\x00', // terminator
+    b'E', b'\x00', b'\x00', b'\x00', b'\x22', b'S', b'E', b'R', b'R', b'O', b'R',
+    b'\x00', // S=ERROR
+     b'C', b'4', b'2', b'P', b'0', b'1', b'\x00', // C=42P01
+     b'M', b't', b'a', b'b', b'l', b'e', b' ', b'm', b'i', b's', b's', b'i', b'n',
+    b'g', b'\x00', // M=table missing
+     b'\x00', // terminator
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
   match messages[0] {
     ErrorResponse(fields) => {
-      inspect(fields["S"], content=(
-        #|ERROR
-      ))
-      inspect(fields["C"], content=(
-        #|42P01
-      ))
-      inspect(fields["M"], content=(
-        #|table missing
-      ))
+      inspect(
+        fields["S"],
+        content=(
+          #|ERROR
+        ),
+      )
+      inspect(
+        fields["C"],
+        content=(
+          #|42P01
+        ),
+      )
+      inspect(
+        fields["M"],
+        content=(
+          #|table missing
+        ),
+      )
     }
     _ => fail("Expected ErrorResponse")
   }
 }
 
+///|
 test "decode_notice_response" {
   // S=NOTICE\0(8) + M=hi\0(4) + \0(1) = 13; length=17=0x11
   let data = Bytes::from_array([
-    b'N', b'\x00', b'\x00', b'\x00', b'\x11',
-    b'S', b'N', b'O', b'T', b'I', b'C', b'E', b'\x00', // S=NOTICE
-    b'M', b'h', b'i', b'\x00', // M=hi
-    b'\x00',
+    b'N', b'\x00', b'\x00', b'\x00', b'\x11', b'S', b'N', b'O', b'T', b'I', b'C',
+    b'E', b'\x00', // S=NOTICE
+     b'M', b'h', b'i', b'\x00', // M=hi
+     b'\x00',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
   match messages[0] {
     NoticeResponse(fields) => {
-      inspect(fields["S"], content=(
-        #|NOTICE
-      ))
-      inspect(fields["M"], content=(
-        #|hi
-      ))
+      inspect(
+        fields["S"],
+        content=(
+          #|NOTICE
+        ),
+      )
+      inspect(
+        fields["M"],
+        content=(
+          #|hi
+        ),
+      )
     }
     _ => fail("Expected NoticeResponse")
   }
 }
 
+///|
 test "decode_notification_response" {
   // NotificationResponse: 'A' + length + pid(4) + channel\0 + payload\0
   let data = Bytes::from_array([
-    b'A', b'\x00', b'\x00', b'\x00', b'\x12',
-    b'\x00', b'\x00', b'\x00', b'\x01', // pid = 1
-    b'c', b'h', b'a', b'n', b'\x00', // channel = "chan"
-    b'd', b'a', b't', b'a', b'\x00', // payload = "data"
+    b'A', b'\x00', b'\x00', b'\x00', b'\x12', b'\x00', b'\x00', b'\x00', b'\x01', // pid = 1
+     b'c', b'h', b'a', b'n', b'\x00', // channel = "chan"
+     b'd', b'a', b't', b'a', b'\x00', // payload = "data"
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -326,10 +339,10 @@ test "decode_notification_response" {
   }
 }
 
+///|
 test "decode_multiple_messages" {
   let data = Bytes::from_array([
-    b'1', b'\x00', b'\x00', b'\x00', b'\x04',
-    b'2', b'\x00', b'\x00', b'\x00', b'\x04',
+    b'1', b'\x00', b'\x00', b'\x00', b'\x04', b'2', b'\x00', b'\x00', b'\x00', b'\x04',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -344,6 +357,7 @@ test "decode_multiple_messages" {
   }
 }
 
+///|
 test "decode_partial_message" {
   let decoder = Decoder::new()
   let partial1 = Bytes::from_array([b'Z', b'\x00', b'\x00'])
@@ -359,6 +373,7 @@ test "decode_partial_message" {
   }
 }
 
+///|
 test "Decoder::clear" {
   let decoder = Decoder::new()
   let partial = Bytes::from_array([b'Z', b'\x00'])
@@ -368,19 +383,20 @@ test "Decoder::clear" {
   inspect(decoder.has_pending(), content="false")
 }
 
+///|
 test "Decoder::has_pending empty" {
   let decoder = Decoder::new()
   inspect(decoder.has_pending(), content="false")
 }
 
+///|
 test "decode_copy_in_response" {
   // CopyInResponse: format(1) + count(2) + 2*int16(4) = 7; length=11=0x0B
   let data = Bytes::from_array([
-    b'G', b'\x00', b'\x00', b'\x00', b'\x0B',
-    b'\x00', // text format
-    b'\x00', b'\x02', // 2 columns
-    b'\x00', b'\x00', // column 1: text
-    b'\x00', b'\x00', // column 2: text
+    b'G', b'\x00', b'\x00', b'\x00', b'\x0B', b'\x00', // text format
+     b'\x00', b'\x02', // 2 columns
+     b'\x00', b'\x00', // column 1: text
+     b'\x00', b'\x00', // column 2: text
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -393,6 +409,7 @@ test "decode_copy_in_response" {
   }
 }
 
+///|
 test "decode_copy_done" {
   let data = Bytes::from_array([b'c', b'\x00', b'\x00', b'\x00', b'\x04'])
   let decoder = Decoder::new()
@@ -403,12 +420,12 @@ test "decode_copy_done" {
   }
 }
 
+///|
 test "decode_parameter_description" {
   // ParameterDescription: 't' + length + count(2) + oid(4)...
   let data = Bytes::from_array([
-    b't', b'\x00', b'\x00', b'\x00', b'\x0A',
-    b'\x00', b'\x01', // 1 parameter
-    b'\x00', b'\x00', b'\x00', b'\x17', // oid = 23 (int4)
+    b't', b'\x00', b'\x00', b'\x00', b'\x0A', b'\x00', b'\x01', // 1 parameter
+     b'\x00', b'\x00', b'\x00', b'\x17', // oid = 23 (int4)
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)

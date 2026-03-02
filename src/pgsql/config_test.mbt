@@ -1,5 +1,5 @@
-///| Unit tests for Config
-
+///|
+/// Unit tests for Config
 test "Config::new defaults" {
   let cfg = @pgsql.Config::new("user1", "pass1", "db1")
   inspect(cfg.get_host(), content="localhost")
@@ -9,6 +9,7 @@ test "Config::new defaults" {
   inspect(cfg.get_database(), content="db1")
 }
 
+///|
 test "Config::new custom" {
   let cfg = @pgsql.Config::new(
     "admin",

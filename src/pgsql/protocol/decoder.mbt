@@ -2,9 +2,11 @@
 ///
 /// Parses backend messages from Bytes received from the server.
 
+///|
 /// Header size: 1 byte type code + 4 bytes length
 const HEADER_SIZE : Int = 5
 
+///|
 /// Decoder for PostgreSQL protocol messages
 /// Handles incremental parsing of data that may arrive in chunks
 pub struct Decoder {
@@ -12,11 +14,13 @@ pub struct Decoder {
   mut buffer : Array[Byte]
 }
 
+///|
 /// Create a new Decoder
 pub fn Decoder::new() -> Decoder {
   { buffer: [] }
 }
 
+///|
 /// Parse messages from incoming data
 /// Returns all complete messages that can be parsed from the buffer
 /// Incomplete messages are buffered for the next call
@@ -73,11 +77,13 @@ pub fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
   messages
 }
 
+///|
 /// Clear the decoder buffer
 pub fn Decoder::clear(self : Decoder) -> Unit {
   self.buffer.clear()
 }
 
+///|
 /// Check if there is pending data in the buffer
 pub fn Decoder::has_pending(self : Decoder) -> Bool {
   self.buffer.length() > 0
@@ -87,6 +93,7 @@ pub fn Decoder::has_pending(self : Decoder) -> Bool {
 // Message Parsing Functions
 // -----------------------------------------------------------------------------
 
+///|
 /// Parse a single message given its type code and payload
 fn parse_message(code : Byte, data : Bytes) -> BackendMessage {
   let reader = BufferReader::new(data)
@@ -165,6 +172,7 @@ fn parse_message(code : Byte, data : Bytes) -> BackendMessage {
   }
 }
 
+///|
 /// Parse Authentication message
 fn parse_authentication(reader : BufferReader) -> BackendMessage {
   let auth_type = reader.int32()
@@ -206,6 +214,7 @@ fn parse_authentication(reader : BufferReader) -> BackendMessage {
   }
 }
 
+///|
 /// Parse BackendKeyData message
 fn parse_backend_key_data(reader : BufferReader) -> BackendMessage {
   let process_id = reader.int32()
@@ -213,6 +222,7 @@ fn parse_backend_key_data(reader : BufferReader) -> BackendMessage {
   BackendKeyData(process_id, secret_key)
 }
 
+///|
 /// Parse ParameterStatus message
 fn parse_parameter_status(reader : BufferReader) -> BackendMessage {
   let name = reader.cstring()
@@ -220,6 +230,7 @@ fn parse_parameter_status(reader : BufferReader) -> BackendMessage {
   ParameterStatus(name, value)
 }
 
+///|
 /// Parse ReadyForQuery message
 fn parse_ready_for_query(reader : BufferReader) -> BackendMessage {
   let status_byte = reader.byte()
@@ -233,6 +244,7 @@ fn parse_ready_for_query(reader : BufferReader) -> BackendMessage {
   ReadyForQuery(status)
 }
 
+///|
 /// Parse RowDescription message
 fn parse_row_description(reader : BufferReader) -> BackendMessage {
   let field_count = reader.int16()
@@ -258,6 +270,7 @@ fn parse_row_description(reader : BufferReader) -> BackendMessage {
   RowDescription(fields)
 }
 
+///|
 /// Parse DataRow message
 fn parse_data_row(reader : BufferReader) -> BackendMessage {
   let column_count = reader.int16()
@@ -275,16 +288,18 @@ fn parse_data_row(reader : BufferReader) -> BackendMessage {
   DataRow(values)
 }
 
+///|
 /// Parse CommandComplete message
 fn parse_command_complete(reader : BufferReader) -> BackendMessage {
   let tag = reader.cstring()
   CommandComplete(tag)
 }
 
+///|
 /// Parse ErrorResponse or NoticeResponse message
 fn parse_error_or_notice(
   reader : BufferReader,
-  is_error~ : Bool
+  is_error~ : Bool,
 ) -> BackendMessage {
   let fields : Map[String, String] = {}
 
@@ -306,6 +321,7 @@ fn parse_error_or_notice(
   }
 }
 
+///|
 /// Parse ParameterDescription message
 fn parse_parameter_description(reader : BufferReader) -> BackendMessage {
   let param_count = reader.int16()
@@ -318,6 +334,7 @@ fn parse_parameter_description(reader : BufferReader) -> BackendMessage {
   ParameterDescription(type_oids)
 }
 
+///|
 /// Parse NotificationResponse message
 fn parse_notification(reader : BufferReader) -> BackendMessage {
   let process_id = reader.int32()
@@ -326,6 +343,7 @@ fn parse_notification(reader : BufferReader) -> BackendMessage {
   NotificationResponse(process_id, channel, payload)
 }
 
+///|
 /// Parse CopyInResponse or CopyOutResponse message
 fn parse_copy_response(reader : BufferReader, is_in~ : Bool) -> BackendMessage {
   let format_byte = reader.byte()

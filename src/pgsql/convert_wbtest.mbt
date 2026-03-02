@@ -1,5 +1,5 @@
-///| Unit tests for conversion functions (white-box)
-
+///|
+/// Unit tests for conversion functions (white-box)
 test "value_from_protocol round-trip" {
   let cases : Array[@protocol.Value] = [
     @protocol.Null,
@@ -19,46 +19,67 @@ test "value_from_protocol round-trip" {
   }
 }
 
+///|
 test "value_from_protocol Null" {
   inspect(value_from_protocol(@protocol.Null), content="Null")
 }
 
+///|
 test "value_from_protocol Bool" {
   inspect(value_from_protocol(@protocol.Bool(true)), content="Bool(true)")
   inspect(value_from_protocol(@protocol.Bool(false)), content="Bool(false)")
 }
 
+///|
 test "value_from_protocol Int" {
   inspect(value_from_protocol(@protocol.Int(42)), content="Int(42)")
 }
 
+///|
 test "value_from_protocol Int64" {
   inspect(value_from_protocol(@protocol.Int64(100L)), content="Int64(100)")
 }
 
+///|
 test "value_from_protocol Float" {
   inspect(value_from_protocol(@protocol.Float(1.5)), content="Float(1.5)")
 }
 
+///|
 test "value_from_protocol String" {
-  inspect(value_from_protocol(@protocol.String("hi")), content=(
-    #|String("hi")
-  ))
+  inspect(
+    value_from_protocol(@protocol.String("hi")),
+    content=(
+      #|String("hi")
+    ),
+  )
 }
 
+///|
 test "value_to_protocol Null" {
   inspect(value_to_protocol(Null), content="Null")
 }
 
+///|
 test "value_to_protocol String" {
-  inspect(value_to_protocol(String("abc")), content=(
-    #|String("abc")
-  ))
+  inspect(
+    value_to_protocol(String("abc")),
+    content=(
+      #|String("abc")
+    ),
+  )
 }
 
+///|
 test "column_info_from_field" {
   let fd = @protocol.FieldDescription::new(
-    "name", 0, 0, 25, -1, -1, @protocol.Text,
+    "name",
+    0,
+    0,
+    25,
+    -1,
+    -1,
+    @protocol.Text,
   )
   let col = column_info_from_field(fd)
   inspect(col.name, content="name")
@@ -66,8 +87,12 @@ test "column_info_from_field" {
   inspect(col.type_size, content="-1")
 }
 
+///|
 test "tx_status_from_protocol" {
   inspect(tx_status_from_protocol(@protocol.Idle), content="Idle")
-  inspect(tx_status_from_protocol(@protocol.InTransaction), content="InTransaction")
+  inspect(
+    tx_status_from_protocol(@protocol.InTransaction),
+    content="InTransaction",
+  )
   inspect(tx_status_from_protocol(@protocol.Failed), content="Failed")
 }

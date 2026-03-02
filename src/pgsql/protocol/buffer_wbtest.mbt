@@ -1,5 +1,5 @@
-///| Unit tests for BufferWriter and BufferReader
-
+///|
+/// Unit tests for BufferWriter and BufferReader
 test "BufferWriter::add_byte" {
   let writer = BufferWriter::new()
   writer.add_byte(b'\x42') |> ignore
@@ -8,6 +8,7 @@ test "BufferWriter::add_byte" {
   assert_eq(result[0], b'\x42')
 }
 
+///|
 test "BufferWriter::add_int16" {
   let writer = BufferWriter::new()
   writer.add_int16(0x1234) |> ignore
@@ -17,6 +18,7 @@ test "BufferWriter::add_int16" {
   assert_eq(result[1], b'\x34')
 }
 
+///|
 test "BufferWriter::add_int16_negative" {
   let writer = BufferWriter::new()
   writer.add_int16(-1) |> ignore
@@ -26,6 +28,7 @@ test "BufferWriter::add_int16_negative" {
   assert_eq(result[1], b'\xFF')
 }
 
+///|
 test "BufferWriter::add_int32" {
   let writer = BufferWriter::new()
   writer.add_int32(0x12345678) |> ignore
@@ -37,6 +40,7 @@ test "BufferWriter::add_int32" {
   assert_eq(result[3], b'\x78')
 }
 
+///|
 test "BufferWriter::add_cstring" {
   let writer = BufferWriter::new()
   writer.add_cstring("hello") |> ignore
@@ -45,6 +49,7 @@ test "BufferWriter::add_cstring" {
   assert_eq(result[5], b'\x00')
 }
 
+///|
 test "BufferWriter::flush" {
   let writer = BufferWriter::new()
   writer.add_cstring("Q") |> ignore
@@ -59,24 +64,28 @@ test "BufferWriter::flush" {
   assert_eq(result[4], b'\x06')
 }
 
+///|
 test "BufferReader::int16" {
   let data = Bytes::from_array([b'\x12', b'\x34'])
   let reader = BufferReader::new(data)
   assert_eq(reader.int16(), 0x1234)
 }
 
+///|
 test "BufferReader::int16_negative" {
   let data = Bytes::from_array([b'\xFF', b'\xFF'])
   let reader = BufferReader::new(data)
   assert_eq(reader.int16(), -1)
 }
 
+///|
 test "BufferReader::int32" {
   let data = Bytes::from_array([b'\x12', b'\x34', b'\x56', b'\x78'])
   let reader = BufferReader::new(data)
   assert_eq(reader.int32(), 0x12345678)
 }
 
+///|
 test "BufferReader::cstring" {
   let data = Bytes::from_array([b'h', b'i', b'\x00', b'x'])
   let reader = BufferReader::new(data)
@@ -84,6 +93,7 @@ test "BufferReader::cstring" {
   assert_eq(reader.position(), 3)
 }
 
+///|
 test "BufferReader::string_fixed_length" {
   let data = Bytes::from_array([b'h', b'e', b'l', b'l', b'o'])
   let reader = BufferReader::new(data)
@@ -91,6 +101,7 @@ test "BufferReader::string_fixed_length" {
   assert_eq(reader.remaining(), 2)
 }
 
+///|
 test "BufferReader::bytes" {
   let data = Bytes::from_array([b'\x01', b'\x02', b'\x03', b'\x04'])
   let reader = BufferReader::new(data)

@@ -2,21 +2,29 @@
 ///
 /// Defines error types for PostgreSQL operations.
 
+///|
 /// Connection closed error
 pub suberror ConnectionClosedError
 
+///|
 /// Authentication error
-pub suberror AuthError { AuthError(String) }
+pub suberror AuthError {
+  AuthError(String)
+}
 
+///|
 /// Server error with details
-pub suberror ServerErr { ServerErr(ServerErrorInfo) }
+pub suberror ServerErr {
+  ServerErr(ServerErrorInfo)
+}
 
-/// Protocol error
-pub suberror ProtocolErr { ProtocolErr(String) }
-
+///|
 /// Transaction error
-pub suberror TxError { TxError(String) }
+pub suberror TxError {
+  TxError(String)
+}
 
+///|
 /// Detailed server error information from ErrorResponse
 pub struct ServerErrorInfo {
   /// Error severity (ERROR, FATAL, PANIC)
@@ -37,15 +45,19 @@ pub struct ServerErrorInfo {
   constraint : String?
 } derive(Show, Eq)
 
+///|
 /// Create a ServerErrorInfo from error response fields
-pub fn ServerErrorInfo::from_fields(fields : Map[String, String]) -> ServerErrorInfo {
+pub fn ServerErrorInfo::from_fields(
+  fields : Map[String, String],
+) -> ServerErrorInfo {
   // Get severity from S or V field
   let severity = match fields.get("S") {
     Some(s) => s
-    None => match fields.get("V") {
-      Some(v) => v
-      None => "ERROR"
-    }
+    None =>
+      match fields.get("V") {
+        Some(v) => v
+        None => "ERROR"
+      }
   }
   {
     severity,
@@ -59,17 +71,20 @@ pub fn ServerErrorInfo::from_fields(fields : Map[String, String]) -> ServerError
   }
 }
 
+///|
 /// Implement Show for suberrors
 pub impl Show for ConnectionClosedError with output(_self, logger) {
   logger.write_string("ConnectionClosedError")
 }
 
+///|
 pub impl Show for AuthError with output(self, logger) {
   let AuthError(msg) = self
   logger.write_string("AuthError: ")
   logger.write_string(msg)
 }
 
+///|
 pub impl Show for ServerErr with output(self, logger) {
   let ServerErr(info) = self
   logger.write_string("ServerError: [")
@@ -78,12 +93,7 @@ pub impl Show for ServerErr with output(self, logger) {
   logger.write_string(info.message)
 }
 
-pub impl Show for ProtocolErr with output(self, logger) {
-  let ProtocolErr(msg) = self
-  logger.write_string("ProtocolError: ")
-  logger.write_string(msg)
-}
-
+///|
 pub impl Show for TxError with output(self, logger) {
   let TxError(msg) = self
   logger.write_string("TransactionError: ")
