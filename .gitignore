@@ -19,3 +19,5 @@ hooks
 objects
 refs
 .claude
+.postgres
+.direnv
