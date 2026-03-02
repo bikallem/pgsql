@@ -10,7 +10,7 @@ fn get_config() -> @pgsql.Config {
     "postgres",
     "postgres",
     "postgres",
-    host="localhost",
+    host="127.0.0.1",
     port=5432,
   )
 }
