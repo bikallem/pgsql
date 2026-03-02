@@ -1,0 +1,10 @@
+import {
+  "bikallem/postgresql/pgsql",
+  "moonbitlang/async",
+}
+
+options(
+  targets: {
+    "integration_test.mbt": ["native"],
+  },
+)

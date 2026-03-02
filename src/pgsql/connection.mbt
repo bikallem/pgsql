@@ -3,7 +3,7 @@
 /// Handles TCP connection and PostgreSQL protocol message exchange.
 
 /// Internal connection state
-pub struct Connection {
+struct Connection {
   /// Configuration
   config : Config
   /// TCP socket
@@ -37,7 +37,7 @@ fn Connection::create(
 }
 
 /// Send a protocol message
-pub async fn Connection::send(
+async fn Connection::send(
   self : Connection,
   msg : @protocol.FrontendMessage
 ) -> Unit {
@@ -46,7 +46,7 @@ pub async fn Connection::send(
 }
 
 /// Receive messages from server
-pub async fn Connection::receive(self : Connection) -> Array[@protocol.BackendMessage] {
+async fn Connection::receive(self : Connection) -> Array[@protocol.BackendMessage] {
   // Read available data
   match self.socket.read_some() {
     Some(data) => self.decoder.parse(data)
@@ -55,7 +55,7 @@ pub async fn Connection::receive(self : Connection) -> Array[@protocol.BackendMe
 }
 
 /// Receive messages until ReadyForQuery
-pub async fn Connection::receive_until_ready(
+async fn Connection::receive_until_ready(
   self : Connection
 ) -> Array[@protocol.BackendMessage] {
   let all_messages : Array[@protocol.BackendMessage] = []
@@ -83,7 +83,7 @@ pub async fn Connection::receive_until_ready(
 }
 
 /// Check if there's an error in messages
-pub fn find_error(messages : Array[@protocol.BackendMessage]) -> ServerErrorInfo? {
+fn find_error(messages : Array[@protocol.BackendMessage]) -> ServerErrorInfo? {
   for msg in messages {
     match msg {
       @protocol.ErrorResponse(fields) => return Some(ServerErrorInfo::from_fields(fields))
@@ -94,27 +94,27 @@ pub fn find_error(messages : Array[@protocol.BackendMessage]) -> ServerErrorInfo
 }
 
 /// Get process ID
-pub fn Connection::get_process_id(self : Connection) -> Int {
+fn Connection::get_process_id(self : Connection) -> Int {
   self.process_id
 }
 
 /// Get secret key
-pub fn Connection::get_secret_key(self : Connection) -> Int {
+fn Connection::get_secret_key(self : Connection) -> Int {
   self.secret_key
 }
 
 /// Get current transaction status
-pub fn Connection::get_transaction_status(self : Connection) -> @protocol.TransactionStatus {
+fn Connection::get_transaction_status(self : Connection) -> @protocol.TransactionStatus {
   self.transaction_status
 }
 
 /// Get server parameter
-pub fn Connection::get_server_param(self : Connection, name : String) -> String? {
+fn Connection::get_server_param(self : Connection, name : String) -> String? {
   self.server_params.get(name)
 }
 
 /// Close the connection
-pub fn Connection::close(self : Connection) -> Unit {
+fn Connection::close(self : Connection) -> Unit {
   self.socket.close()
 }
 
@@ -123,7 +123,7 @@ pub fn Connection::close(self : Connection) -> Unit {
 // =============================================================================
 
 /// Connect to PostgreSQL server
-pub async fn connect(config : Config) -> Connection {
+async fn connect(config : Config) -> Connection {
   // Resolve address
   let addr = @socket.Addr::resolve(config.host, port=config.port)
 

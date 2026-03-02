@@ -39,7 +39,7 @@ pub async fn Client::query(self : Client, sql : String) -> QueryResult {
 pub async fn Client::query_params(
   self : Client,
   sql : String,
-  params : Array[@protocol.Value]
+  params : Array[Value]
 ) -> QueryResult {
   // Generate unique statement name
   self.stmt_counter += 1
@@ -95,7 +95,7 @@ pub async fn Client::execute(self : Client, sql : String) -> Int {
 pub async fn Client::execute_params(
   self : Client,
   sql : String,
-  params : Array[@protocol.Value]
+  params : Array[Value]
 ) -> Int {
   let result = self.query_params(sql, params)
   parse_affected_rows(result.command_tag)
@@ -125,6 +125,11 @@ pub fn Client::in_transaction(self : Client) -> Bool {
   }
 }
 
+/// Get transaction status
+pub fn Client::get_transaction_status(self : Client) -> TransactionStatus {
+  tx_status_from_protocol(self.conn.transaction_status)
+}
+
 /// Close the client connection
 pub fn Client::close(self : Client) -> Unit {
   self.conn.close()
@@ -146,17 +151,18 @@ pub fn Client::get_process_id(self : Client) -> Int {
 
 /// Build QueryResult from backend messages
 fn build_query_result(messages : Array[@protocol.BackendMessage]) -> QueryResult {
-  let mut fields : Array[@protocol.FieldDescription] = []
+  let mut proto_fields : Array[@protocol.FieldDescription] = []
   let rows : Array[Row] = []
   let mut command_tag = ""
 
   for msg in messages {
     match msg {
-      @protocol.RowDescription(f) => fields = f
+      @protocol.RowDescription(f) => proto_fields = f
       @protocol.DataRow(values) => {
-        // Convert raw bytes to typed values
-        let typed_values = convert_row_values(values, fields)
-        rows.push(Row::new(typed_values, fields))
+        // Convert raw bytes to typed values then to public Values
+        let typed_values = convert_row_values(values, proto_fields)
+        let columns = proto_fields.map(fn(fd) { column_info_from_field(fd) })
+        rows.push(Row::new(typed_values, columns))
       }
       @protocol.CommandComplete(tag) => command_tag = tag
       @protocol.EmptyQueryResponse => ()
@@ -164,15 +170,16 @@ fn build_query_result(messages : Array[@protocol.BackendMessage]) -> QueryResult
     }
   }
 
-  QueryResult::new(fields, rows, command_tag)
+  let columns = proto_fields.map(fn(fd) { column_info_from_field(fd) })
+  QueryResult::new(columns, rows, command_tag)
 }
 
 /// Convert raw DataRow values to typed Values
 fn convert_row_values(
   raw_values : Array[Bytes?],
   fields : Array[@protocol.FieldDescription]
-) -> Array[@protocol.Value] {
-  let result : Array[@protocol.Value] = []
+) -> Array[Value] {
+  let result : Array[Value] = []
 
   for i = 0; i < raw_values.length(); i = i + 1 {
     let type_oid = if i < fields.length() {
@@ -180,18 +187,18 @@ fn convert_row_values(
     } else {
       @protocol.OID_TEXT
     }
-    let value = @protocol.parse_text_value(raw_values[i], type_oid)
-    result.push(value)
+    let proto_value = @protocol.parse_text_value(raw_values[i], type_oid)
+    result.push(value_from_protocol(proto_value))
   }
 
   result
 }
 
 /// Serialize parameter values for Bind message
-fn serialize_params(params : Array[@protocol.Value]) -> Array[Bytes?] {
+fn serialize_params(params : Array[Value]) -> Array[Bytes?] {
   let result : Array[Bytes?] = []
   for param in params {
-    result.push(@protocol.serialize_value(param))
+    result.push(@protocol.serialize_value(value_to_protocol(param)))
   }
   result
 }

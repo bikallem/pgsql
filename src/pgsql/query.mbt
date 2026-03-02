@@ -5,7 +5,7 @@
 /// Result of a query execution
 pub struct QueryResult {
   /// Column descriptions
-  fields : Array[@protocol.FieldDescription]
+  fields : Array[ColumnInfo]
   /// Result rows
   rows : Array[Row]
   /// Command tag (e.g., "SELECT 5", "INSERT 0 1")
@@ -15,22 +15,22 @@ pub struct QueryResult {
 /// A single row of query results
 pub struct Row {
   /// Column values
-  values : Array[@protocol.Value]
-  /// Reference to field descriptions
-  fields : Array[@protocol.FieldDescription]
+  values : Array[Value]
+  /// Reference to column info
+  fields : Array[ColumnInfo]
 } derive(Show)
 
 /// Create a new QueryResult
-pub fn QueryResult::new(
-  fields : Array[@protocol.FieldDescription],
+fn QueryResult::new(
+  fields : Array[ColumnInfo],
   rows : Array[Row],
   command_tag : String
 ) -> QueryResult {
   { fields, rows, command_tag }
 }
 
-/// Get field descriptions
-pub fn QueryResult::get_fields(self : QueryResult) -> Array[@protocol.FieldDescription] {
+/// Get column info
+pub fn QueryResult::get_fields(self : QueryResult) -> Array[ColumnInfo] {
   self.fields
 }
 
@@ -73,9 +73,9 @@ pub fn QueryResult::iter(self : QueryResult) -> Iter[Row] {
 // =============================================================================
 
 /// Create a new Row
-pub fn Row::new(
-  values : Array[@protocol.Value],
-  fields : Array[@protocol.FieldDescription]
+fn Row::new(
+  values : Array[Value],
+  fields : Array[ColumnInfo]
 ) -> Row {
   { values, fields }
 }
@@ -86,7 +86,7 @@ pub fn Row::column_count(self : Row) -> Int {
 }
 
 /// Get value at index
-pub fn Row::get(self : Row, index : Int) -> @protocol.Value? {
+pub fn Row::get(self : Row, index : Int) -> Value? {
   if index >= 0 && index < self.values.length() {
     Some(self.values[index])
   } else {
@@ -95,7 +95,7 @@ pub fn Row::get(self : Row, index : Int) -> @protocol.Value? {
 }
 
 /// Get value by column name
-pub fn Row::get_by_name(self : Row, name : String) -> @protocol.Value? {
+pub fn Row::get_by_name(self : Row, name : String) -> Value? {
   for i = 0; i < self.fields.length(); i = i + 1 {
     if self.fields[i].name == name {
       return Some(self.values[i])

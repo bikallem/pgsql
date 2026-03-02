@@ -1,7 +1,7 @@
 import {
   "bikallem/postgresql/pgsql",
-  "bikallem/postgresql/protocol",
   "moonbitlang/async",
+  "moonbitlang/core/env",
 }
 
 options(

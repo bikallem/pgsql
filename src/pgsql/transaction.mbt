@@ -61,7 +61,7 @@ pub async fn Transaction::query(
 pub async fn Transaction::query_params(
   self : Transaction,
   sql : String,
-  params : Array[@protocol.Value]
+  params : Array[Value]
 ) -> QueryResult {
   if not(self.active) {
     raise TxError("Transaction is no longer active")
@@ -84,7 +84,7 @@ pub async fn Transaction::execute(
 pub async fn Transaction::execute_params(
   self : Transaction,
   sql : String,
-  params : Array[@protocol.Value]
+  params : Array[Value]
 ) -> Int {
   if not(self.active) {
     raise TxError("Transaction is no longer active")

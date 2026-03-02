@@ -1,5 +1,5 @@
 import {
-  "bikallem/postgresql/protocol",
+  "bikallem/postgresql/pgsql/protocol",
   "moonbitlang/async/socket",
 }
 
@@ -7,9 +7,16 @@ options(
   targets: {
     "client.mbt": ["native"],
     "config.mbt": ["native"],
+    "config_test.mbt": ["native"],
     "connection.mbt": ["native"],
+    "convert.mbt": ["native"],
+    "convert_wbtest.mbt": ["native"],
     "error.mbt": ["native"],
+    "error_test.mbt": ["native"],
     "query.mbt": ["native"],
+    "query_wbtest.mbt": ["native"],
     "transaction.mbt": ["native"],
+    "value.mbt": ["native"],
+    "value_test.mbt": ["native"],
   },
 )
