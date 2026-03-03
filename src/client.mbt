@@ -9,13 +9,15 @@ pub struct Client {
   conn : Connection
   /// Statement counter for PreparedStatement naming
   mut stmt_counter : Int
+  /// Whether the client connection has been closed
+  mut closed : Bool
 }
 
 ///|
 /// Create a new client by connecting to PostgreSQL
 pub async fn Client::connect(config : Config) -> Client {
   let conn = connect(config)
-  { conn, stmt_counter: 0 }
+  { conn, stmt_counter: 0, closed: false }
 }
 
 ///|
@@ -47,32 +49,12 @@ pub async fn Client::query_params(
   sql : String,
   params : Array[Value],
 ) -> QueryResult {
-  // Parse with unnamed statement ("")
-  self.conn.send(@protocol.Parse("", sql, []))
-
-  // Bind parameters (unnamed portal to unnamed statement)
-  let param_bytes = serialize_params(params)
-  self.conn.send(@protocol.Bind("", "", [], param_bytes, []))
-
-  // Describe (to get result columns)
-  self.conn.send(@protocol.Describe(b'P', ""))
-
-  // Execute
-  self.conn.send(@protocol.Execute("", 0))
-
-  // Sync
-  self.conn.send(@protocol.Sync)
-
-  // Receive all messages
-  let messages = self.conn.receive_until_ready()
-
-  // Check for errors
-  match find_error(messages) {
-    Some(err) => raise ServerError(err)
-    None => ()
-  }
-
-  // Build result
+  // Parse + bind-execute in a single batch
+  let messages = self.bind_execute(
+    "",
+    params,
+    prefix=[@protocol.Parse("", sql, [])],
+  )
   build_query_result(messages)
 }
 
@@ -155,6 +137,7 @@ pub fn Client::get_transaction_status(self : Client) -> TransactionStatus {
 ///|
 /// Close the client connection
 pub async fn Client::close(self : Client) -> Unit {
+  self.closed = true
   self.conn.close()
 }
 
@@ -168,6 +151,43 @@ pub fn Client::get_server_param(self : Client, name : String) -> String? {
 /// Get backend process ID
 pub fn Client::get_process_id(self : Client) -> Int {
   self.conn.process_id
+}
+
+// =============================================================================
+// Internal Helpers
+// =============================================================================
+
+///|
+/// Shared bind-describe-execute-sync sequence used by query_params and
+/// PreparedStatement::query. Sends Bind, Describe(Portal), Execute, and Sync
+/// as a single batched write, receives all messages until ReadyForQuery,
+/// checks for server errors, and returns the messages for result building.
+/// The `prefix` parameter allows prepending messages (e.g. Parse) to the batch.
+async fn Client::bind_execute(
+  self : Client,
+  stmt_name : String,
+  params : Array[Value],
+  prefix~ : Array[@protocol.FrontendMessage] = [],
+) -> Array[@protocol.BackendMessage] {
+  let param_bytes = serialize_params(params)
+  let msgs : Array[@protocol.FrontendMessage] = []
+  for msg in prefix {
+    msgs.push(msg)
+  }
+  msgs.push(@protocol.Bind("", stmt_name, [], param_bytes, []))
+  msgs.push(@protocol.Describe(b'P', ""))
+  msgs.push(@protocol.Execute("", 0))
+  msgs.push(@protocol.Sync)
+  self.conn.send_all(msgs)
+
+  let messages = self.conn.receive_until_ready()
+
+  match find_error(messages) {
+    Some(err) => raise ServerError(err)
+    None => ()
+  }
+
+  messages
 }
 
 // =============================================================================

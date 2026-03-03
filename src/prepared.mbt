@@ -25,28 +25,12 @@ pub async fn PreparedStatement::query(
   if self.closed {
     raise PreparedStmtError("PreparedStatement is closed")
   }
-
-  // Bind parameters (unnamed portal to this named statement)
-  let param_bytes = serialize_params(params)
-  self.client.conn.send(@protocol.Bind("", self.name, [], param_bytes, []))
-
-  // Describe portal to get result columns
-  self.client.conn.send(@protocol.Describe(b'P', ""))
-
-  // Execute
-  self.client.conn.send(@protocol.Execute("", 0))
-
-  // Sync
-  self.client.conn.send(@protocol.Sync)
-
-  // Receive all messages
-  let messages = self.client.conn.receive_until_ready()
-
-  match find_error(messages) {
-    Some(err) => raise ServerError(err)
-    None => ()
+  if self.client.closed {
+    raise PreparedStmtError("Client connection is closed")
   }
 
+  // Delegate to shared bind-execute helper
+  let messages = self.client.bind_execute(self.name, params)
   build_query_result(messages)
 }
 
@@ -69,6 +53,10 @@ pub async fn PreparedStatement::close(self : PreparedStatement) -> Unit {
     return
   }
   self.closed = true
+  if self.client.closed {
+    // Client already closed; server resources are already released.
+    return
+  }
   self.client.conn.send(@protocol.Close(b'S', self.name))
   self.client.conn.send(@protocol.Sync)
   let messages = self.client.conn.receive_until_ready()
