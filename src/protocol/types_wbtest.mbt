@@ -340,3 +340,111 @@ test "parse_float with plus sign" {
   let bytes = Bytes::from_array([b'+', b'1', b'.', b'0'])
   inspect(parse_text_value(Some(bytes), OID_FLOAT8), content="Float(1)")
 }
+
+// =============================================================================
+// Edge case tests for parsing (#31)
+// =============================================================================
+
+///|
+test "parse_bool unrecognized falls back to String" {
+  let bytes = Bytes::from_array([b'y', b'e', b's'])
+  inspect(
+    parse_text_value(Some(bytes), OID_BOOL),
+    content=(
+      #|String("yes")
+    ),
+  )
+}
+
+///|
+test "parse_int overflow falls back to String" {
+  // 9999999999 overflows Int (max ~2.1B)
+  let bytes = Bytes::from_array([
+    b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9',
+  ])
+  inspect(
+    parse_text_value(Some(bytes), OID_INT4),
+    content=(
+      #|String("9999999999")
+    ),
+  )
+}
+
+///|
+test "parse_int64 overflow falls back to String" {
+  // 99999999999999999999 overflows Int64 (max ~9.2e18)
+  let bytes = Bytes::from_array([
+    b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9',
+    b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9',
+  ])
+  inspect(
+    parse_text_value(Some(bytes), OID_INT8),
+    content=(
+      #|String("99999999999999999999")
+    ),
+  )
+}
+
+///|
+test "parse_int invalid char falls back to String" {
+  let bytes = Bytes::from_array([b'1', b'2', b'a'])
+  inspect(
+    parse_text_value(Some(bytes), OID_INT4),
+    content=(
+      #|String("12a")
+    ),
+  )
+}
+
+///|
+test "parse_float NaN" {
+  let bytes = Bytes::from_array([b'N', b'a', b'N'])
+  match parse_text_value(Some(bytes), OID_FLOAT8) {
+    Float(n) => assert_true(n != n) // NaN != NaN is true
+    _ => fail("Expected Float(NaN)")
+  }
+}
+
+///|
+test "parse_float Infinity" {
+  let bytes = Bytes::from_array([
+    b'I', b'n', b'f', b'i', b'n', b'i', b't', b'y',
+  ])
+  match parse_text_value(Some(bytes), OID_FLOAT8) {
+    Float(n) => assert_true(n > 1.0e300)
+    _ => fail("Expected Float(Infinity)")
+  }
+}
+
+///|
+test "parse_float -Infinity" {
+  let bytes = Bytes::from_array([
+    b'-', b'I', b'n', b'f', b'i', b'n', b'i', b't', b'y',
+  ])
+  match parse_text_value(Some(bytes), OID_FLOAT8) {
+    Float(n) => assert_true(n < -1.0e300)
+    _ => fail("Expected Float(-Infinity)")
+  }
+}
+
+///|
+test "parse_int empty string falls back to String" {
+  let bytes = Bytes::from_array([])
+  inspect(
+    parse_text_value(Some(bytes), OID_INT4),
+    content=(
+      #|String("")
+    ),
+  )
+}
+
+///|
+test "parse_float empty string falls back to String" {
+  let bytes = Bytes::from_array([])
+  inspect(
+    parse_text_value(Some(bytes), OID_FLOAT8),
+    content=(
+      #|String("")
+    ),
+  )
+}
