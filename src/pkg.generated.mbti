@@ -28,11 +28,7 @@ pub suberror TxError {
 pub impl Show for TxError
 
 // Types and methods
-pub struct Client {
-  conn : Connection
-  mut stmt_counter : Int
-  mut closed : Bool
-}
+type Client
 pub async fn Client::begin(Self) -> Unit
 pub async fn Client::close(Self) -> Unit
 pub async fn Client::commit(Self) -> Unit
@@ -49,11 +45,7 @@ pub async fn Client::query_params(Self, String, Array[Value]) -> QueryResult
 pub async fn Client::rollback(Self) -> Unit
 pub async fn[T] Client::transaction(Self, async (Transaction) -> T) -> T
 
-pub struct ColumnInfo {
-  name : String
-  type_oid : UInt
-  type_size : Int
-}
+type ColumnInfo
 pub fn ColumnInfo::get_name(Self) -> String
 pub fn ColumnInfo::get_type_oid(Self) -> UInt
 pub fn ColumnInfo::get_type_size(Self) -> Int
@@ -61,14 +53,7 @@ pub fn ColumnInfo::new(String, UInt, Int) -> Self
 pub impl Eq for ColumnInfo
 pub impl Show for ColumnInfo
 
-pub struct Config {
-  host : String
-  port : Int
-  user : String
-  password : String
-  database : String
-  ssl_mode : SslMode
-}
+type Config
 pub fn Config::get_database(Self) -> String
 pub fn Config::get_host(Self) -> String
 pub fn Config::get_password(Self) -> String
@@ -88,11 +73,7 @@ pub fn PreparedStatement::get_sql(Self) -> String
 pub fn PreparedStatement::is_closed(Self) -> Bool
 pub async fn PreparedStatement::query(Self, Array[Value]) -> QueryResult
 
-pub struct QueryResult {
-  fields : Array[ColumnInfo]
-  rows : Array[Row]
-  command_tag : String
-}
+type QueryResult
 pub fn QueryResult::column_count(Self) -> Int
 pub fn QueryResult::get_command_tag(Self) -> String
 pub fn QueryResult::get_fields(Self) -> Array[ColumnInfo]
@@ -102,11 +83,7 @@ pub fn QueryResult::iter(Self) -> Iter[Row]
 pub fn QueryResult::row_count(Self) -> Int
 pub impl Show for QueryResult
 
-pub struct Row {
-  values : Array[Value]
-  fields : Array[ColumnInfo]
-  column_index : Map[String, Int]
-}
+type Row
 pub fn Row::column_count(Self) -> Int
 pub fn Row::get(Self, Int) -> Value?
 pub fn Row::get_bool(Self, Int) -> Bool?
@@ -141,10 +118,7 @@ pub(all) enum SslMode {
 pub impl Eq for SslMode
 pub impl Show for SslMode
 
-pub struct Transaction {
-  client : Client
-  mut active : Bool
-}
+type Transaction
 pub async fn Transaction::commit(Self) -> Unit
 pub async fn Transaction::execute(Self, String) -> Int
 pub async fn Transaction::execute_params(Self, String, Array[Value]) -> Int

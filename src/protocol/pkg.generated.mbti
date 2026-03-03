@@ -115,24 +115,15 @@ pub fn BufferWriter::length(Self) -> Int
 pub fn BufferWriter::new(capacity? : Int) -> Self
 pub fn BufferWriter::to_bytes(Self) -> Bytes
 
-pub struct Decoder {
-  mut buffer : Array[Byte]
-}
-pub fn Decoder::clear(Self) -> Unit
-pub fn Decoder::has_pending(Self) -> Bool
+type Decoder
 pub fn Decoder::new() -> Self
 pub fn Decoder::parse(Self, Bytes) -> Array[BackendMessage]
 
-pub struct FieldDescription {
-  name : String
-  table_oid : UInt
-  column_id : Int
-  type_oid : UInt
-  type_size : Int
-  type_modifier : Int
-  format : FormatCode
-}
+type FieldDescription
+pub fn FieldDescription::name(Self) -> String
 pub fn FieldDescription::new(String, UInt, Int, UInt, Int, Int, FormatCode) -> Self
+pub fn FieldDescription::type_oid(Self) -> UInt
+pub fn FieldDescription::type_size(Self) -> Int
 pub impl Show for FieldDescription
 
 pub(all) enum FormatCode {
