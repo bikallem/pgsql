@@ -1,17 +1,19 @@
 ///|
 /// Integration Tests
 ///
-/// Requires a running PostgreSQL instance at 127.0.0.1:5432
-/// with user/password/database = postgres/postgres/postgres.
+/// Requires the dedicated test PostgreSQL instance at 127.0.0.1:5433
+/// with SCRAM-SHA-256 auth and self-signed TLS.
 ///
-/// Run with: moon test --target native src/tests/
+/// Start with: ./src/tests/setup-pg.sh start
+/// Run with:   moon test --target native src/tests/
 fn get_config() -> @pgsql.Config {
   @pgsql.Config::new(
     "postgres",
     "postgres",
     "postgres",
     host="127.0.0.1",
-    port=5432,
+    port=5433,
+    ssl_mode=Require,
   )
 }
 
@@ -414,5 +416,41 @@ async test "error handling: constraint violation" {
   assert_true(got_error)
 
   let _ = client.execute("DROP TABLE test_constraint")
+  client.close()
+}
+
+///|
+async test "auth error: wrong password" {
+  let bad_config = @pgsql.Config::new(
+    "postgres",
+    "wrong_password",
+    "postgres",
+    host="127.0.0.1",
+    port=5433,
+    ssl_mode=Require,
+  )
+  let mut got_auth_error = false
+  try {
+    let _ = @pgsql.Client::connect(bad_config)
+  } catch {
+    @pgsql.AuthError(_) => got_auth_error = true
+    _ => ()
+  }
+  assert_true(got_auth_error)
+}
+
+///|
+async test "connect with ssl_mode=Disable (plain SCRAM)" {
+  let plain_config = @pgsql.Config::new(
+    "postgres",
+    "postgres",
+    "postgres",
+    host="127.0.0.1",
+    port=5433,
+    ssl_mode=Disable,
+  )
+  let client = @pgsql.Client::connect(plain_config)
+  let result = client.query("SELECT 1 AS val")
+  assert_eq(result.get_row(0).unwrap().get_int(0), Some(1))
   client.close()
 }

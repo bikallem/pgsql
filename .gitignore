@@ -20,4 +20,5 @@ objects
 refs
 .claude
 .postgres
+src/tests/.postgres
 .direnv
