@@ -195,16 +195,18 @@ fn build_query_result(
   messages : Array[@protocol.BackendMessage],
 ) -> QueryResult {
   let mut proto_fields : Array[@protocol.FieldDescription] = []
+  let mut columns : Array[ColumnInfo] = []
   let rows : Array[Row] = []
   let mut command_tag = ""
 
   for msg in messages {
     match msg {
-      @protocol.RowDescription(f) => proto_fields = f
+      @protocol.RowDescription(f) => {
+        proto_fields = f
+        columns = proto_fields.map(fn(fd) { column_info_from_field(fd) })
+      }
       @protocol.DataRow(values) => {
-        // Convert raw bytes to typed values then to public Values
         let typed_values = convert_row_values(values, proto_fields)
-        let columns = proto_fields.map(fn(fd) { column_info_from_field(fd) })
         rows.push(Row::new(typed_values, columns))
       }
       @protocol.CommandComplete(tag) => command_tag = tag
@@ -213,7 +215,6 @@ fn build_query_result(
     }
   }
 
-  let columns = proto_fields.map(fn(fd) { column_info_from_field(fd) })
   QueryResult::new(columns, rows, command_tag)
 }
 
