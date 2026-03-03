@@ -6,6 +6,7 @@ Native-only. Requires `moonbitlang/async` for async I/O.
 
 - [Install](#install)
 - [Usage](#usage)
+  - [Value Types](#value-types)
   - [Prepared Statements](#prepared-statements)
   - [Transactions](#transactions)
 - [Development](#development)
@@ -42,6 +43,25 @@ async test "simple and parameterized queries" {
   client.close()
 }
 ```
+
+### Value Types
+
+Parameters and results use the `Value` enum:
+
+| Variant | MoonBit Type | PostgreSQL Types |
+|---------|-------------|-----------------|
+| `Null` | — | NULL |
+| `Bool(Bool)` | `Bool` | BOOLEAN |
+| `Int(Int)` | `Int` | SMALLINT, INTEGER |
+| `Int64(Int64)` | `Int64` | BIGINT |
+| `Float(Double)` | `Double` | REAL, DOUBLE PRECISION, NUMERIC |
+| `String(String)` | `String` | TEXT, VARCHAR, CHAR, and all other types |
+| `Bytes(Bytes)` | `Bytes` | BYTEA |
+
+Row accessors: `get_int(i)`, `get_int64(i)`, `get_float(i)`, `get_bool(i)`,
+`get_string(i)`, `get_by_name(name)`, `is_null(i)`.
+
+Note: `COUNT(*)` returns BIGINT, so use `get_int64()` not `get_int()`.
 
 ### Prepared Statements
 
