@@ -44,6 +44,13 @@ pub fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
       (self.buffer[offset + 3].to_int() << 8) |
       self.buffer[offset + 4].to_int()
 
+    // Validate message length (includes itself, so minimum is 4; cap at 1GB)
+    if len < 4 || len > 1073741824 {
+      // Malformed message: skip past header and continue
+      offset += HEADER_SIZE
+      continue
+    }
+
     let total_len = 1 + len // code + length field + payload
 
     // Check if we have the complete message
@@ -58,9 +65,13 @@ pub fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
     }
     let msg_bytes = Bytes::from_array(msg_arr)
 
-    // Parse the message
-    let msg = parse_message(code, msg_bytes)
-    messages.push(msg)
+    // Parse the message, skip on buffer underflow
+    try {
+      let msg = parse_message(code, msg_bytes)
+      messages.push(msg)
+    } catch {
+      BufferUnderflow(_) => () // Skip malformed message
+    }
 
     offset += total_len
   }
@@ -95,7 +106,7 @@ pub fn Decoder::has_pending(self : Decoder) -> Bool {
 
 ///|
 /// Parse a single message given its type code and payload
-fn parse_message(code : Byte, data : Bytes) -> BackendMessage {
+fn parse_message(code : Byte, data : Bytes) -> BackendMessage raise BufferUnderflow {
   let reader = BufferReader::new(data)
 
   // Use byte literals directly for comparison
@@ -174,7 +185,7 @@ fn parse_message(code : Byte, data : Bytes) -> BackendMessage {
 
 ///|
 /// Parse Authentication message
-fn parse_authentication(reader : BufferReader) -> BackendMessage {
+fn parse_authentication(reader : BufferReader) -> BackendMessage raise BufferUnderflow {
   let auth_type = reader.int32()
 
   if auth_type == 0 {
@@ -216,7 +227,7 @@ fn parse_authentication(reader : BufferReader) -> BackendMessage {
 
 ///|
 /// Parse BackendKeyData message
-fn parse_backend_key_data(reader : BufferReader) -> BackendMessage {
+fn parse_backend_key_data(reader : BufferReader) -> BackendMessage raise BufferUnderflow {
   let process_id = reader.int32()
   let secret_key = reader.int32()
   BackendKeyData(process_id, secret_key)
@@ -232,7 +243,7 @@ fn parse_parameter_status(reader : BufferReader) -> BackendMessage {
 
 ///|
 /// Parse ReadyForQuery message
-fn parse_ready_for_query(reader : BufferReader) -> BackendMessage {
+fn parse_ready_for_query(reader : BufferReader) -> BackendMessage raise BufferUnderflow {
   let status_byte = reader.byte()
   let status = if status_byte == b'I' {
     Idle
@@ -246,7 +257,7 @@ fn parse_ready_for_query(reader : BufferReader) -> BackendMessage {
 
 ///|
 /// Parse RowDescription message
-fn parse_row_description(reader : BufferReader) -> BackendMessage {
+fn parse_row_description(reader : BufferReader) -> BackendMessage raise BufferUnderflow {
   let field_count = reader.int16()
   let fields : Array[FieldDescription] = Array::new(capacity=field_count)
 
@@ -272,7 +283,7 @@ fn parse_row_description(reader : BufferReader) -> BackendMessage {
 
 ///|
 /// Parse DataRow message
-fn parse_data_row(reader : BufferReader) -> BackendMessage {
+fn parse_data_row(reader : BufferReader) -> BackendMessage raise BufferUnderflow {
   let column_count = reader.int16()
   let values : Array[Bytes?] = Array::new(capacity=column_count)
 
@@ -300,7 +311,7 @@ fn parse_command_complete(reader : BufferReader) -> BackendMessage {
 fn parse_error_or_notice(
   reader : BufferReader,
   is_error~ : Bool,
-) -> BackendMessage {
+) -> BackendMessage raise BufferUnderflow {
   let fields : Map[String, String] = {}
 
   while reader.remaining() > 0 {
@@ -323,7 +334,7 @@ fn parse_error_or_notice(
 
 ///|
 /// Parse ParameterDescription message
-fn parse_parameter_description(reader : BufferReader) -> BackendMessage {
+fn parse_parameter_description(reader : BufferReader) -> BackendMessage raise BufferUnderflow {
   let param_count = reader.int16()
   let type_oids : Array[UInt] = Array::new(capacity=param_count)
 
@@ -336,7 +347,7 @@ fn parse_parameter_description(reader : BufferReader) -> BackendMessage {
 
 ///|
 /// Parse NotificationResponse message
-fn parse_notification(reader : BufferReader) -> BackendMessage {
+fn parse_notification(reader : BufferReader) -> BackendMessage raise BufferUnderflow {
   let process_id = reader.int32()
   let channel = reader.cstring()
   let payload = reader.cstring()
@@ -345,7 +356,7 @@ fn parse_notification(reader : BufferReader) -> BackendMessage {
 
 ///|
 /// Parse CopyInResponse or CopyOutResponse message
-fn parse_copy_response(reader : BufferReader, is_in~ : Bool) -> BackendMessage {
+fn parse_copy_response(reader : BufferReader, is_in~ : Bool) -> BackendMessage raise BufferUnderflow {
   let format_byte = reader.byte()
   let overall_format = if format_byte == b'\x00' { Text } else { Binary }
 
