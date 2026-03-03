@@ -260,10 +260,7 @@ test "convert_row_values null column" {
     @protocol.FieldDescription::new("a", 0, 0, 25, -1, -1, @protocol.Text),
     @protocol.FieldDescription::new("b", 0, 0, 23, 4, -1, @protocol.Text),
   ]
-  let raw : Array[Bytes?] = [
-    None,
-    Some(Bytes::from_array([b'4', b'2'])),
-  ]
+  let raw : Array[Bytes?] = [None, Some(Bytes::from_array([b'4', b'2']))]
   let values = convert_row_values(raw, fields)
   inspect(values[0], content="Null")
   inspect(values[1], content="Int(42)")
@@ -271,12 +268,7 @@ test "convert_row_values null column" {
 
 ///|
 test "serialize_params mixed types" {
-  let params : Array[Value] = [
-    Int(42),
-    String("hello"),
-    Null,
-    Bool(true),
-  ]
+  let params : Array[Value] = [Int(42), String("hello"), Null, Bool(true)]
   let result = serialize_params(params)
   inspect(result.length(), content="4")
   inspect(result[2], content="None") // Null serializes to None
@@ -314,4 +306,3 @@ test "quote_identifier" {
     ),
   )
 }
-

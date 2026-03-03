@@ -45,9 +45,7 @@ pub fn BufferReader::position(self : BufferReader) -> Int {
 
 ///|
 /// Read a single byte
-pub fn BufferReader::byte(
-  self : BufferReader,
-) -> Byte raise BufferUnderflow {
+pub fn BufferReader::byte(self : BufferReader) -> Byte raise BufferUnderflow {
   guard self.remaining() >= 1 else {
     raise BufferUnderflow(
       "byte: need 1 byte but only \{self.remaining()} remaining",
@@ -60,9 +58,7 @@ pub fn BufferReader::byte(
 
 ///|
 /// Read a 16-bit signed integer in big-endian format
-pub fn BufferReader::int16(
-  self : BufferReader,
-) -> Int raise BufferUnderflow {
+pub fn BufferReader::int16(self : BufferReader) -> Int raise BufferUnderflow {
   guard self.remaining() >= 2 else {
     raise BufferUnderflow(
       "int16: need 2 bytes but only \{self.remaining()} remaining",
@@ -91,9 +87,7 @@ pub fn BufferReader::uint16(self : BufferReader) -> Int {
 
 ///|
 /// Read a 32-bit signed integer in big-endian format
-pub fn BufferReader::int32(
-  self : BufferReader,
-) -> Int raise BufferUnderflow {
+pub fn BufferReader::int32(self : BufferReader) -> Int raise BufferUnderflow {
   guard self.remaining() >= 4 else {
     raise BufferUnderflow(
       "int32: need 4 bytes but only \{self.remaining()} remaining",
@@ -109,9 +103,7 @@ pub fn BufferReader::int32(
 
 ///|
 /// Read a 32-bit unsigned integer in big-endian format
-pub fn BufferReader::uint32(
-  self : BufferReader,
-) -> UInt raise BufferUnderflow {
+pub fn BufferReader::uint32(self : BufferReader) -> UInt raise BufferUnderflow {
   guard self.remaining() >= 4 else {
     raise BufferUnderflow(
       "uint32: need 4 bytes but only \{self.remaining()} remaining",

@@ -60,11 +60,9 @@ pub async fn Client::query_params(
 ) -> QueryResult {
   self.check_open()
   // Parse + bind-execute in a single batch
-  let messages = self.bind_execute(
-    "",
-    params,
-    prefix=[@protocol.Parse("", sql, [])],
-  )
+  let messages = self.bind_execute("", params, prefix=[
+    @protocol.Parse("", sql, []),
+  ])
   build_query_result(messages)
 }
 
@@ -178,7 +176,7 @@ async fn Client::bind_execute(
   self : Client,
   stmt_name : String,
   params : Array[Value],
-  prefix~ : Array[@protocol.FrontendMessage] = [],
+  prefix? : Array[@protocol.FrontendMessage] = [],
 ) -> Array[@protocol.BackendMessage] {
   let param_bytes = serialize_params(params)
   let msgs : Array[@protocol.FrontendMessage] = []

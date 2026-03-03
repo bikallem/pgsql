@@ -13,9 +13,11 @@ test "Show for AuthError" {
 
 ///|
 test "Show for ServerError" {
-  let info = ServerErrorInfo::from_fields(
-    { "S": "ERROR", "C": "42P01", "M": "relation missing" },
-  )
+  let info = ServerErrorInfo::from_fields({
+    "S": "ERROR",
+    "C": "42P01",
+    "M": "relation missing",
+  })
   let err = ServerError(info)
   inspect(err, content="ServerError: [42P01] relation missing")
 }

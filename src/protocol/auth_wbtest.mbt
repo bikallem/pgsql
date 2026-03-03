@@ -71,7 +71,10 @@ test "md5_password known PostgreSQL value" {
   assert_true(result[:3] == "md5")
   // Verify step 1 independently
   let inner = md5(string_to_bytes("secretpostgres"))
-  inspect(bytes_to_hex(inner), content=(
-    #|53f48b7c4b76a86ce72276c5755f217d
-  ))
+  inspect(
+    bytes_to_hex(inner),
+    content=(
+      #|53f48b7c4b76a86ce72276c5755f217d
+    ),
+  )
 }

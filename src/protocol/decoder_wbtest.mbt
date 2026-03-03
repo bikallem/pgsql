@@ -445,9 +445,8 @@ test "decode_parameter_description" {
 ///|
 test "decode_malformed_length_too_small" {
   // Message with length < 4 (invalid: length includes itself, minimum is 4)
-  let data = Bytes::from_array([
-    b'Z', b'\x00', b'\x00', b'\x00', b'\x02', b'I', // len=2, invalid
-  ])
+  let data = Bytes::from_array([b'Z', b'\x00', b'\x00', b'\x00', b'\x02', b'I'], // len=2, invalid
+  )
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
   // Should skip the malformed message
@@ -467,9 +466,8 @@ test "decode_truncated_header" {
 ///|
 test "decode_truncated_payload" {
   // Header says 5 bytes payload but only 2 provided
-  let data = Bytes::from_array([
-    b'Z', b'\x00', b'\x00', b'\x00', b'\x05', // len=5, needs 1 more byte
-  ])
+  let data = Bytes::from_array([b'Z', b'\x00', b'\x00', b'\x00', b'\x05'], // len=5, needs 1 more byte
+  )
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
   inspect(messages.length(), content="0")
@@ -479,9 +477,7 @@ test "decode_truncated_payload" {
 ///|
 test "decode_unknown_message_type" {
   // Unknown type code 0xFF, minimal valid message (length 4)
-  let data = Bytes::from_array([
-    b'\xFF', b'\x00', b'\x00', b'\x00', b'\x04',
-  ])
+  let data = Bytes::from_array([b'\xFF', b'\x00', b'\x00', b'\x00', b'\x04'])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
   inspect(messages.length(), content="1")
@@ -553,7 +549,8 @@ test "decode_authentication_sasl_continue" {
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
   match messages[0] {
-    AuthenticationSASLContinue(payload) => inspect(payload.length(), content="4")
+    AuthenticationSASLContinue(payload) =>
+      inspect(payload.length(), content="4")
     _ => fail("Expected AuthenticationSASLContinue")
   }
 }

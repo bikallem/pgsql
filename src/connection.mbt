@@ -126,9 +126,7 @@ fn Connection::get_server_param(self : Connection, name : String) -> String? {
 ///|
 /// Close the connection, sending Terminate message first
 async fn Connection::close(self : Connection) -> Unit {
-  try {
-    self.send(@protocol.Terminate)
-  } catch {
+  self.send(@protocol.Terminate) catch {
     _ => () // Best effort — socket may already be broken
   }
   self.socket.close()

@@ -374,8 +374,8 @@ test "parse_int overflow falls back to String" {
 test "parse_int64 overflow falls back to String" {
   // 99999999999999999999 overflows Int64 (max ~9.2e18)
   let bytes = Bytes::from_array([
-    b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9',
-    b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9',
+    b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9', b'9',
+    b'9', b'9', b'9', b'9', b'9', b'9', b'9',
   ])
   inspect(
     parse_text_value(Some(bytes), OID_INT8),
@@ -407,9 +407,7 @@ test "parse_float NaN" {
 
 ///|
 test "parse_float Infinity" {
-  let bytes = Bytes::from_array([
-    b'I', b'n', b'f', b'i', b'n', b'i', b't', b'y',
-  ])
+  let bytes = Bytes::from_array([b'I', b'n', b'f', b'i', b'n', b'i', b't', b'y'])
   match parse_text_value(Some(bytes), OID_FLOAT8) {
     Float(n) => assert_true(n > 1.0e300)
     _ => fail("Expected Float(Infinity)")

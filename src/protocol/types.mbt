@@ -176,7 +176,8 @@ fn parse_text_value_inner(text : String, type_oid : UInt) -> Value {
     parse_int(text)
   } else if type_oid == OID_INT8 {
     parse_int64(text)
-  } else if type_oid == OID_FLOAT4 || type_oid == OID_FLOAT8 ||
+  } else if type_oid == OID_FLOAT4 ||
+    type_oid == OID_FLOAT8 ||
     type_oid == OID_NUMERIC {
     parse_float(text)
   } else if type_oid == OID_BYTEA {
@@ -371,7 +372,6 @@ fn substring_from(s : String, start : Int) -> String {
   }
   String::from_array(chars)
 }
-
 
 ///|
 /// Decode hex string to bytes
