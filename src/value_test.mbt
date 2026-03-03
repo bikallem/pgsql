@@ -116,9 +116,9 @@ test "Value::equality" {
 ///|
 test "ColumnInfo::getters" {
   let col = @pgsql.ColumnInfo::new("id", 23, 4)
-  inspect(col.get_name(), content="id")
-  inspect(col.get_type_oid(), content="23")
-  inspect(col.get_type_size(), content="4")
+  inspect(col.name(), content="id")
+  inspect(col.type_oid(), content="23")
+  inspect(col.type_size(), content="4")
 }
 
 ///|

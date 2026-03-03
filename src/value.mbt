@@ -114,20 +114,20 @@ pub fn ColumnInfo::new(
 }
 
 ///|
-/// Get column name
-pub fn ColumnInfo::get_name(self : ColumnInfo) -> String {
+/// Column name
+pub fn ColumnInfo::name(self : ColumnInfo) -> String {
   self.name
 }
 
 ///|
-/// Get type OID
-pub fn ColumnInfo::get_type_oid(self : ColumnInfo) -> UInt {
+/// Type OID
+pub fn ColumnInfo::type_oid(self : ColumnInfo) -> UInt {
   self.type_oid
 }
 
 ///|
-/// Get type size
-pub fn ColumnInfo::get_type_size(self : ColumnInfo) -> Int {
+/// Type size
+pub fn ColumnInfo::type_size(self : ColumnInfo) -> Int {
   self.type_size
 }
 

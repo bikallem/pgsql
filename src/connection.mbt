@@ -115,8 +115,8 @@ fn find_error(messages : Array[@protocol.BackendMessage]) -> ServerErrorInfo? {
 }
 
 ///|
-/// Get server parameter
-fn Connection::get_server_param(self : Connection, name : String) -> String? {
+/// Server parameter
+fn Connection::server_param(self : Connection, name : String) -> String? {
   self.server_params.get(name)
 }
 

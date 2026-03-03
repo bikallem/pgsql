@@ -22,7 +22,7 @@ async test "connect and query version" {
   let client = @pgsql.Client::connect(get_config())
   let result = client.query("SELECT version()")
   assert_true(result.row_count() > 0)
-  let version = result.get_row(0).unwrap().get_string(0).unwrap()
+  let version = result.row(0).unwrap().string(0).unwrap()
   assert_true(version.contains("PostgreSQL"))
   client.close()
 }
@@ -54,9 +54,9 @@ async test "full CRUD lifecycle" {
     "SELECT id, name, value FROM test_crud ORDER BY name",
   )
   assert_eq(result.row_count(), 2)
-  assert_eq(result.get_row(0).unwrap().get_string(1), Some("Alice"))
-  assert_eq(result.get_row(1).unwrap().get_string(1), Some("Bob"))
-  assert_eq(result.get_row(0).unwrap().get_int(2), Some(42))
+  assert_eq(result.row(0).unwrap().string(1), Some("Alice"))
+  assert_eq(result.row(1).unwrap().string(1), Some("Bob"))
+  assert_eq(result.row(0).unwrap().int(2), Some(42))
 
   // Update
   let affected = client.execute_params(
@@ -70,7 +70,7 @@ async test "full CRUD lifecycle" {
     "SELECT value FROM test_crud WHERE name = $1",
     [@pgsql.String("Alice")],
   )
-  assert_eq(result2.get_row(0).unwrap().get_int(0), Some(100))
+  assert_eq(result2.row(0).unwrap().int(0), Some(100))
 
   // Delete
   let deleted = client.execute_params("DELETE FROM test_crud WHERE name = $1", [
@@ -80,7 +80,7 @@ async test "full CRUD lifecycle" {
 
   // Verify delete
   let result3 = client.query("SELECT COUNT(*) FROM test_crud")
-  assert_eq(result3.get_row(0).unwrap().get_int64(0), Some(1L))
+  assert_eq(result3.row(0).unwrap().int64(0), Some(1L))
 
   // Drop table
   let _ = client.execute("DROP TABLE test_crud")
@@ -104,7 +104,7 @@ async test "transaction commit" {
 
   let result = client.query("SELECT val FROM test_tx")
   assert_eq(result.row_count(), 1)
-  assert_eq(result.get_row(0).unwrap().get_string(0), Some("committed"))
+  assert_eq(result.row(0).unwrap().string(0), Some("committed"))
 
   let _ = client.execute("DROP TABLE test_tx")
   client.close()
@@ -140,7 +140,7 @@ async test "transaction rollback on error" {
   // Only the pre-transaction row should remain
   let result = client.query("SELECT val FROM test_tx_rb ORDER BY id")
   assert_eq(result.row_count(), 1)
-  assert_eq(result.get_row(0).unwrap().get_string(0), Some("before"))
+  assert_eq(result.row(0).unwrap().string(0), Some("before"))
 
   let _ = client.execute("DROP TABLE test_tx_rb")
   client.close()
@@ -167,16 +167,16 @@ async test "parameterized queries with all Value types" {
   )
 
   let result = client.query("SELECT b, i, bi, f, t, n FROM test_types")
-  let row = result.get_row(0).unwrap()
-  assert_eq(row.get_bool(0), Some(true))
-  assert_eq(row.get_int(1), Some(42))
-  assert_eq(row.get_int64(2), Some(9999999999L))
+  let row = result.row(0).unwrap()
+  assert_eq(row.bool(0), Some(true))
+  assert_eq(row.int(1), Some(42))
+  assert_eq(row.int64(2), Some(9999999999L))
   // Float comparison with tolerance
-  match row.get_float(3) {
+  match row.float(3) {
     Some(f) => assert_true(f > 3.13 && f < 3.15)
     None => fail("Expected float value")
   }
-  assert_eq(row.get_string(4), Some("hello"))
+  assert_eq(row.string(4), Some("hello"))
   assert_true(row.is_null(5))
 
   let _ = client.execute("DROP TABLE test_types")
@@ -195,7 +195,7 @@ async test "error handling: invalid SQL" {
   assert_true(got_error)
   // Client should still be usable after error
   let result = client.query("SELECT 1 AS val")
-  assert_eq(result.get_row(0).unwrap().get_int(0), Some(1))
+  assert_eq(result.row(0).unwrap().int(0), Some(1))
   client.close()
 }
 
@@ -224,8 +224,8 @@ async test "prepared statement: insert and select" {
   )
   let result = select_stmt.query([@pgsql.Int(15)])
   assert_eq(result.row_count(), 2)
-  assert_eq(result.get_row(0).unwrap().get_string(0), Some("Bob"))
-  assert_eq(result.get_row(1).unwrap().get_string(0), Some("Carol"))
+  assert_eq(result.row(0).unwrap().string(0), Some("Bob"))
+  assert_eq(result.row(1).unwrap().string(0), Some("Carol"))
   select_stmt.close()
 
   let _ = client.execute("DROP TABLE test_prep")
@@ -281,8 +281,8 @@ async test "prepared statement: inside transaction" {
 
   let result = client.query("SELECT val FROM test_prep_tx ORDER BY id")
   assert_eq(result.row_count(), 2)
-  assert_eq(result.get_row(0).unwrap().get_string(0), Some("tx_row1"))
-  assert_eq(result.get_row(1).unwrap().get_string(0), Some("tx_row2"))
+  assert_eq(result.row(0).unwrap().string(0), Some("tx_row1"))
+  assert_eq(result.row(1).unwrap().string(0), Some("tx_row2"))
 
   let _ = client.execute("DROP TABLE test_prep_tx")
   client.close()
@@ -306,7 +306,7 @@ async test "unnamed statement regression: many parameterized queries" {
   }
 
   let result = client.query("SELECT COUNT(*) FROM test_unnamed")
-  assert_eq(result.get_row(0).unwrap().get_int64(0), Some(100L))
+  assert_eq(result.row(0).unwrap().int64(0), Some(100L))
 
   let _ = client.execute("DROP TABLE test_unnamed")
   client.close()
@@ -342,8 +342,8 @@ async test "savepoint: commit through savepoint" {
 
   let result = client.query("SELECT val FROM test_sp ORDER BY id")
   assert_eq(result.row_count(), 2)
-  assert_eq(result.get_row(0).unwrap().get_string(0), Some("before_sp"))
-  assert_eq(result.get_row(1).unwrap().get_string(0), Some("after_rollback"))
+  assert_eq(result.row(0).unwrap().string(0), Some("before_sp"))
+  assert_eq(result.row(1).unwrap().string(0), Some("after_rollback"))
 
   let _ = client.execute("DROP TABLE test_sp")
   client.close()
@@ -376,7 +376,7 @@ async test "client: query after close raises error" {
   let client = @pgsql.Client::connect(get_config())
   // Verify the connection works
   let result = client.query("SELECT 1 AS val")
-  assert_eq(result.get_row(0).unwrap().get_int(0), Some(1))
+  assert_eq(result.row(0).unwrap().int(0), Some(1))
 
   client.close()
 
@@ -451,6 +451,6 @@ async test "connect with ssl_mode=Disable (plain SCRAM)" {
   )
   let client = @pgsql.Client::connect(plain_config)
   let result = client.query("SELECT 1 AS val")
-  assert_eq(result.get_row(0).unwrap().get_int(0), Some(1))
+  assert_eq(result.row(0).unwrap().int(0), Some(1))
   client.close()
 }

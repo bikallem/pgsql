@@ -28,8 +28,8 @@ async test "simple and parameterized queries" {
   // Simple query
   let result = client.query("SELECT id, name FROM users")
   for row in result.iter() {
-    let id = row.get_int(0).unwrap()
-    let name = row.get_string(1).unwrap()
+    let id = row.int(0).unwrap()
+    let name = row.string(1).unwrap()
     println("\{id}: \{name}")
   }
 
@@ -58,10 +58,10 @@ Parameters and results use the `Value` enum:
 | `String(String)` | `String` | TEXT, VARCHAR, CHAR, and all other types |
 | `Bytes(Bytes)` | `Bytes` | BYTEA |
 
-Row accessors: `get_int(i)`, `get_int64(i)`, `get_float(i)`, `get_bool(i)`,
-`get_string(i)`, `get_by_name(name)`, `is_null(i)`.
+Row accessors: `int(i)`, `int64(i)`, `float(i)`, `bool(i)`,
+`string(i)`, `by_name(name)`, `is_null(i)`.
 
-Note: `COUNT(*)` returns BIGINT, so use `get_int64()` not `get_int()`.
+Note: `COUNT(*)` returns BIGINT, so use `int64()` not `int()`.
 
 ### Prepared Statements
 

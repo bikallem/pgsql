@@ -73,13 +73,13 @@ pub fn PreparedStatement::is_closed(self : PreparedStatement) -> Bool {
 }
 
 ///|
-/// Get the server-side statement name.
-pub fn PreparedStatement::get_name(self : PreparedStatement) -> String {
+/// Server-side statement name.
+pub fn PreparedStatement::name(self : PreparedStatement) -> String {
   self.name
 }
 
 ///|
-/// Get the original SQL string.
-pub fn PreparedStatement::get_sql(self : PreparedStatement) -> String {
+/// Original SQL string.
+pub fn PreparedStatement::sql(self : PreparedStatement) -> String {
   self.sql
 }

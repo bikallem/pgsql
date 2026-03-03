@@ -74,10 +74,10 @@ test "QueryResult accessors" {
   let result = QueryResult::new(cols, [row], "SELECT 1")
   inspect(result.row_count(), content="1")
   inspect(result.column_count(), content="2")
-  inspect(result.get_command_tag(), content="SELECT 1")
-  inspect(result.get_row(0) is Some(_), content="true")
-  inspect(result.get_row(1), content="None")
-  inspect(result.get_row(-1), content="None")
+  inspect(result.command_tag(), content="SELECT 1")
+  inspect(result.row(0) is Some(_), content="true")
+  inspect(result.row(1), content="None")
+  inspect(result.row(-1), content="None")
 }
 
 ///|
@@ -87,7 +87,7 @@ test "QueryResult::iter" {
   let result = QueryResult::new(cols, rows, "SELECT 2")
   let mut sum = 0
   for row in result.iter() {
-    sum += row.get_int(0).unwrap_or(0)
+    sum += row.int(0).unwrap_or(0)
   }
   inspect(sum, content="3")
 }
@@ -96,8 +96,8 @@ test "QueryResult::iter" {
 test "QueryResult::get_fields" {
   let cols : Array[ColumnInfo] = [{ name: "id", type_oid: 23, type_size: 4 }]
   let result = QueryResult::new(cols, [], "SELECT 0")
-  inspect(result.get_fields().length(), content="1")
-  inspect(result.get_fields()[0].name, content="id")
+  inspect(result.fields().length(), content="1")
+  inspect(result.fields()[0].name, content="id")
 }
 
 ///|
@@ -122,13 +122,13 @@ test "Row::get_by_name" {
   ]
   let row = Row::new([Int(1), String("Bob")], cols)
   inspect(
-    row.get_by_name("name"),
+    row.by_name("name"),
     content=(
       #|Some(String("Bob"))
     ),
   )
-  inspect(row.get_by_name("id"), content="Some(Int(1))")
-  inspect(row.get_by_name("missing"), content="None")
+  inspect(row.by_name("id"), content="Some(Int(1))")
+  inspect(row.by_name("missing"), content="None")
 }
 
 ///|
@@ -136,41 +136,41 @@ test "Row::get_string" {
   let cols : Array[ColumnInfo] = [{ name: "s", type_oid: 25, type_size: -1 }]
   let row = Row::new([String("hello")], cols)
   inspect(
-    row.get_string(0),
+    row.string(0),
     content=(
       #|Some("hello")
     ),
   )
-  inspect(row.get_string(1), content="None")
+  inspect(row.string(1), content="None")
 }
 
 ///|
 test "Row::get_int" {
   let cols : Array[ColumnInfo] = [{ name: "n", type_oid: 23, type_size: 4 }]
   let row = Row::new([Int(42)], cols)
-  inspect(row.get_int(0), content="Some(42)")
-  inspect(row.get_int(1), content="None")
+  inspect(row.int(0), content="Some(42)")
+  inspect(row.int(1), content="None")
 }
 
 ///|
 test "Row::get_int64" {
   let cols : Array[ColumnInfo] = [{ name: "n", type_oid: 20, type_size: 8 }]
   let row = Row::new([Int64(9999999999L)], cols)
-  inspect(row.get_int64(0), content="Some(9999999999)")
+  inspect(row.int64(0), content="Some(9999999999)")
 }
 
 ///|
 test "Row::get_float" {
   let cols : Array[ColumnInfo] = [{ name: "f", type_oid: 701, type_size: 8 }]
   let row = Row::new([Float(3.14)], cols)
-  inspect(row.get_float(0), content="Some(3.14)")
+  inspect(row.float(0), content="Some(3.14)")
 }
 
 ///|
 test "Row::get_bool" {
   let cols : Array[ColumnInfo] = [{ name: "b", type_oid: 16, type_size: 1 }]
   let row = Row::new([Bool(true)], cols)
-  inspect(row.get_bool(0), content="Some(true)")
+  inspect(row.bool(0), content="Some(true)")
 }
 
 ///|
@@ -216,16 +216,16 @@ test "build_query_result with rows" {
   let result = build_query_result(messages)
   inspect(result.row_count(), content="2")
   inspect(result.column_count(), content="2")
-  inspect(result.get_command_tag(), content="SELECT 2")
-  inspect(result.get_row(0).unwrap().get_int(0), content="Some(1)")
+  inspect(result.command_tag(), content="SELECT 2")
+  inspect(result.row(0).unwrap().int(0), content="Some(1)")
   inspect(
-    result.get_row(0).unwrap().get_string(1),
+    result.row(0).unwrap().string(1),
     content=(
       #|Some("Alice")
     ),
   )
   inspect(
-    result.get_row(1).unwrap().get_string(1),
+    result.row(1).unwrap().string(1),
     content=(
       #|Some("Bob")
     ),
@@ -251,7 +251,7 @@ test "build_query_result command only" {
   ]
   let result = build_query_result(messages)
   inspect(result.row_count(), content="0")
-  inspect(result.get_command_tag(), content="INSERT 0 3")
+  inspect(result.command_tag(), content="INSERT 0 3")
 }
 
 ///|

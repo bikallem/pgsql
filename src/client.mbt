@@ -138,8 +138,8 @@ pub fn Client::in_transaction(self : Client) -> Bool {
 }
 
 ///|
-/// Get transaction status
-pub fn Client::get_transaction_status(self : Client) -> TransactionStatus {
+/// Transaction status
+pub fn Client::transaction_status(self : Client) -> TransactionStatus {
   tx_status_from_protocol(self.conn.transaction_status)
 }
 
@@ -151,14 +151,14 @@ pub async fn Client::close(self : Client) -> Unit {
 }
 
 ///|
-/// Get server parameter
-pub fn Client::get_server_param(self : Client, name : String) -> String? {
-  self.conn.get_server_param(name)
+/// Server parameter
+pub fn Client::server_param(self : Client, name : String) -> String? {
+  self.conn.server_param(name)
 }
 
 ///|
-/// Get backend process ID
-pub fn Client::get_process_id(self : Client) -> Int {
+/// Backend process ID
+pub fn Client::process_id(self : Client) -> Int {
   self.conn.process_id
 }
 

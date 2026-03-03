@@ -91,13 +91,13 @@ async fn cmd_list(client : @pgsql.Client) -> Unit {
     return
   }
   for row in result.iter() {
-    let id = row.get_int(0).unwrap_or(0)
-    let name = row.get_string(1).unwrap_or("")
-    let email = row.get_string(2).unwrap_or("")
+    let id = row.int(0).unwrap_or(0)
+    let name = row.string(1).unwrap_or("")
+    let email = row.string(2).unwrap_or("")
     let phone = if row.is_null(3) {
       "N/A"
     } else {
-      row.get_string(3).unwrap_or("N/A")
+      row.string(3).unwrap_or("N/A")
     }
     println("\{id}: \{name} <\{email}> \{phone}")
   }
@@ -195,13 +195,13 @@ async fn cmd_search(client : @pgsql.Client, args : Array[String]) -> Unit {
     return
   }
   for row in result.iter() {
-    let id = row.get_int(0).unwrap_or(0)
-    let name = row.get_string(1).unwrap_or("")
-    let email = row.get_string(2).unwrap_or("")
+    let id = row.int(0).unwrap_or(0)
+    let name = row.string(1).unwrap_or("")
+    let email = row.string(2).unwrap_or("")
     let phone = if row.is_null(3) {
       "N/A"
     } else {
-      row.get_string(3).unwrap_or("N/A")
+      row.string(3).unwrap_or("N/A")
     }
     println("\{id}: \{name} <\{email}> \{phone}")
   }

@@ -35,20 +35,20 @@ fn QueryResult::new(
 }
 
 ///|
-/// Get column info
-pub fn QueryResult::get_fields(self : QueryResult) -> Array[ColumnInfo] {
+/// Column info
+pub fn QueryResult::fields(self : QueryResult) -> Array[ColumnInfo] {
   self.fields
 }
 
 ///|
-/// Get rows
-pub fn QueryResult::get_rows(self : QueryResult) -> Array[Row] {
+/// Rows
+pub fn QueryResult::rows(self : QueryResult) -> Array[Row] {
   self.rows
 }
 
 ///|
-/// Get command tag
-pub fn QueryResult::get_command_tag(self : QueryResult) -> String {
+/// Command tag
+pub fn QueryResult::command_tag(self : QueryResult) -> String {
   self.command_tag
 }
 
@@ -65,8 +65,8 @@ pub fn QueryResult::column_count(self : QueryResult) -> Int {
 }
 
 ///|
-/// Get a row by index
-pub fn QueryResult::get_row(self : QueryResult, index : Int) -> Row? {
+/// Row by index
+pub fn QueryResult::row(self : QueryResult, index : Int) -> Row? {
   if index >= 0 && index < self.rows.length() {
     Some(self.rows[index])
   } else {
@@ -111,8 +111,8 @@ pub fn Row::get(self : Row, index : Int) -> Value? {
 }
 
 ///|
-/// Get value by column name (O(1) via precomputed index)
-pub fn Row::get_by_name(self : Row, name : String) -> Value? {
+/// Value by column name (O(1) via precomputed index)
+pub fn Row::by_name(self : Row, name : String) -> Value? {
   match self.column_index.get(name) {
     Some(i) => Some(self.values[i])
     None => None
@@ -120,8 +120,8 @@ pub fn Row::get_by_name(self : Row, name : String) -> Value? {
 }
 
 ///|
-/// Get value as String at index
-pub fn Row::get_string(self : Row, index : Int) -> String? {
+/// Value as String at index
+pub fn Row::string(self : Row, index : Int) -> String? {
   match self.get(index) {
     Some(v) => v.as_string()
     None => None
@@ -129,8 +129,8 @@ pub fn Row::get_string(self : Row, index : Int) -> String? {
 }
 
 ///|
-/// Get value as Int at index
-pub fn Row::get_int(self : Row, index : Int) -> Int? {
+/// Value as Int at index
+pub fn Row::int(self : Row, index : Int) -> Int? {
   match self.get(index) {
     Some(v) => v.as_int()
     None => None
@@ -138,8 +138,8 @@ pub fn Row::get_int(self : Row, index : Int) -> Int? {
 }
 
 ///|
-/// Get value as Int64 at index
-pub fn Row::get_int64(self : Row, index : Int) -> Int64? {
+/// Value as Int64 at index
+pub fn Row::int64(self : Row, index : Int) -> Int64? {
   match self.get(index) {
     Some(v) => v.as_int64()
     None => None
@@ -147,8 +147,8 @@ pub fn Row::get_int64(self : Row, index : Int) -> Int64? {
 }
 
 ///|
-/// Get value as Double at index
-pub fn Row::get_float(self : Row, index : Int) -> Double? {
+/// Value as Double at index
+pub fn Row::float(self : Row, index : Int) -> Double? {
   match self.get(index) {
     Some(v) => v.as_float()
     None => None
@@ -156,8 +156,8 @@ pub fn Row::get_float(self : Row, index : Int) -> Double? {
 }
 
 ///|
-/// Get value as Bool at index
-pub fn Row::get_bool(self : Row, index : Int) -> Bool? {
+/// Value as Bool at index
+pub fn Row::bool(self : Row, index : Int) -> Bool? {
   match self.get(index) {
     Some(v) => v.as_bool()
     None => None

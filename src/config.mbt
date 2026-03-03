@@ -62,37 +62,37 @@ pub fn Config::new(
 }
 
 ///|
-/// Get the host
-pub fn Config::get_host(self : Config) -> String {
+/// Host
+pub fn Config::host(self : Config) -> String {
   self.host
 }
 
 ///|
-/// Get the port
-pub fn Config::get_port(self : Config) -> Int {
+/// Port
+pub fn Config::port(self : Config) -> Int {
   self.port
 }
 
 ///|
-/// Get the user
-pub fn Config::get_user(self : Config) -> String {
+/// User
+pub fn Config::user(self : Config) -> String {
   self.user
 }
 
 ///|
-/// Get the password
-pub fn Config::get_password(self : Config) -> String {
+/// Password
+pub fn Config::password(self : Config) -> String {
   self.password
 }
 
 ///|
-/// Get the database
-pub fn Config::get_database(self : Config) -> String {
+/// Database
+pub fn Config::database(self : Config) -> String {
   self.database
 }
 
 ///|
-/// Get the SSL mode
-pub fn Config::get_ssl_mode(self : Config) -> SslMode {
+/// SSL mode
+pub fn Config::ssl_mode(self : Config) -> SslMode {
   self.ssl_mode
 }
