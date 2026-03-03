@@ -45,14 +45,20 @@ pub async fn[T] Client::transaction(
 }
 
 ///|
+/// Guard: raises TxError if the transaction is no longer active
+fn Transaction::check_active(self : Transaction) -> Unit raise TxError {
+  if not(self.active) {
+    raise TxError("Transaction is no longer active")
+  }
+}
+
+///|
 /// Execute a query within the transaction
 pub async fn Transaction::query(
   self : Transaction,
   sql : String,
 ) -> QueryResult {
-  if not(self.active) {
-    raise TxError("Transaction is no longer active")
-  }
+  self.check_active()
   self.client.query(sql)
 }
 
@@ -63,18 +69,14 @@ pub async fn Transaction::query_params(
   sql : String,
   params : Array[Value],
 ) -> QueryResult {
-  if not(self.active) {
-    raise TxError("Transaction is no longer active")
-  }
+  self.check_active()
   self.client.query_params(sql, params)
 }
 
 ///|
 /// Execute a statement within the transaction
 pub async fn Transaction::execute(self : Transaction, sql : String) -> Int {
-  if not(self.active) {
-    raise TxError("Transaction is no longer active")
-  }
+  self.check_active()
   self.client.execute(sql)
 }
 
@@ -85,18 +87,14 @@ pub async fn Transaction::execute_params(
   sql : String,
   params : Array[Value],
 ) -> Int {
-  if not(self.active) {
-    raise TxError("Transaction is no longer active")
-  }
+  self.check_active()
   self.client.execute_params(sql, params)
 }
 
 ///|
 /// Explicitly commit the transaction
 pub async fn Transaction::commit(self : Transaction) -> Unit {
-  if not(self.active) {
-    raise TxError("Transaction is no longer active")
-  }
+  self.check_active()
   self.client.commit()
   self.active = false
 }
@@ -104,9 +102,7 @@ pub async fn Transaction::commit(self : Transaction) -> Unit {
 ///|
 /// Explicitly rollback the transaction
 pub async fn Transaction::rollback(self : Transaction) -> Unit {
-  if not(self.active) {
-    raise TxError("Transaction is no longer active")
-  }
+  self.check_active()
   self.client.rollback()
   self.active = false
 }
@@ -123,18 +119,14 @@ pub async fn Transaction::prepare(
   self : Transaction,
   sql : String,
 ) -> PreparedStatement {
-  if not(self.active) {
-    raise TxError("Transaction is no longer active")
-  }
+  self.check_active()
   self.client.prepare(sql)
 }
 
 ///|
 /// Create a savepoint within the transaction
 pub async fn Transaction::savepoint(self : Transaction, name : String) -> Unit {
-  if not(self.active) {
-    raise TxError("Transaction is no longer active")
-  }
+  self.check_active()
   let _ = self.client.execute("SAVEPOINT " + quote_identifier(name))
 }
 
@@ -144,17 +136,13 @@ pub async fn Transaction::rollback_to(
   self : Transaction,
   name : String,
 ) -> Unit {
-  if not(self.active) {
-    raise TxError("Transaction is no longer active")
-  }
+  self.check_active()
   let _ = self.client.execute("ROLLBACK TO SAVEPOINT " + quote_identifier(name))
 }
 
 ///|
 /// Release a savepoint
 pub async fn Transaction::release(self : Transaction, name : String) -> Unit {
-  if not(self.active) {
-    raise TxError("Transaction is no longer active")
-  }
+  self.check_active()
   let _ = self.client.execute("RELEASE SAVEPOINT " + quote_identifier(name))
 }
