@@ -1,10 +1,6 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "bikallem/postgresql"
 
-import {
-  "bikallem/postgresql/protocol",
-}
-
 // Values
 
 // Errors
@@ -21,10 +17,10 @@ pub suberror PreparedStmtError {
 }
 pub impl Show for PreparedStmtError
 
-pub suberror ServerErr {
-  ServerErr(ServerErrorInfo)
+pub suberror ServerError {
+  ServerError(ServerErrorInfo)
 }
-pub impl Show for ServerErr
+pub impl Show for ServerError
 
 pub suberror TxError {
   TxError(String)
@@ -80,9 +76,6 @@ pub fn Config::new(String, String, String, host? : String, port? : Int) -> Self
 pub impl Show for Config
 
 type Connection
-pub fn Connection::get_process_id(Self) -> Int
-pub fn Connection::get_secret_key(Self) -> Int
-pub fn Connection::get_transaction_status(Self) -> @protocol.TransactionStatus
 
 pub struct PreparedStatement {
   client : Client
