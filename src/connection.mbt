@@ -63,6 +63,10 @@ async fn Connection::send_all(
 
 ///|
 /// Receive messages from server
+///
+/// Note: read_some() blocks until data arrives. The underlying socket library
+/// does not currently expose timeout configuration, so a hung server will
+/// cause the caller to block indefinitely. This is a known limitation.
 async fn Connection::receive(
   self : Connection,
 ) -> Array[@protocol.BackendMessage] {
