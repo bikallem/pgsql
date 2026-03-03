@@ -8,7 +8,7 @@ suberror BufferUnderflow {
 
 ///|
 /// A reader for parsing binary data from Bytes
-pub struct BufferReader {
+struct BufferReader {
   data : Bytes
   mut offset : Int
 }

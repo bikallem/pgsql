@@ -5,7 +5,7 @@
 ///|
 /// A reusable prepared statement. Created via Client::prepare or Transaction::prepare.
 /// Must be closed when no longer needed to release server resources.
-pub struct PreparedStatement {
+struct PreparedStatement {
   /// Reference to the client
   client : Client
   /// Server-side statement name

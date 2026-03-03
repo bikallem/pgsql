@@ -36,10 +36,20 @@ pub fn md5_password(String, String, Bytes) -> String
 
 pub fn parse_text_value(Bytes?, UInt) -> Value
 
+pub fn scram_client_final(String, String, String, String) -> (String, Bytes) raise ScramError
+
+pub fn scram_client_first(String, String) -> (String, String)
+
+pub fn scram_verify_server(String, Bytes) -> Unit raise ScramError
+
 pub fn serialize_value(Value) -> Bytes?
 
 // Errors
 type BufferUnderflow
+
+pub suberror ScramError {
+  ScramError(String)
+}
 
 // Types and methods
 pub(all) enum BackendMessage {
@@ -73,10 +83,7 @@ pub(all) enum BackendMessage {
 }
 pub impl Show for BackendMessage
 
-pub struct BufferReader {
-  data : Bytes
-  mut offset : Int
-}
+type BufferReader
 pub fn BufferReader::byte(Self) -> Byte raise BufferUnderflow
 pub fn BufferReader::bytes(Self, Int) -> Bytes raise BufferUnderflow
 pub fn BufferReader::cstring(Self) -> String
@@ -90,12 +97,10 @@ pub fn BufferReader::position(Self) -> Int
 pub fn BufferReader::remaining(Self) -> Int
 pub fn BufferReader::skip(Self, Int) -> Unit
 pub fn BufferReader::string(Self, Int) -> String
-pub fn BufferReader::uint16(Self) -> Int
+pub fn BufferReader::uint16(Self) -> Int raise BufferUnderflow
 pub fn BufferReader::uint32(Self) -> UInt raise BufferUnderflow
 
-pub struct BufferWriter {
-  data : Array[Byte]
-}
+type BufferWriter
 pub fn BufferWriter::add_byte(Self, Byte) -> Self
 pub fn BufferWriter::add_bytes(Self, Bytes) -> Self
 pub fn BufferWriter::add_cstring(Self, String) -> Self

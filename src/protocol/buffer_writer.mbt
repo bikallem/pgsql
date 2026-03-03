@@ -7,7 +7,7 @@
 
 ///|
 /// A buffer for building binary messages
-pub struct BufferWriter {
+struct BufferWriter {
   data : Array[Byte]
 }
 
