@@ -2,6 +2,7 @@ import {
   "bikallem/postgresql" @pgsql,
   "moonbitlang/async",
   "moonbitlang/core/env",
+  "moonbitlang/core/strconv",
 }
 
 options(
