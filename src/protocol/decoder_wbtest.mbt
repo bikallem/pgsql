@@ -437,3 +437,153 @@ test "decode_parameter_description" {
     _ => fail("Expected ParameterDescription")
   }
 }
+
+// =============================================================================
+// Malformed input tests (#29)
+// =============================================================================
+
+///|
+test "decode_malformed_length_too_small" {
+  // Message with length < 4 (invalid: length includes itself, minimum is 4)
+  let data = Bytes::from_array([
+    b'Z', b'\x00', b'\x00', b'\x00', b'\x02', b'I', // len=2, invalid
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  // Should skip the malformed message
+  inspect(messages.length(), content="0")
+}
+
+///|
+test "decode_truncated_header" {
+  // Only 3 bytes — not even a full header
+  let data = Bytes::from_array([b'Z', b'\x00', b'\x00'])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="0")
+  inspect(decoder.has_pending(), content="true")
+}
+
+///|
+test "decode_truncated_payload" {
+  // Header says 5 bytes payload but only 2 provided
+  let data = Bytes::from_array([
+    b'Z', b'\x00', b'\x00', b'\x00', b'\x05', // len=5, needs 1 more byte
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="0")
+  inspect(decoder.has_pending(), content="true")
+}
+
+///|
+test "decode_unknown_message_type" {
+  // Unknown type code 0xFF, minimal valid message (length 4)
+  let data = Bytes::from_array([
+    b'\xFF', b'\x00', b'\x00', b'\x00', b'\x04',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="1")
+  match messages[0] {
+    ErrorResponse(fields) =>
+      assert_true(fields["M"].contains("Unknown message type"))
+    _ => fail("Expected ErrorResponse for unknown type")
+  }
+}
+
+///|
+test "decode_buffer_underflow_in_payload" {
+  // RowDescription header claiming 5 fields but payload is too short
+  // 'T' + length(4) + field_count(2 bytes claiming 5 fields) but no field data
+  let data = Bytes::from_array([
+    b'T', b'\x00', b'\x00', b'\x00', b'\x06', b'\x00', b'\x05', // 5 fields, but empty
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  // Should skip the malformed message (BufferUnderflow caught)
+  inspect(messages.length(), content="0")
+}
+
+// =============================================================================
+// Previously untested decoder paths (#30)
+// =============================================================================
+
+///|
+test "decode_copy_out_response" {
+  // CopyOutResponse: same format as CopyInResponse but type 'H'
+  let data = Bytes::from_array([
+    b'H', b'\x00', b'\x00', b'\x00', b'\x09', b'\x01', // binary format
+     b'\x00', b'\x01', // 1 column
+     b'\x00', b'\x01', // column 1: binary
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  match messages[0] {
+    CopyOutResponse(fmt, col_fmts) => {
+      inspect(fmt, content="Binary")
+      inspect(col_fmts.length(), content="1")
+      inspect(col_fmts[0], content="Binary")
+    }
+    _ => fail("Expected CopyOutResponse")
+  }
+}
+
+///|
+test "decode_copy_data" {
+  // CopyData: 'd' + length + arbitrary data
+  let data = Bytes::from_array([
+    b'd', b'\x00', b'\x00', b'\x00', b'\x07', b'\x01', b'\x02', b'\x03',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  match messages[0] {
+    CopyData(payload) => inspect(payload.length(), content="3")
+    _ => fail("Expected CopyData")
+  }
+}
+
+///|
+test "decode_authentication_sasl_continue" {
+  // AuthenticationSASLContinue: 'R' + length + type(11) + data
+  let data = Bytes::from_array([
+    b'R', b'\x00', b'\x00', b'\x00', b'\x0C', b'\x00', b'\x00', b'\x00', b'\x0B',
+    b'a', b'b', b'c', b'd', // 4 bytes of SASL data
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  match messages[0] {
+    AuthenticationSASLContinue(payload) => inspect(payload.length(), content="4")
+    _ => fail("Expected AuthenticationSASLContinue")
+  }
+}
+
+///|
+test "decode_authentication_sasl_final" {
+  // AuthenticationSASLFinal: 'R' + length + type(12) + data
+  let data = Bytes::from_array([
+    b'R', b'\x00', b'\x00', b'\x00', b'\x0A', b'\x00', b'\x00', b'\x00', b'\x0C',
+    b'X', b'Y', // 2 bytes of SASL data
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  match messages[0] {
+    AuthenticationSASLFinal(payload) => inspect(payload.length(), content="2")
+    _ => fail("Expected AuthenticationSASLFinal")
+  }
+}
+
+///|
+test "decode_unsupported_auth_type" {
+  // Authentication type 99 (unsupported)
+  let data = Bytes::from_array([
+    b'R', b'\x00', b'\x00', b'\x00', b'\x08', b'\x00', b'\x00', b'\x00', b'\x63', // type=99
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  match messages[0] {
+    ErrorResponse(fields) =>
+      assert_true(fields["M"].contains("Unsupported authentication"))
+    _ => fail("Expected ErrorResponse for unsupported auth")
+  }
+}
