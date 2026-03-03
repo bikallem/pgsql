@@ -204,6 +204,8 @@ async fn Connection::authenticate(self : Connection) -> Unit {
           self.transaction_status = status
           return
         }
+        @protocol.AuthenticationSASL(_) =>
+          raise AuthError("SASL authentication is not supported")
         @protocol.ErrorResponse(fields) => {
           let info = ServerErrorInfo::from_fields(fields)
           raise AuthError(info.message)
