@@ -41,33 +41,29 @@ pub fn Value::as_bool(self : Value) -> Bool? {
 }
 
 ///|
-/// Get value as Int (coerces Int64 and Float)
+/// Get value as Int (exact match only)
 pub fn Value::as_int(self : Value) -> Int? {
   match self {
     Int(n) => Some(n)
-    Int64(n) => Some(n.to_int())
-    Float(n) => Some(n.to_int())
     _ => None
   }
 }
 
 ///|
-/// Get value as Int64 (coerces Int and Float)
+/// Get value as Int64 (widens Int losslessly)
 pub fn Value::as_int64(self : Value) -> Int64? {
   match self {
     Int(n) => Some(n.to_int64())
     Int64(n) => Some(n)
-    Float(n) => Some(n.to_int64())
     _ => None
   }
 }
 
 ///|
-/// Get value as Double (coerces Int and Int64)
+/// Get value as Double (widens Int losslessly)
 pub fn Value::as_float(self : Value) -> Double? {
   match self {
     Int(n) => Some(n.to_double())
-    Int64(n) => Some(n.to_double())
     Float(n) => Some(n)
     _ => None
   }

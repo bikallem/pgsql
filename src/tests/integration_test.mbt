@@ -78,7 +78,7 @@ async test "full CRUD lifecycle" {
 
   // Verify delete
   let result3 = client.query("SELECT COUNT(*) FROM test_crud")
-  assert_eq(result3.get_row(0).unwrap().get_int(0), Some(1))
+  assert_eq(result3.get_row(0).unwrap().get_int64(0), Some(1L))
 
   // Drop table
   let _ = client.execute("DROP TABLE test_crud")
@@ -304,7 +304,7 @@ async test "unnamed statement regression: many parameterized queries" {
   }
 
   let result = client.query("SELECT COUNT(*) FROM test_unnamed")
-  assert_eq(result.get_row(0).unwrap().get_int(0), Some(100))
+  assert_eq(result.get_row(0).unwrap().get_int64(0), Some(100L))
 
   let _ = client.execute("DROP TABLE test_unnamed")
   client.close()
