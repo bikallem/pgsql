@@ -39,6 +39,7 @@ pub fn parse_text_value(Bytes?, UInt) -> Value
 pub fn serialize_value(Value) -> Bytes?
 
 // Errors
+type BufferUnderflow
 
 // Types and methods
 pub(all) enum BackendMessage {
@@ -76,13 +77,13 @@ pub struct BufferReader {
   data : Bytes
   mut offset : Int
 }
-pub fn BufferReader::byte(Self) -> Byte
-pub fn BufferReader::bytes(Self, Int) -> Bytes
+pub fn BufferReader::byte(Self) -> Byte raise BufferUnderflow
+pub fn BufferReader::bytes(Self, Int) -> Bytes raise BufferUnderflow
 pub fn BufferReader::cstring(Self) -> String
 pub fn BufferReader::empty() -> Self
 pub fn BufferReader::has_remaining(Self, Int) -> Bool
-pub fn BufferReader::int16(Self) -> Int
-pub fn BufferReader::int32(Self) -> Int
+pub fn BufferReader::int16(Self) -> Int raise BufferUnderflow
+pub fn BufferReader::int32(Self) -> Int raise BufferUnderflow
 pub fn BufferReader::new(Bytes) -> Self
 pub fn BufferReader::peek_byte(Self) -> Byte
 pub fn BufferReader::position(Self) -> Int
@@ -90,7 +91,7 @@ pub fn BufferReader::remaining(Self) -> Int
 pub fn BufferReader::skip(Self, Int) -> Unit
 pub fn BufferReader::string(Self, Int) -> String
 pub fn BufferReader::uint16(Self) -> Int
-pub fn BufferReader::uint32(Self) -> UInt
+pub fn BufferReader::uint32(Self) -> UInt raise BufferUnderflow
 
 pub struct BufferWriter {
   data : Array[Byte]

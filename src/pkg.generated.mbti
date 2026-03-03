@@ -31,6 +31,7 @@ pub impl Show for TxError
 pub struct Client {
   conn : Connection
   mut stmt_counter : Int
+  mut closed : Bool
 }
 pub async fn Client::begin(Self) -> Unit
 pub async fn Client::close(Self) -> Unit
@@ -107,6 +108,7 @@ pub impl Show for QueryResult
 pub struct Row {
   values : Array[Value]
   fields : Array[ColumnInfo]
+  column_index : Map[String, Int]
 }
 pub fn Row::column_count(Self) -> Int
 pub fn Row::get(Self, Int) -> Value?
