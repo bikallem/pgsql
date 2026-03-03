@@ -133,7 +133,12 @@ async fn cmd_update(client : @pgsql.Client, args : Array[String]) -> Unit {
     println("Usage: update <id> <field> <value>")
     return
   }
-  let id = args[2]
+  let id = @strconv.parse_int(args[2]) catch {
+    _ => {
+      println("Invalid id: \{args[2]}")
+      return
+    }
+  }
   let field = args[3]
   let value = args[4]
   // Only allow updating known columns
@@ -151,7 +156,7 @@ async fn cmd_update(client : @pgsql.Client, args : Array[String]) -> Unit {
   }
   let affected = client.execute_params(sql, [
     @pgsql.String(value),
-    @pgsql.String(id),
+    @pgsql.Int(id),
   ])
   println("Updated \{affected} row(s)")
 }
@@ -162,9 +167,14 @@ async fn cmd_delete(client : @pgsql.Client, args : Array[String]) -> Unit {
     println("Usage: delete <id>")
     return
   }
-  let id = args[2]
+  let id = @strconv.parse_int(args[2]) catch {
+    _ => {
+      println("Invalid id: \{args[2]}")
+      return
+    }
+  }
   let affected = client.execute_params("DELETE FROM contacts WHERE id = $1", [
-    @pgsql.String(id),
+    @pgsql.Int(id),
   ])
   println("Deleted \{affected} row(s)")
 }
