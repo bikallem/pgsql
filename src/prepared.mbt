@@ -43,7 +43,7 @@ pub async fn PreparedStatement::query(
   let messages = self.client.conn.receive_until_ready()
 
   match find_error(messages) {
-    Some(err) => raise ServerErr(err)
+    Some(err) => raise ServerError(err)
     None => ()
   }
 
@@ -73,7 +73,7 @@ pub async fn PreparedStatement::close(self : PreparedStatement) -> Unit {
   self.client.conn.send(@protocol.Sync)
   let messages = self.client.conn.receive_until_ready()
   match find_error(messages) {
-    Some(err) => raise ServerErr(err)
+    Some(err) => raise ServerError(err)
     None => ()
   }
 }

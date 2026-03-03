@@ -30,7 +30,7 @@ pub async fn Client::query(self : Client, sql : String) -> QueryResult {
 
   // Check for errors
   match find_error(messages) {
-    Some(err) => raise ServerErr(err)
+    Some(err) => raise ServerError(err)
     None => ()
   }
 
@@ -68,7 +68,7 @@ pub async fn Client::query_params(
 
   // Check for errors
   match find_error(messages) {
-    Some(err) => raise ServerErr(err)
+    Some(err) => raise ServerError(err)
     None => ()
   }
 
@@ -111,7 +111,7 @@ pub async fn Client::prepare(self : Client, sql : String) -> PreparedStatement {
   let messages = self.conn.receive_until_ready()
 
   match find_error(messages) {
-    Some(err) => raise ServerErr(err)
+    Some(err) => raise ServerError(err)
     None => ()
   }
 

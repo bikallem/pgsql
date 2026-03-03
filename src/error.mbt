@@ -14,8 +14,8 @@ pub suberror AuthError {
 
 ///|
 /// Server error with details
-pub suberror ServerErr {
-  ServerErr(ServerErrorInfo)
+pub suberror ServerError {
+  ServerError(ServerErrorInfo)
 }
 
 ///|
@@ -91,8 +91,8 @@ pub impl Show for AuthError with output(self, logger) {
 }
 
 ///|
-pub impl Show for ServerErr with output(self, logger) {
-  let ServerErr(info) = self
+pub impl Show for ServerError with output(self, logger) {
+  let ServerError(info) = self
   logger.write_string("ServerError: [")
   logger.write_string(info.code)
   logger.write_string("] ")
