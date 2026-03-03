@@ -118,6 +118,18 @@ pub fn Transaction::is_active(self : Transaction) -> Bool {
 }
 
 ///|
+/// Create a named prepared statement within this transaction
+pub async fn Transaction::prepare(
+  self : Transaction,
+  sql : String,
+) -> PreparedStatement {
+  if not(self.active) {
+    raise TxError("Transaction is no longer active")
+  }
+  self.client.prepare(sql)
+}
+
+///|
 /// Create a savepoint within the transaction
 pub async fn Transaction::savepoint(self : Transaction, name : String) -> Unit {
   if not(self.active) {

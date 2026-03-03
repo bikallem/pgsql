@@ -7,7 +7,7 @@
 pub struct Client {
   /// Underlying connection
   conn : Connection
-  /// Statement counter for unique names
+  /// Statement counter for PreparedStatement naming
   mut stmt_counter : Int
 }
 
@@ -39,22 +39,20 @@ pub async fn Client::query(self : Client, sql : String) -> QueryResult {
 }
 
 ///|
-/// Execute a query with parameters using extended query protocol
+/// Execute a query with parameters using extended query protocol.
+/// Uses the unnamed prepared statement which PostgreSQL automatically
+/// replaces on each Parse, so no cleanup is needed.
 pub async fn Client::query_params(
   self : Client,
   sql : String,
   params : Array[Value],
 ) -> QueryResult {
-  // Generate unique statement name
-  self.stmt_counter += 1
-  let stmt_name = "__stmt_" + self.stmt_counter.to_string()
+  // Parse with unnamed statement ("")
+  self.conn.send(@protocol.Parse("", sql, []))
 
-  // Parse
-  self.conn.send(@protocol.Parse(stmt_name, sql, []))
-
-  // Bind parameters
+  // Bind parameters (unnamed portal to unnamed statement)
   let param_bytes = serialize_params(params)
-  self.conn.send(@protocol.Bind("", stmt_name, [], param_bytes, []))
+  self.conn.send(@protocol.Bind("", "", [], param_bytes, []))
 
   // Describe (to get result columns)
   self.conn.send(@protocol.Describe(b'P', ""))
@@ -70,17 +68,7 @@ pub async fn Client::query_params(
 
   // Check for errors
   match find_error(messages) {
-    Some(err) => {
-      // Clean up the statement
-      try {
-        self.conn.send(@protocol.Close(b'S', stmt_name))
-        self.conn.send(@protocol.Sync)
-        let _ = self.conn.receive_until_ready()
-      } catch {
-        _ => ()
-      }
-      raise ServerErr(err)
-    }
+    Some(err) => raise ServerErr(err)
     None => ()
   }
 
@@ -105,6 +93,29 @@ pub async fn Client::execute_params(
 ) -> Int {
   let result = self.query_params(sql, params)
   parse_affected_rows(result.command_tag)
+}
+
+///|
+/// Create a named prepared statement for reuse.
+/// The statement is parsed on the server immediately.
+/// Use PreparedStatement::query/execute to run it with parameters,
+/// and PreparedStatement::close when done.
+pub async fn Client::prepare(self : Client, sql : String) -> PreparedStatement {
+  self.stmt_counter += 1
+  let name = "__prep_" + self.stmt_counter.to_string()
+
+  // Parse the statement on the server
+  self.conn.send(@protocol.Parse(name, sql, []))
+  self.conn.send(@protocol.Sync)
+
+  let messages = self.conn.receive_until_ready()
+
+  match find_error(messages) {
+    Some(err) => raise ServerErr(err)
+    None => ()
+  }
+
+  { client: self, name, sql, closed: false }
 }
 
 ///|

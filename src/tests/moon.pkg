@@ -1,7 +1,7 @@
 import {
   "bikallem/postgresql" @pgsql,
   "moonbitlang/async",
-}
+} for "test"
 
 options(
   "supported-targets": [ "native" ],

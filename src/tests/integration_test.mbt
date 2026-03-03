@@ -198,6 +198,119 @@ async test "error handling: invalid SQL" {
 }
 
 ///|
+async test "prepared statement: insert and select" {
+  let client = @pgsql.Client::connect(get_config())
+  let _ = client.execute(
+    "CREATE TABLE IF NOT EXISTS test_prep (id SERIAL PRIMARY KEY, name TEXT NOT NULL, value INT)",
+  )
+  let _ = client.execute("DELETE FROM test_prep")
+
+  // Prepare insert statement
+  let insert_stmt = client.prepare(
+    "INSERT INTO test_prep (name, value) VALUES ($1, $2)",
+  )
+
+  // Execute 3 times with different params
+  let _ = insert_stmt.execute([@pgsql.String("Alice"), @pgsql.Int(10)])
+  let _ = insert_stmt.execute([@pgsql.String("Bob"), @pgsql.Int(20)])
+  let _ = insert_stmt.execute([@pgsql.String("Carol"), @pgsql.Int(30)])
+  insert_stmt.close()
+
+  // Prepare select statement
+  let select_stmt = client.prepare(
+    "SELECT name, value FROM test_prep WHERE value > $1 ORDER BY name",
+  )
+  let result = select_stmt.query([@pgsql.Int(15)])
+  assert_eq(result.row_count(), 2)
+  assert_eq(result.get_row(0).unwrap().get_string(0), Some("Bob"))
+  assert_eq(result.get_row(1).unwrap().get_string(0), Some("Carol"))
+  select_stmt.close()
+
+  let _ = client.execute("DROP TABLE test_prep")
+  client.close()
+}
+
+///|
+async test "prepared statement: close idempotency" {
+  let client = @pgsql.Client::connect(get_config())
+
+  let stmt = client.prepare("SELECT 1")
+  stmt.close()
+  // Second close should be a no-op, not an error
+  stmt.close()
+  assert_true(stmt.is_closed())
+
+  client.close()
+}
+
+///|
+async test "prepared statement: use after close raises error" {
+  let client = @pgsql.Client::connect(get_config())
+
+  let stmt = client.prepare("SELECT $1::int")
+  stmt.close()
+
+  let mut got_error = false
+  try {
+    let _ = stmt.query([@pgsql.Int(1)])
+  } catch {
+    @pgsql.PreparedStmtError(_) => got_error = true
+    _ => ()
+  }
+  assert_true(got_error)
+
+  client.close()
+}
+
+///|
+async test "prepared statement: inside transaction" {
+  let client = @pgsql.Client::connect(get_config())
+  let _ = client.execute(
+    "CREATE TABLE IF NOT EXISTS test_prep_tx (id SERIAL PRIMARY KEY, val TEXT)",
+  )
+  let _ = client.execute("DELETE FROM test_prep_tx")
+
+  client.transaction(async fn(tx) {
+    let stmt = tx.prepare("INSERT INTO test_prep_tx (val) VALUES ($1)")
+    let _ = stmt.execute([@pgsql.String("tx_row1")])
+    let _ = stmt.execute([@pgsql.String("tx_row2")])
+    stmt.close()
+  })
+
+  let result = client.query("SELECT val FROM test_prep_tx ORDER BY id")
+  assert_eq(result.row_count(), 2)
+  assert_eq(result.get_row(0).unwrap().get_string(0), Some("tx_row1"))
+  assert_eq(result.get_row(1).unwrap().get_string(0), Some("tx_row2"))
+
+  let _ = client.execute("DROP TABLE test_prep_tx")
+  client.close()
+}
+
+///|
+async test "unnamed statement regression: many parameterized queries" {
+  let client = @pgsql.Client::connect(get_config())
+  let _ = client.execute(
+    "CREATE TABLE IF NOT EXISTS test_unnamed (id SERIAL PRIMARY KEY, val INT)",
+  )
+  let _ = client.execute("DELETE FROM test_unnamed")
+
+  // Run 100 parameterized queries in a loop — verifies unnamed statement
+  // does not leak server resources
+  for i = 0; i < 100; i = i + 1 {
+    let _ = client.execute_params(
+      "INSERT INTO test_unnamed (val) VALUES ($1)",
+      [@pgsql.Int(i)],
+    )
+  }
+
+  let result = client.query("SELECT COUNT(*) FROM test_unnamed")
+  assert_eq(result.get_row(0).unwrap().get_int(0), Some(100))
+
+  let _ = client.execute("DROP TABLE test_unnamed")
+  client.close()
+}
+
+///|
 async test "error handling: constraint violation" {
   let client = @pgsql.Client::connect(get_config())
   let _ = client.execute(

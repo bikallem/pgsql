@@ -56,6 +56,7 @@ The public API. All interaction goes through `Client`.
 | `ColumnInfo` | Column name, type OID, type size |
 | `TransactionStatus` | `Idle`, `InTransaction`, `Failed` |
 | `Transaction` | Handle for executing queries within a transaction |
+| `PreparedStatement` | Reusable prepared statement (prepare once, execute many) |
 | `ServerErrorInfo` | Detailed PostgreSQL error (severity, SQLSTATE code, message, etc.) |
 
 **Client methods:**
@@ -68,9 +69,21 @@ Client::execute(self, sql)          → Int               (async, returns affect
 Client::query_params(self, sql, params)   → QueryResult (async)
 Client::execute_params(self, sql, params) → Int         (async)
 Client::transaction(self, fn)       → T                 (async, auto commit/rollback)
+Client::prepare(self, sql)          → PreparedStatement  (async)
 Client::begin(self)                 → Unit              (async)
 Client::commit(self)                → Unit              (async)
 Client::rollback(self)              → Unit              (async)
+```
+
+**PreparedStatement methods:**
+
+```
+PreparedStatement::query(self, params)   → QueryResult  (async)
+PreparedStatement::execute(self, params) → Int          (async, returns affected rows)
+PreparedStatement::close(self)           → Unit         (async, idempotent)
+PreparedStatement::is_closed(self)       → Bool
+PreparedStatement::get_name(self)        → String
+PreparedStatement::get_sql(self)         → String
 ```
 
 **Row accessors:**
@@ -141,11 +154,17 @@ async fn main {
     [@pgsql.Int(21)],
   )
 
+  // Prepared statement (prepare once, execute many)
+  let stmt = client.prepare("INSERT INTO users (name) VALUES ($1)")
+  let _ = stmt.execute([@pgsql.String("Alice")])
+  let _ = stmt.execute([@pgsql.String("Bob")])
+  stmt.close()
+
   // Transaction (auto commit/rollback)
   client.transaction(async fn(tx) {
     let _ = tx.execute_params(
       "INSERT INTO users (name) VALUES ($1)",
-      [@pgsql.String("Alice")],
+      [@pgsql.String("Carol")],
     )
   })
 

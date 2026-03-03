@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bikallem/postgresql/pgsql/protocol"
+package "bikallem/postgresql/protocol"
 
 // Values
 pub const OID_BOOL : UInt = 16
