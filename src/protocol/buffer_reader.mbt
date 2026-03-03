@@ -78,7 +78,12 @@ pub fn BufferReader::int16(self : BufferReader) -> Int raise BufferUnderflow {
 
 ///|
 /// Read a 16-bit unsigned integer in big-endian format
-pub fn BufferReader::uint16(self : BufferReader) -> Int {
+pub fn BufferReader::uint16(self : BufferReader) -> Int raise BufferUnderflow {
+  guard self.remaining() >= 2 else {
+    raise BufferUnderflow(
+      "uint16: need 2 bytes but only \{self.remaining()} remaining",
+    )
+  }
   let b0 = self.data[self.offset].to_int()
   let b1 = self.data[self.offset + 1].to_int()
   self.offset += 2

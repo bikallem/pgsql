@@ -212,8 +212,8 @@ fn parse_int(text : String) -> Value {
       started = true
     } else if c >= '0' && c <= '9' {
       let digit = c.to_int() - '0'.to_int()
-      // Overflow guard: max_int is 2147483647, so max_int/10 = 214748364
-      if result > 214748364 {
+      // Overflow guard: max_int is 2147483647
+      if result > 214748364 || (result == 214748364 && digit > 7) {
         return String(text)
       }
       result = result * 10 + digit
@@ -242,8 +242,9 @@ fn parse_int64(text : String) -> Value {
       started = true
     } else if c >= '0' && c <= '9' {
       let digit = (c.to_int() - '0'.to_int()).to_int64()
-      // Overflow guard: max_int64 is 9223372036854775807, so max_int64/10 = 922337203685477580
-      if result > 922337203685477580L {
+      // Overflow guard: max_int64 is 9223372036854775807
+      if result > 922337203685477580L ||
+        (result == 922337203685477580L && digit > 7L) {
         return String(text)
       }
       result = result * 10L + digit

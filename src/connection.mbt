@@ -93,9 +93,6 @@ async fn Connection::receive_until_ready(
           self.transaction_status = status
           return all_messages
         }
-        @protocol.ErrorResponse(_) =>
-          // Continue receiving but remember the error
-          ()
         _ => ()
       }
     }
