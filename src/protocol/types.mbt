@@ -199,8 +199,10 @@ fn parse_text_value_inner(text : String, type_oid : UInt) -> Value {
 fn parse_bool(text : String) -> Value {
   if text == "t" || text == "true" || text == "TRUE" || text == "1" {
     Bool(true)
-  } else {
+  } else if text == "f" || text == "false" || text == "FALSE" || text == "0" {
     Bool(false)
+  } else {
+    String(text)
   }
 }
 
@@ -215,7 +217,12 @@ fn parse_int(text : String) -> Value {
       negative = true
       started = true
     } else if c >= '0' && c <= '9' {
-      result = result * 10 + (c.to_int() - '0'.to_int())
+      let digit = c.to_int() - '0'.to_int()
+      // Overflow guard: max_int is 2147483647, so max_int/10 = 214748364
+      if result > 214748364 {
+        return String(text)
+      }
+      result = result * 10 + digit
       started = true
     } else if c == '+' && not(started) {
       started = true
@@ -240,7 +247,12 @@ fn parse_int64(text : String) -> Value {
       negative = true
       started = true
     } else if c >= '0' && c <= '9' {
-      result = result * 10L + (c.to_int() - '0'.to_int()).to_int64()
+      let digit = (c.to_int() - '0'.to_int()).to_int64()
+      // Overflow guard: max_int64 is 9223372036854775807, so max_int64/10 = 922337203685477580
+      if result > 922337203685477580L {
+        return String(text)
+      }
+      result = result * 10L + digit
       started = true
     } else if c == '+' && not(started) {
       started = true
@@ -257,6 +269,16 @@ fn parse_int64(text : String) -> Value {
 ///|
 /// Parse floating point value
 fn parse_float(text : String) -> Value {
+  // Handle special float values
+  if text == "NaN" || text == "nan" {
+    return Float(0.0 / 0.0)
+  }
+  if text == "Infinity" || text == "inf" {
+    return Float(1.0 / 0.0)
+  }
+  if text == "-Infinity" || text == "-inf" {
+    return Float(-1.0 / 0.0)
+  }
   // Simple float parsing: integer part + optional decimal
   let mut int_part : Double = 0.0
   let mut frac_part : Double = 0.0
