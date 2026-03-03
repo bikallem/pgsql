@@ -20,6 +20,8 @@ pub struct Row {
   values : Array[Value]
   /// Reference to column info
   fields : Array[ColumnInfo]
+  /// Precomputed column-name-to-index map for O(1) lookup
+  column_index : Map[String, Int]
 } derive(Show)
 
 ///|
@@ -85,7 +87,11 @@ pub fn QueryResult::iter(self : QueryResult) -> Iter[Row] {
 ///|
 /// Create a new Row
 fn Row::new(values : Array[Value], fields : Array[ColumnInfo]) -> Row {
-  { values, fields }
+  let column_index : Map[String, Int] = {}
+  for i = 0; i < fields.length(); i = i + 1 {
+    column_index[fields[i].name] = i
+  }
+  { values, fields, column_index }
 }
 
 ///|
@@ -105,14 +111,12 @@ pub fn Row::get(self : Row, index : Int) -> Value? {
 }
 
 ///|
-/// Get value by column name
+/// Get value by column name (O(1) via precomputed index)
 pub fn Row::get_by_name(self : Row, name : String) -> Value? {
-  for i = 0; i < self.fields.length(); i = i + 1 {
-    if self.fields[i].name == name {
-      return Some(self.values[i])
-    }
+  match self.column_index.get(name) {
+    Some(i) => Some(self.values[i])
+    None => None
   }
-  None
 }
 
 ///|
