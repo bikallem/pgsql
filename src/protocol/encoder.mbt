@@ -3,9 +3,6 @@
 ///
 /// Serializes FrontendMessage values to Bytes for transmission to the server.
 
-// Protocol version 3.0 = (3 << 16) | 0 = 196608
-let encoder_protocol_version : Int = 196608
-
 // Message type codes (Frontend -> Backend)
 
 ///|
@@ -85,7 +82,7 @@ fn encode_startup(params : Map[String, String]) -> Bytes {
   let writer = BufferWriter::new()
 
   // Protocol version 3.0
-  writer.add_int32(encoder_protocol_version) |> ignore
+  writer.add_int32(PROTOCOL_VERSION) |> ignore
 
   // Add parameters
   params.each(fn(key, value) {

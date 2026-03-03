@@ -78,41 +78,6 @@ let _code_copy_data : Byte = b'd'
 ///|
 let _code_copy_done : Byte = b'c'
 
-// Message type codes (Frontend -> Backend) - for documentation reference
-
-///|
-let _code_query : Byte = b'Q'
-
-///|
-let _code_parse : Byte = b'P'
-
-///|
-let _code_bind : Byte = b'B'
-
-///|
-let _code_execute : Byte = b'E'
-
-///|
-let _code_describe : Byte = b'D'
-
-///|
-let _code_close : Byte = b'C'
-
-///|
-let _code_sync : Byte = b'S'
-
-///|
-let _code_flush : Byte = b'H'
-
-///|
-let _code_terminate : Byte = b'X'
-
-///|
-let _code_password : Byte = b'p'
-
-///|
-let _code_copy_fail : Byte = b'f'
-
 // =============================================================================
 // Common Types
 // =============================================================================
