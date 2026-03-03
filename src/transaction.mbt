@@ -4,7 +4,7 @@
 
 ///|
 /// Transaction handle for executing queries within a transaction
-pub struct Transaction {
+struct Transaction {
   /// Reference to the client
   client : Client
   /// Whether the transaction is still active

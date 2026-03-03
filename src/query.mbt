@@ -4,7 +4,7 @@
 
 ///|
 /// Result of a query execution
-pub struct QueryResult {
+struct QueryResult {
   /// Column descriptions
   fields : Array[ColumnInfo]
   /// Result rows
@@ -15,7 +15,7 @@ pub struct QueryResult {
 
 ///|
 /// A single row of query results
-pub struct Row {
+struct Row {
   /// Column values
   values : Array[Value]
   /// Reference to column info

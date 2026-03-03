@@ -17,7 +17,7 @@ pub(all) enum SslMode {
 
 ///|
 /// Configuration for PostgreSQL connection
-pub struct Config {
+struct Config {
   /// Hostname of the PostgreSQL server
   host : String
   /// Port number (default: 5432)

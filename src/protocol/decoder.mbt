@@ -9,7 +9,7 @@ const HEADER_SIZE : Int = 5
 ///|
 /// Decoder for PostgreSQL protocol messages
 /// Handles incremental parsing of data that may arrive in chunks
-pub struct Decoder {
+struct Decoder {
   /// Buffer for incomplete messages
   mut buffer : Array[Byte]
 }
@@ -86,18 +86,6 @@ pub fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
   }
 
   messages
-}
-
-///|
-/// Clear the decoder buffer
-pub fn Decoder::clear(self : Decoder) -> Unit {
-  self.buffer.clear()
-}
-
-///|
-/// Check if there is pending data in the buffer
-pub fn Decoder::has_pending(self : Decoder) -> Bool {
-  self.buffer.length() > 0
 }
 
 // -----------------------------------------------------------------------------

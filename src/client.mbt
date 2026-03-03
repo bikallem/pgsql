@@ -4,7 +4,7 @@
 
 ///|
 /// PostgreSQL client
-pub struct Client {
+struct Client {
   /// Underlying connection
   conn : Connection
   /// Statement counter for PreparedStatement naming
@@ -257,7 +257,7 @@ fn convert_row_values(
 
   for i = 0; i < raw_values.length(); i = i + 1 {
     let type_oid = if i < fields.length() {
-      fields[i].type_oid
+      fields[i].type_oid()
     } else {
       @protocol.OID_TEXT
     }

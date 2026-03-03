@@ -94,7 +94,7 @@ pub fn Value::as_bytes(self : Value) -> Bytes? {
 
 ///|
 /// Simplified column metadata exposed to end-users
-pub struct ColumnInfo {
+struct ColumnInfo {
   /// Column name
   name : String
   /// PostgreSQL type OID

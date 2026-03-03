@@ -363,7 +363,7 @@ test "decode_partial_message" {
   let partial1 = Bytes::from_array([b'Z', b'\x00', b'\x00'])
   let messages1 = decoder.parse(partial1)
   inspect(messages1.length(), content="0")
-  inspect(decoder.has_pending(), content="true")
+  inspect(decoder.buffer.length() > 0, content="true")
   let partial2 = Bytes::from_array([b'\x00', b'\x05', b'I'])
   let messages2 = decoder.parse(partial2)
   inspect(messages2.length(), content="1")
@@ -374,19 +374,19 @@ test "decode_partial_message" {
 }
 
 ///|
-test "Decoder::clear" {
+test "Decoder buffer clear" {
   let decoder = Decoder::new()
   let partial = Bytes::from_array([b'Z', b'\x00'])
   let _ = decoder.parse(partial)
-  inspect(decoder.has_pending(), content="true")
-  decoder.clear()
-  inspect(decoder.has_pending(), content="false")
+  inspect(decoder.buffer.length() > 0, content="true")
+  decoder.buffer.clear()
+  inspect(decoder.buffer.length() > 0, content="false")
 }
 
 ///|
-test "Decoder::has_pending empty" {
+test "Decoder buffer empty" {
   let decoder = Decoder::new()
-  inspect(decoder.has_pending(), content="false")
+  inspect(decoder.buffer.length() > 0, content="false")
 }
 
 ///|
@@ -460,7 +460,7 @@ test "decode_truncated_header" {
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
   inspect(messages.length(), content="0")
-  inspect(decoder.has_pending(), content="true")
+  inspect(decoder.buffer.length() > 0, content="true")
 }
 
 ///|
@@ -471,7 +471,7 @@ test "decode_truncated_payload" {
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
   inspect(messages.length(), content="0")
-  inspect(decoder.has_pending(), content="true")
+  inspect(decoder.buffer.length() > 0, content="true")
 }
 
 ///|

@@ -104,7 +104,7 @@ pub(all) enum FormatCode {
 
 ///|
 /// Description of a field/column in query results
-pub struct FieldDescription {
+struct FieldDescription {
   /// Column name
   name : String
   /// OID of the table (0 if not a table column)
@@ -120,6 +120,24 @@ pub struct FieldDescription {
   /// Format code (text or binary)
   format : FormatCode
 } derive(Show)
+
+///|
+/// Column name
+pub fn FieldDescription::name(self : FieldDescription) -> String {
+  self.name
+}
+
+///|
+/// OID of the field's data type
+pub fn FieldDescription::type_oid(self : FieldDescription) -> UInt {
+  self.type_oid
+}
+
+///|
+/// Data type size (negative for variable-width types)
+pub fn FieldDescription::type_size(self : FieldDescription) -> Int {
+  self.type_size
+}
 
 ///|
 /// Create a new FieldDescription
