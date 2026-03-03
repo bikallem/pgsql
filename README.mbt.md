@@ -2,6 +2,18 @@
 
 A PostgreSQL database driver for MoonBit implementing the PostgreSQL wire protocol (v3.0).
 
+## Table of Contents
+
+- [Architecture](#architecture)
+  - [Dependency Graph](#dependency-graph)
+- [Packages](#packages)
+  - [`bikallem/postgresql`](#bikallempostgresql-1)
+  - [`bikallem/postgresql/protocol`](#bikallempostgresqlprotocol)
+  - [`tests/integration`](#testsintegration)
+  - [`examples/contacts`](#examplescontacts)
+- [Usage](#usage)
+- [Development](#development)
+
 Native-only. Requires `moonbitlang/async` for async I/O.
 
 ## Architecture
