@@ -1,6 +1,12 @@
 ///| BufferReader - Utility for parsing binary PostgreSQL protocol messages
 
 ///|
+/// Error raised when a read exceeds the available data in the buffer
+suberror BufferUnderflow {
+  BufferUnderflow(String)
+}
+
+///|
 /// A reader for parsing binary data from Bytes
 pub struct BufferReader {
   data : Bytes
@@ -39,7 +45,14 @@ pub fn BufferReader::position(self : BufferReader) -> Int {
 
 ///|
 /// Read a single byte
-pub fn BufferReader::byte(self : BufferReader) -> Byte {
+pub fn BufferReader::byte(
+  self : BufferReader,
+) -> Byte raise BufferUnderflow {
+  guard self.remaining() >= 1 else {
+    raise BufferUnderflow(
+      "byte: need 1 byte but only \{self.remaining()} remaining",
+    )
+  }
   let b = self.data[self.offset]
   self.offset += 1
   b
@@ -47,7 +60,14 @@ pub fn BufferReader::byte(self : BufferReader) -> Byte {
 
 ///|
 /// Read a 16-bit signed integer in big-endian format
-pub fn BufferReader::int16(self : BufferReader) -> Int {
+pub fn BufferReader::int16(
+  self : BufferReader,
+) -> Int raise BufferUnderflow {
+  guard self.remaining() >= 2 else {
+    raise BufferUnderflow(
+      "int16: need 2 bytes but only \{self.remaining()} remaining",
+    )
+  }
   let b0 = self.data[self.offset].to_int()
   let b1 = self.data[self.offset + 1].to_int()
   self.offset += 2
@@ -71,7 +91,14 @@ pub fn BufferReader::uint16(self : BufferReader) -> Int {
 
 ///|
 /// Read a 32-bit signed integer in big-endian format
-pub fn BufferReader::int32(self : BufferReader) -> Int {
+pub fn BufferReader::int32(
+  self : BufferReader,
+) -> Int raise BufferUnderflow {
+  guard self.remaining() >= 4 else {
+    raise BufferUnderflow(
+      "int32: need 4 bytes but only \{self.remaining()} remaining",
+    )
+  }
   let b0 = self.data[self.offset].to_int()
   let b1 = self.data[self.offset + 1].to_int()
   let b2 = self.data[self.offset + 2].to_int()
@@ -82,7 +109,14 @@ pub fn BufferReader::int32(self : BufferReader) -> Int {
 
 ///|
 /// Read a 32-bit unsigned integer in big-endian format
-pub fn BufferReader::uint32(self : BufferReader) -> UInt {
+pub fn BufferReader::uint32(
+  self : BufferReader,
+) -> UInt raise BufferUnderflow {
+  guard self.remaining() >= 4 else {
+    raise BufferUnderflow(
+      "uint32: need 4 bytes but only \{self.remaining()} remaining",
+    )
+  }
   let b0 = self.data[self.offset].to_int().reinterpret_as_uint()
   let b1 = self.data[self.offset + 1].to_int().reinterpret_as_uint()
   let b2 = self.data[self.offset + 2].to_int().reinterpret_as_uint()
@@ -103,7 +137,7 @@ pub fn BufferReader::string(self : BufferReader, len : Int) -> String {
 }
 
 ///|
-/// Read a null-terminated C string (ASCII/UTF-8)
+/// Read a null-terminated C string (ASCII)
 pub fn BufferReader::cstring(self : BufferReader) -> String {
   let start = self.offset
   // Find the null terminator
@@ -124,7 +158,15 @@ pub fn BufferReader::cstring(self : BufferReader) -> String {
 
 ///|
 /// Read fixed number of bytes
-pub fn BufferReader::bytes(self : BufferReader, len : Int) -> Bytes {
+pub fn BufferReader::bytes(
+  self : BufferReader,
+  len : Int,
+) -> Bytes raise BufferUnderflow {
+  guard self.remaining() >= len else {
+    raise BufferUnderflow(
+      "bytes: need \{len} bytes but only \{self.remaining()} remaining",
+    )
+  }
   let arr : Array[Byte] = Array::new(capacity=len)
   for i = 0; i < len; i = i + 1 {
     arr.push(self.data[self.offset + i])
