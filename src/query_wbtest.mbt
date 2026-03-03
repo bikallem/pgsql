@@ -182,7 +182,7 @@ test "Row::is_null" {
   let row = Row::new([Null, String("ok")], cols)
   inspect(row.is_null(0), content="true")
   inspect(row.is_null(1), content="false")
-  inspect(row.is_null(99), content="true") // out of bounds is null
+  inspect(row.is_null(99), content="false") // out of bounds is not null
 }
 
 ///|

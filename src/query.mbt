@@ -165,6 +165,6 @@ pub fn Row::get_bool(self : Row, index : Int) -> Bool? {
 pub fn Row::is_null(self : Row, index : Int) -> Bool {
   match self.get(index) {
     Some(v) => v.is_null()
-    None => true
+    None => false
   }
 }
