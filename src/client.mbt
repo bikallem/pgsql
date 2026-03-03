@@ -21,9 +21,18 @@ pub async fn Client::connect(config : Config) -> Client {
 }
 
 ///|
+/// Guard: raises ConnectionClosedError if the client has been closed
+fn Client::check_open(self : Client) -> Unit raise ConnectionClosedError {
+  if self.closed {
+    raise ConnectionClosedError
+  }
+}
+
+///|
 /// Execute a simple query (non-parameterized)
 /// Returns query results
 pub async fn Client::query(self : Client, sql : String) -> QueryResult {
+  self.check_open()
   // Send Query message
   self.conn.send(@protocol.Query(sql))
 
@@ -49,6 +58,7 @@ pub async fn Client::query_params(
   sql : String,
   params : Array[Value],
 ) -> QueryResult {
+  self.check_open()
   // Parse + bind-execute in a single batch
   let messages = self.bind_execute(
     "",
@@ -83,6 +93,7 @@ pub async fn Client::execute_params(
 /// Use PreparedStatement::query/execute to run it with parameters,
 /// and PreparedStatement::close when done.
 pub async fn Client::prepare(self : Client, sql : String) -> PreparedStatement {
+  self.check_open()
   self.stmt_counter += 1
   let name = "__prep_" + self.stmt_counter.to_string()
 

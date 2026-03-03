@@ -370,6 +370,25 @@ async test "transaction: TxError on inactive transaction" {
 }
 
 ///|
+async test "client: query after close raises error" {
+  let client = @pgsql.Client::connect(get_config())
+  // Verify the connection works
+  let result = client.query("SELECT 1 AS val")
+  assert_eq(result.get_row(0).unwrap().get_int(0), Some(1))
+
+  client.close()
+
+  // Operations on a closed client should raise an error
+  let mut got_error = false
+  try {
+    let _ = client.query("SELECT 1")
+  } catch {
+    _ => got_error = true
+  }
+  assert_true(got_error)
+}
+
+///|
 async test "error handling: constraint violation" {
   let client = @pgsql.Client::connect(get_config())
   let _ = client.execute(
