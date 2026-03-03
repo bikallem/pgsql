@@ -79,10 +79,9 @@ async fn Connection::receive_until_ready(
         _ => ()
       }
     }
+  } nobreak {
+    all_messages
   }
-
-  // Should never reach here
-  all_messages
 }
 
 ///|
@@ -96,26 +95,6 @@ fn find_error(messages : Array[@protocol.BackendMessage]) -> ServerErrorInfo? {
     }
   }
   None
-}
-
-///|
-/// Get process ID
-pub fn Connection::get_process_id(self : Connection) -> Int {
-  self.process_id
-}
-
-///|
-/// Get secret key
-pub fn Connection::get_secret_key(self : Connection) -> Int {
-  self.secret_key
-}
-
-///|
-/// Get current transaction status
-pub fn Connection::get_transaction_status(
-  self : Connection,
-) -> @protocol.TransactionStatus {
-  self.transaction_status
 }
 
 ///|
