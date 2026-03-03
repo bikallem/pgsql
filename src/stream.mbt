@@ -11,6 +11,7 @@ struct RowStream {
   stmt_name : String
   batch_size : Int
   fields : Array[ColumnInfo]
+  column_index : Map[String, Int]
   buffer : Array[Row]
   mut buffer_pos : Int
   mut exhausted : Bool
@@ -27,9 +28,7 @@ pub fn RowStream::fields(self : RowStream) -> Array[ColumnInfo] {
 ///|
 /// Get the next row, or None if the stream is exhausted
 pub async fn RowStream::next(self : RowStream) -> Row? {
-  guard not(self.closed) else {
-    raise StreamError("Stream is closed")
-  }
+  guard not(self.closed) else { raise StreamError("Stream is closed") }
   // Return from buffer if available
   if self.buffer_pos < self.buffer.length() {
     let row = self.buffer[self.buffer_pos]
@@ -105,7 +104,9 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
       match msg {
         @protocol.DataRow(values) => {
           let typed_values = convert_row_values(values, self.fields)
-          self.buffer.push(Row::new(typed_values, self.fields))
+          self.buffer.push(
+            Row::new(typed_values, self.fields, self.column_index),
+          )
         }
         @protocol.PortalSuspended =>
           // More rows available in next batch
@@ -116,10 +117,7 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
           self.exhausted = true
           self.client.conn.send(@protocol.Sync)
           let rfq_msgs = self.client.conn.receive_until_ready()
-          match find_error(rfq_msgs) {
-            Some(err) => raise ServerError(err)
-            None => ()
-          }
+          check_error(rfq_msgs)
           return
         }
         @protocol.ErrorResponse(fields) =>
@@ -141,8 +139,8 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
 pub async fn Client::query_stream(
   self : Client,
   sql : String,
-  params~ : Array[Value] = [],
-  batch_size~ : Int = 100,
+  params? : Array[Value] = [],
+  batch_size? : Int = 100,
 ) -> RowStream {
   self.check_open()
   self.stmt_counter += 1
@@ -167,6 +165,7 @@ pub async fn Client::query_stream(
 
   // Read responses: ParseComplete, BindComplete, RowDescription, then rows
   let mut columns : Array[ColumnInfo] = []
+  let mut col_index : Map[String, Int] = {}
   let rows : Array[Row] = []
   let mut exhausted = false
 
@@ -176,17 +175,18 @@ pub async fn Client::query_stream(
     for msg in messages {
       match msg {
         @protocol.ParseComplete | @protocol.BindComplete => ()
-        @protocol.RowDescription(f) =>
+        @protocol.RowDescription(f) => {
           columns = f.map(fn(fd) { column_info_from_field(fd) })
+          col_index = build_column_index(columns)
+        }
         @protocol.NoData => columns = []
         @protocol.DataRow(values) => {
           let typed_values = convert_row_values(values, columns)
-          rows.push(Row::new(typed_values, columns))
+          rows.push(Row::new(typed_values, columns, col_index))
         }
-        @protocol.PortalSuspended => {
+        @protocol.PortalSuspended =>
           // First batch done, more rows available
           done = true
-        }
         @protocol.CommandComplete(_) => {
           // All rows fit in first batch
           exhausted = true
@@ -223,6 +223,7 @@ pub async fn Client::query_stream(
     stmt_name,
     batch_size,
     fields: columns,
+    column_index: col_index,
     buffer: rows,
     buffer_pos: 0,
     exhausted,

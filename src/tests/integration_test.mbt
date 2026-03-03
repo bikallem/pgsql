@@ -471,14 +471,11 @@ async test "date, time, timestamp, json, uuid types" {
   assert_true(row.uuid(7) is Some(_))
 
   // Verify parameterized queries work with new types
-  let result2 = client.query_params(
-    "SELECT $1::date, $2::json, $3::uuid",
-    [
-      @pgsql.Date("2024-01-15"),
-      @pgsql.Json("{\"x\":42}"),
-      @pgsql.Uuid("550e8400-e29b-41d4-a716-446655440000"),
-    ],
-  )
+  let result2 = client.query_params("SELECT $1::date, $2::json, $3::uuid", [
+    @pgsql.Date("2024-01-15"),
+    @pgsql.Json("{\"x\":42}"),
+    @pgsql.Uuid("550e8400-e29b-41d4-a716-446655440000"),
+  ])
   let row2 = result2.row(0).unwrap()
   assert_eq(row2.date(0), Some("2024-01-15"))
   inspect(
@@ -504,16 +501,13 @@ async test "COPY OUT: export rows" {
   )
 
   let chunks : Array[String] = []
-  let rows = client.copy_out(
-    "COPY test_copy_out TO STDOUT",
-    fn(data : Bytes) {
-      let chars : Array[Char] = Array::new(capacity=data.length())
-      for i = 0; i < data.length(); i = i + 1 {
-        chars.push(data[i].to_int().unsafe_to_char())
-      }
-      chunks.push(String::from_array(chars))
-    },
-  )
+  let rows = client.copy_out("COPY test_copy_out TO STDOUT", fn(data : Bytes) {
+    let chars : Array[Char] = Array::new(capacity=data.length())
+    for i = 0; i < data.length(); i = i + 1 {
+      chars.push(data[i].to_int().unsafe_to_char())
+    }
+    chunks.push(String::from_array(chars))
+  })
   assert_eq(rows, 3)
   // Chunks should contain tab-separated data
   let all_data = chunks.iter().fold(init="", fn(acc, s) { acc + s })
@@ -532,14 +526,11 @@ async test "COPY IN: import rows" {
   )
   let _ = client.execute("DELETE FROM test_copy_in")
 
-  let rows = client.copy_in(
-    "COPY test_copy_in FROM STDIN",
-    async fn(w) {
-      w.write_row(["1", "Alice"])
-      w.write_row(["2", "Bob"])
-      w.write_row(["3", "Carol"])
-    },
-  )
+  let rows = client.copy_in("COPY test_copy_in FROM STDIN", async fn(w) {
+    w.write_row(["1", "Alice"])
+    w.write_row(["2", "Bob"])
+    w.write_row(["3", "Carol"])
+  })
   assert_eq(rows, 3)
 
   let result = client.query("SELECT id, name FROM test_copy_in ORDER BY id")
@@ -641,9 +632,7 @@ async test "pool: with_connection auto-release" {
 ///|
 async test "stream: basic row streaming" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
-    "CREATE TABLE IF NOT EXISTS test_stream (id INT)",
-  )
+  let _ = client.execute("CREATE TABLE IF NOT EXISTS test_stream (id INT)")
   let _ = client.execute("DELETE FROM test_stream")
   let _ = client.execute(
     "INSERT INTO test_stream SELECT generate_series(1, 250)",

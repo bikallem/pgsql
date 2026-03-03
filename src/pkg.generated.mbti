@@ -155,7 +155,15 @@ pub struct ServerErrorInfo {
   column : String?
   constraint : String?
 }
+pub fn ServerErrorInfo::code(Self) -> String
+pub fn ServerErrorInfo::column(Self) -> String?
+pub fn ServerErrorInfo::constraint(Self) -> String?
+pub fn ServerErrorInfo::detail(Self) -> String?
 pub fn ServerErrorInfo::from_fields(Map[String, String]) -> Self
+pub fn ServerErrorInfo::hint(Self) -> String?
+pub fn ServerErrorInfo::message(Self) -> String
+pub fn ServerErrorInfo::severity(Self) -> String
+pub fn ServerErrorInfo::table(Self) -> String?
 pub impl Eq for ServerErrorInfo
 pub impl Show for ServerErrorInfo
 

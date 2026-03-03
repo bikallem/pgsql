@@ -120,6 +120,17 @@ fn find_error(messages : Array[@protocol.BackendMessage]) -> ServerErrorInfo? {
 }
 
 ///|
+/// Raise ServerError if messages contain an error
+fn check_error(
+  messages : Array[@protocol.BackendMessage],
+) -> Unit raise ServerError {
+  match find_error(messages) {
+    Some(err) => raise ServerError(err)
+    None => ()
+  }
+}
+
+///|
 /// Server parameter
 fn Connection::server_param(self : Connection, name : String) -> String? {
   self.server_params.get(name)
@@ -198,12 +209,13 @@ async fn Connection::startup(self : Connection) -> Unit {
   self.authenticate()
 }
 
-///| Generate a random nonce for SCRAM authentication.
+///|
+/// Generate a random nonce for SCRAM authentication.
 /// Uses random bytes, base64-encoded.
 fn generate_nonce() -> String {
   let now = @async.now()
   let seed_bytes = Bytes::makei(32, fn(i) {
-    ((now >> ((i % 8) * 8)) & 0xFFL).to_byte()
+    ((now >> (i % 8 * 8)) & 0xFFL).to_byte()
   })
   let rng = @random.Rand::chacha8(seed=seed_bytes)
   let random_bytes = Bytes::makei(18, fn(_i) { rng.uint(limit=256).to_byte() })

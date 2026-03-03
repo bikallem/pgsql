@@ -65,12 +65,18 @@ test "split_string multiple spaces" {
 }
 
 ///|
+/// Helper to create a Row in tests (computes column_index automatically)
+fn test_row(values : Array[Value], cols : Array[ColumnInfo]) -> Row {
+  Row::new(values, cols, build_column_index(cols))
+}
+
+///|
 test "QueryResult accessors" {
   let cols : Array[ColumnInfo] = [
     { name: "id", type_oid: 23, type_size: 4 },
     { name: "name", type_oid: 25, type_size: -1 },
   ]
-  let row = Row::new([Int(1), String("Alice")], cols)
+  let row = test_row([Int(1), String("Alice")], cols)
   let result = QueryResult::new(cols, [row], "SELECT 1")
   inspect(result.row_count(), content="1")
   inspect(result.column_count(), content="2")
@@ -83,7 +89,7 @@ test "QueryResult accessors" {
 ///|
 test "QueryResult::iter" {
   let cols : Array[ColumnInfo] = [{ name: "x", type_oid: 23, type_size: 4 }]
-  let rows = [Row::new([Int(1)], cols), Row::new([Int(2)], cols)]
+  let rows = [test_row([Int(1)], cols), test_row([Int(2)], cols)]
   let result = QueryResult::new(cols, rows, "SELECT 2")
   let mut sum = 0
   for row in result.iter() {
@@ -103,7 +109,7 @@ test "QueryResult::get_fields" {
 ///|
 test "Row::get" {
   let cols : Array[ColumnInfo] = [{ name: "a", type_oid: 25, type_size: -1 }]
-  let row = Row::new([String("hello")], cols)
+  let row = test_row([String("hello")], cols)
   inspect(
     row.get(0),
     content=(
@@ -120,7 +126,7 @@ test "Row::get_by_name" {
     { name: "id", type_oid: 23, type_size: 4 },
     { name: "name", type_oid: 25, type_size: -1 },
   ]
-  let row = Row::new([Int(1), String("Bob")], cols)
+  let row = test_row([Int(1), String("Bob")], cols)
   inspect(
     row.by_name("name"),
     content=(
@@ -134,7 +140,7 @@ test "Row::get_by_name" {
 ///|
 test "Row::get_string" {
   let cols : Array[ColumnInfo] = [{ name: "s", type_oid: 25, type_size: -1 }]
-  let row = Row::new([String("hello")], cols)
+  let row = test_row([String("hello")], cols)
   inspect(
     row.string(0),
     content=(
@@ -147,7 +153,7 @@ test "Row::get_string" {
 ///|
 test "Row::get_int" {
   let cols : Array[ColumnInfo] = [{ name: "n", type_oid: 23, type_size: 4 }]
-  let row = Row::new([Int(42)], cols)
+  let row = test_row([Int(42)], cols)
   inspect(row.int(0), content="Some(42)")
   inspect(row.int(1), content="None")
 }
@@ -155,21 +161,21 @@ test "Row::get_int" {
 ///|
 test "Row::get_int64" {
   let cols : Array[ColumnInfo] = [{ name: "n", type_oid: 20, type_size: 8 }]
-  let row = Row::new([Int64(9999999999L)], cols)
+  let row = test_row([Int64(9999999999L)], cols)
   inspect(row.int64(0), content="Some(9999999999)")
 }
 
 ///|
 test "Row::get_float" {
   let cols : Array[ColumnInfo] = [{ name: "f", type_oid: 701, type_size: 8 }]
-  let row = Row::new([Float(3.14)], cols)
+  let row = test_row([Float(3.14)], cols)
   inspect(row.float(0), content="Some(3.14)")
 }
 
 ///|
 test "Row::get_bool" {
   let cols : Array[ColumnInfo] = [{ name: "b", type_oid: 16, type_size: 1 }]
-  let row = Row::new([Bool(true)], cols)
+  let row = test_row([Bool(true)], cols)
   inspect(row.bool(0), content="Some(true)")
 }
 
@@ -179,7 +185,7 @@ test "Row::is_null" {
     { name: "a", type_oid: 25, type_size: -1 },
     { name: "b", type_oid: 25, type_size: -1 },
   ]
-  let row = Row::new([Null, String("ok")], cols)
+  let row = test_row([Null, String("ok")], cols)
   inspect(row.is_null(0), content="true")
   inspect(row.is_null(1), content="false")
   inspect(row.is_null(99), content="false") // out of bounds is not null
@@ -191,7 +197,7 @@ test "Row::column_count" {
     { name: "a", type_oid: 25, type_size: -1 },
     { name: "b", type_oid: 23, type_size: 4 },
   ]
-  let row = Row::new([String("x"), Int(1)], cols)
+  let row = test_row([String("x"), Int(1)], cols)
   inspect(row.column_count(), content="2")
 }
 
@@ -256,10 +262,7 @@ test "build_query_result command only" {
 
 ///|
 test "convert_row_values null column" {
-  let columns = [
-    ColumnInfo::new("a", 25, -1),
-    ColumnInfo::new("b", 23, 4),
-  ]
+  let columns = [ColumnInfo::new("a", 25, -1), ColumnInfo::new("b", 23, 4)]
   let raw : Array[Bytes?] = [None, Some(Bytes::from_array([b'4', b'2']))]
   let values = convert_row_values(raw, columns)
   inspect(values[0], content="Null")

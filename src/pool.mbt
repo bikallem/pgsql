@@ -16,8 +16,8 @@ struct Pool {
 /// Create a new connection pool
 pub fn Pool::new(
   config : Config,
-  max_size~ : Int = 10,
-  acquire_timeout_ms~ : Int = 30000,
+  max_size? : Int = 10,
+  acquire_timeout_ms? : Int = 30000,
 ) -> Pool {
   {
     config,
@@ -33,9 +33,7 @@ pub fn Pool::new(
 /// Returns an idle connection if available, otherwise creates a new one.
 /// Blocks if the pool is at maximum capacity, with a timeout.
 pub async fn Pool::acquire(self : Pool) -> Client {
-  guard not(self.closed) else {
-    raise PoolError("Pool is closed")
-  }
+  guard not(self.closed) else { raise PoolError("Pool is closed") }
   @async.with_timeout(
     self.acquire_timeout_ms,
     async fn() {
@@ -43,7 +41,7 @@ pub async fn Pool::acquire(self : Pool) -> Client {
       // Try to get an idle connection
       let idle_client : Client? = self.idle.try_get() catch { _ => None }
       match idle_client {
-        Some(client) => {
+        Some(client) =>
           // Verify the connection is still usable
           if client.closed {
             // Discard and create a new one
@@ -51,7 +49,6 @@ pub async fn Pool::acquire(self : Pool) -> Client {
           } else {
             client
           }
-        }
         _ =>
           // No idle connections, create a new one
           Client::connect(self.config)

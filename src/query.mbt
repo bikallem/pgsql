@@ -85,12 +85,23 @@ pub fn QueryResult::iter(self : QueryResult) -> Iter[Row] {
 // =============================================================================
 
 ///|
-/// Create a new Row
-fn Row::new(values : Array[Value], fields : Array[ColumnInfo]) -> Row {
-  let column_index : Map[String, Int] = {}
+/// Build a column-name-to-index map from column metadata.
+/// Compute once per result set and share across all rows.
+fn build_column_index(fields : Array[ColumnInfo]) -> Map[String, Int] {
+  let index : Map[String, Int] = {}
   for i = 0; i < fields.length(); i = i + 1 {
-    column_index[fields[i].name] = i
+    index[fields[i].name] = i
   }
+  index
+}
+
+///|
+/// Create a new Row with a precomputed column index
+fn Row::new(
+  values : Array[Value],
+  fields : Array[ColumnInfo],
+  column_index : Map[String, Int],
+) -> Row {
   { values, fields, column_index }
 }
 

@@ -94,8 +94,13 @@ pub fn Value::as_string(self : Value) -> String? {
     Float(n) => Some(n.to_string())
     String(s) => Some(s)
     Bytes(_) => None
-    Date(s) | Time(s) | Timestamp(s) | TimestampTz(s) | Interval(s) | Json(s) |
-    Uuid(s) => Some(s)
+    Date(s)
+    | Time(s)
+    | Timestamp(s)
+    | TimestampTz(s)
+    | Interval(s)
+    | Json(s)
+    | Uuid(s) => Some(s)
   }
 }
 

@@ -458,8 +458,13 @@ pub fn serialize_value(value : Value) -> Bytes? {
     Float(n) => Some(@utf8.encode(n.to_string()[:]))
     String(s) => Some(@utf8.encode(s[:]))
     Bytes(b) => Some(bytea_to_hex(b))
-    Date(s) | Time(s) | Timestamp(s) | TimestampTz(s) | Interval(s) | Json(s) |
-    Uuid(s) => Some(@utf8.encode(s[:]))
+    Date(s)
+    | Time(s)
+    | Timestamp(s)
+    | TimestampTz(s)
+    | Interval(s)
+    | Json(s)
+    | Uuid(s) => Some(@utf8.encode(s[:]))
   }
 }
 
@@ -543,8 +548,13 @@ pub fn Value::as_string(self : Value) -> String? {
     Float(n) => Some(n.to_string())
     String(s) => Some(s)
     Bytes(b) => Some(bytes_to_ascii_string(b))
-    Date(s) | Time(s) | Timestamp(s) | TimestampTz(s) | Interval(s) | Json(s) |
-    Uuid(s) => Some(s)
+    Date(s)
+    | Time(s)
+    | Timestamp(s)
+    | TimestampTz(s)
+    | Interval(s)
+    | Json(s)
+    | Uuid(s) => Some(s)
   }
 }
 

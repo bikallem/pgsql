@@ -466,9 +466,7 @@ test "parse_text_value date" {
 
 ///|
 test "parse_text_value time" {
-  let bytes = Bytes::from_array([
-    b'1', b'4', b':', b'3', b'0', b':', b'0', b'0',
-  ])
+  let bytes = Bytes::from_array([b'1', b'4', b':', b'3', b'0', b':', b'0', b'0'])
   inspect(
     parse_text_value(Some(bytes), OID_TIME),
     content=(
@@ -480,8 +478,8 @@ test "parse_text_value time" {
 ///|
 test "parse_text_value timestamp" {
   let bytes = Bytes::from_array([
-    b'2', b'0', b'2', b'4', b'-', b'0', b'3', b'-', b'1', b'5', b' ', b'1',
-    b'4', b':', b'3', b'0', b':', b'0', b'0',
+    b'2', b'0', b'2', b'4', b'-', b'0', b'3', b'-', b'1', b'5', b' ', b'1', b'4',
+    b':', b'3', b'0', b':', b'0', b'0',
   ])
   inspect(
     parse_text_value(Some(bytes), OID_TIMESTAMP),
@@ -494,8 +492,8 @@ test "parse_text_value timestamp" {
 ///|
 test "parse_text_value timestamptz" {
   let bytes = Bytes::from_array([
-    b'2', b'0', b'2', b'4', b'-', b'0', b'3', b'-', b'1', b'5', b' ', b'1',
-    b'4', b':', b'3', b'0', b':', b'0', b'0', b'+', b'0', b'0',
+    b'2', b'0', b'2', b'4', b'-', b'0', b'3', b'-', b'1', b'5', b' ', b'1', b'4',
+    b':', b'3', b'0', b':', b'0', b'0', b'+', b'0', b'0',
   ])
   inspect(
     parse_text_value(Some(bytes), OID_TIMESTAMPTZ),
@@ -507,9 +505,7 @@ test "parse_text_value timestamptz" {
 
 ///|
 test "parse_text_value interval" {
-  let bytes = Bytes::from_array([
-    b'1', b' ', b'd', b'a', b'y',
-  ])
+  let bytes = Bytes::from_array([b'1', b' ', b'd', b'a', b'y'])
   inspect(
     parse_text_value(Some(bytes), OID_INTERVAL),
     content=(
@@ -533,9 +529,7 @@ test "parse_text_value json" {
 
 ///|
 test "parse_text_value jsonb" {
-  let bytes = Bytes::from_array([
-    b'{', b'"', b'a', b'"', b':', b'1', b'}',
-  ])
+  let bytes = Bytes::from_array([b'{', b'"', b'a', b'"', b':', b'1', b'}'])
   inspect(
     parse_text_value(Some(bytes), OID_JSONB),
     content=(
@@ -547,9 +541,9 @@ test "parse_text_value jsonb" {
 ///|
 test "parse_text_value uuid" {
   let bytes = Bytes::from_array([
-    b'5', b'5', b'0', b'e', b'8', b'4', b'0', b'0', b'-', b'e', b'2', b'9',
-    b'b', b'-', b'4', b'1', b'd', b'4', b'-', b'a', b'7', b'1', b'6', b'-',
-    b'4', b'4', b'6', b'6', b'5', b'5', b'4', b'4', b'0', b'0', b'0', b'0',
+    b'5', b'5', b'0', b'e', b'8', b'4', b'0', b'0', b'-', b'e', b'2', b'9', b'b',
+    b'-', b'4', b'1', b'd', b'4', b'-', b'a', b'7', b'1', b'6', b'-', b'4', b'4',
+    b'6', b'6', b'5', b'5', b'4', b'4', b'0', b'0', b'0', b'0',
   ])
   inspect(
     parse_text_value(Some(bytes), OID_UUID),

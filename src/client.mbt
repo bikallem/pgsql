@@ -39,13 +39,7 @@ pub async fn Client::query(self : Client, sql : String) -> QueryResult {
   // Receive all messages until ReadyForQuery
   let messages = self.conn.receive_until_ready()
 
-  // Check for errors
-  match find_error(messages) {
-    Some(err) => raise ServerError(err)
-    None => ()
-  }
-
-  // Build result from messages
+  check_error(messages)
   build_query_result(messages)
 }
 
@@ -100,12 +94,7 @@ pub async fn Client::prepare(self : Client, sql : String) -> PreparedStatement {
   self.conn.send(@protocol.Sync)
 
   let messages = self.conn.receive_until_ready()
-
-  match find_error(messages) {
-    Some(err) => raise ServerError(err)
-    None => ()
-  }
-
+  check_error(messages)
   { client: self, name, sql, closed: false }
 }
 
@@ -204,8 +193,7 @@ pub async fn Client::wait_for_notification(self : Client) -> Notification {
       match msg {
         @protocol.NotificationResponse(pid, channel, payload) =>
           return Notification::new(channel, payload, pid)
-        @protocol.ReadyForQuery(status) =>
-          self.conn.transaction_status = status
+        @protocol.ReadyForQuery(status) => self.conn.transaction_status = status
         @protocol.ParameterStatus(name, value) =>
           self.conn.server_params[name] = value
         _ => ()
@@ -245,12 +233,7 @@ async fn Client::bind_execute(
   self.conn.send_all(msgs)
 
   let messages = self.conn.receive_until_ready()
-
-  match find_error(messages) {
-    Some(err) => raise ServerError(err)
-    None => ()
-  }
-
+  check_error(messages)
   messages
 }
 
@@ -279,16 +262,19 @@ fn build_query_result(
   messages : Array[@protocol.BackendMessage],
 ) -> QueryResult {
   let mut columns : Array[ColumnInfo] = []
+  let mut col_index : Map[String, Int] = {}
   let rows : Array[Row] = []
   let mut command_tag = ""
 
   for msg in messages {
     match msg {
-      @protocol.RowDescription(f) =>
+      @protocol.RowDescription(f) => {
         columns = f.map(fn(fd) { column_info_from_field(fd) })
+        col_index = build_column_index(columns)
+      }
       @protocol.DataRow(values) => {
         let typed_values = convert_row_values(values, columns)
-        rows.push(Row::new(typed_values, columns))
+        rows.push(Row::new(typed_values, columns, col_index))
       }
       @protocol.CommandComplete(tag) => command_tag = tag
       @protocol.EmptyQueryResponse => ()

@@ -40,6 +40,8 @@ pub const OID_TIMESTAMP : UInt = 1114
 
 pub const OID_TIMESTAMPTZ : UInt = 1184
 
+pub const OID_TIMETZ : UInt = 1266
+
 pub const OID_UUID : UInt = 2950
 
 pub const OID_VARCHAR : UInt = 1043

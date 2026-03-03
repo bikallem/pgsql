@@ -113,10 +113,7 @@ pub async fn Client::copy_in(
   // Wait for completion
   let messages = self.conn.receive_until_ready()
 
-  match find_error(messages) {
-    Some(err) => raise ServerError(err)
-    None => ()
-  }
+  check_error(messages)
 
   // Extract row count from CommandComplete
   let mut row_count = 0

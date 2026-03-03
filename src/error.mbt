@@ -96,6 +96,54 @@ pub fn ServerErrorInfo::from_fields(
 }
 
 ///|
+/// Error severity (ERROR, FATAL, PANIC)
+pub fn ServerErrorInfo::severity(self : ServerErrorInfo) -> String {
+  self.severity
+}
+
+///|
+/// SQLSTATE error code (e.g. "23505" for unique violation)
+pub fn ServerErrorInfo::code(self : ServerErrorInfo) -> String {
+  self.code
+}
+
+///|
+/// Error message
+pub fn ServerErrorInfo::message(self : ServerErrorInfo) -> String {
+  self.message
+}
+
+///|
+/// Optional detail message
+pub fn ServerErrorInfo::detail(self : ServerErrorInfo) -> String? {
+  self.detail
+}
+
+///|
+/// Optional hint
+pub fn ServerErrorInfo::hint(self : ServerErrorInfo) -> String? {
+  self.hint
+}
+
+///|
+/// Optional table name
+pub fn ServerErrorInfo::table(self : ServerErrorInfo) -> String? {
+  self.table
+}
+
+///|
+/// Optional column name
+pub fn ServerErrorInfo::column(self : ServerErrorInfo) -> String? {
+  self.column
+}
+
+///|
+/// Optional constraint name
+pub fn ServerErrorInfo::constraint(self : ServerErrorInfo) -> String? {
+  self.constraint
+}
+
+///|
 /// Implement Show for suberrors
 pub impl Show for ConnectionClosedError with output(_self, logger) {
   logger.write_string("ConnectionClosedError")
