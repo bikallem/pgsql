@@ -311,6 +311,65 @@ async test "unnamed statement regression: many parameterized queries" {
 }
 
 ///|
+async test "savepoint: commit through savepoint" {
+  let client = @pgsql.Client::connect(get_config())
+  let _ = client.execute(
+    "CREATE TABLE IF NOT EXISTS test_sp (id SERIAL PRIMARY KEY, val TEXT)",
+  )
+  let _ = client.execute("DELETE FROM test_sp")
+
+  client.transaction(async fn(tx) {
+    let _ = tx.execute_params("INSERT INTO test_sp (val) VALUES ($1)", [
+      @pgsql.String("before_sp"),
+    ])
+
+    tx.savepoint("sp1")
+    let _ = tx.execute_params("INSERT INTO test_sp (val) VALUES ($1)", [
+      @pgsql.String("in_sp"),
+    ])
+
+    // Rollback to savepoint — "in_sp" row is undone
+    tx.rollback_to("sp1")
+
+    let _ = tx.execute_params("INSERT INTO test_sp (val) VALUES ($1)", [
+      @pgsql.String("after_rollback"),
+    ])
+
+    tx.release("sp1")
+  })
+
+  let result = client.query("SELECT val FROM test_sp ORDER BY id")
+  assert_eq(result.row_count(), 2)
+  assert_eq(result.get_row(0).unwrap().get_string(0), Some("before_sp"))
+  assert_eq(result.get_row(1).unwrap().get_string(0), Some("after_rollback"))
+
+  let _ = client.execute("DROP TABLE test_sp")
+  client.close()
+}
+
+///|
+async test "transaction: TxError on inactive transaction" {
+  let client = @pgsql.Client::connect(get_config())
+
+  client.transaction(async fn(tx) {
+    // Explicitly commit, marking transaction as inactive
+    tx.commit()
+
+    // Now operations on the inactive transaction should raise TxError
+    let mut got_error = false
+    try {
+      let _ = tx.execute("SELECT 1")
+    } catch {
+      @pgsql.TxError(_) => got_error = true
+      _ => ()
+    }
+    assert_true(got_error)
+  })
+
+  client.close()
+}
+
+///|
 async test "error handling: constraint violation" {
   let client = @pgsql.Client::connect(get_config())
   let _ = client.execute(
