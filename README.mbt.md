@@ -9,6 +9,11 @@ Native-only. Requires `moonbitlang/async` for async I/O.
   - [Value Types](#value-types)
   - [Prepared Statements](#prepared-statements)
   - [Transactions](#transactions)
+  - [Connection Pooling](#connection-pooling)
+  - [Row Streaming](#row-streaming)
+  - [COPY Protocol](#copy-protocol)
+  - [LISTEN/NOTIFY](#listennotify)
+  - [Error Handling](#error-handling)
 - [Development](#development)
 
 ## Install
@@ -55,11 +60,19 @@ Parameters and results use the `Value` enum:
 | `Int(Int)` | `Int` | SMALLINT, INTEGER |
 | `Int64(Int64)` | `Int64` | BIGINT |
 | `Float(Double)` | `Double` | REAL, DOUBLE PRECISION, NUMERIC |
-| `String(String)` | `String` | TEXT, VARCHAR, CHAR, and all other types |
+| `String(String)` | `String` | TEXT, VARCHAR, CHAR |
 | `Bytes(Bytes)` | `Bytes` | BYTEA |
+| `Date(String)` | `String` | DATE |
+| `Time(String)` | `String` | TIME, TIMETZ |
+| `Timestamp(String)` | `String` | TIMESTAMP |
+| `TimestampTz(String)` | `String` | TIMESTAMPTZ |
+| `Interval(String)` | `String` | INTERVAL |
+| `Json(String)` | `String` | JSON, JSONB |
+| `Uuid(String)` | `String` | UUID |
 
 Row accessors: `int(i)`, `int64(i)`, `float(i)`, `bool(i)`,
-`string(i)`, `by_name(name)`, `is_null(i)`.
+`string(i)`, `date(i)`, `time(i)`, `timestamp(i)`, `json(i)`,
+`uuid(i)`, `by_name(name)`, `is_null(i)`.
 
 Note: `COUNT(*)` returns BIGINT, so use `int64()` not `int()`.
 
@@ -97,6 +110,141 @@ async test "transactions" {
       [String("Carol")],
     )
   })
+
+  client.close()
+}
+```
+
+### Connection Pooling
+
+Manage a pool of reusable connections with concurrency limiting:
+
+```mbt check
+///|
+async test "connection pool" {
+  let config = Config::new("user", "pass", "dbname", host="127.0.0.1")
+  let pool = Pool::new(config, max_size=5, acquire_timeout_ms=10000)
+
+  // Auto-release with `with_connection`
+  let count : Int64 = pool.with_connection(async fn(client) {
+    let result = client.query("SELECT count(*) FROM users")
+    result.row(0).unwrap().int64(0).unwrap()
+  })
+  let _ = count
+
+  pool.close()
+}
+```
+
+### Row Streaming
+
+Stream large result sets without loading everything into memory:
+
+```mbt check
+///|
+async test "row streaming" {
+  let config = Config::new("user", "pass", "dbname", host="127.0.0.1")
+  let client = Client::connect(config)
+
+  let stream = client.query_stream(
+    "SELECT * FROM large_table",
+    batch_size=200,
+  )
+
+  // Iterate row-by-row, fetching in batches from the server
+  stream.for_each(async fn(row) {
+    let _ = row.string(0)
+  })
+  // stream is auto-closed after for_each
+
+  client.close()
+}
+```
+
+Streaming wraps the query in a transaction automatically if needed (portals require one). Use `stream.next()` for manual iteration, and `stream.close()` when done early.
+
+### COPY Protocol
+
+Bulk data import/export using PostgreSQL's COPY protocol:
+
+```mbt check
+///|
+async test "copy" {
+  let config = Config::new("user", "pass", "dbname", host="127.0.0.1")
+  let client = Client::connect(config)
+
+  // COPY IN — bulk insert
+  let rows_imported = client.copy_in(
+    "COPY users (name, age) FROM STDIN",
+    async fn(writer) {
+      writer.write_row(["Alice", "30"])
+      writer.write_row(["Bob", "25"])
+    },
+  )
+  let _ = rows_imported
+
+  // COPY OUT — bulk export
+  let rows_exported = client.copy_out(
+    "COPY users TO STDOUT",
+    async fn(data) {
+      let _ = data // raw tab-separated bytes
+    },
+  )
+  let _ = rows_exported
+
+  client.close()
+}
+```
+
+### LISTEN/NOTIFY
+
+Receive asynchronous notifications from PostgreSQL channels:
+
+```mbt check
+///|
+async test "listen/notify" {
+  let config = Config::new("user", "pass", "dbname", host="127.0.0.1")
+  let listener = Client::connect(config)
+  let notifier = Client::connect(config)
+
+  listener.listen("events")
+
+  let _ = notifier.execute("NOTIFY events, 'hello'")
+
+  let notification = listener.wait_for_notification()
+  let _ = notification.channel()  // "events"
+  let _ = notification.payload()  // "hello"
+
+  listener.unlisten("events")
+
+  listener.close()
+  notifier.close()
+}
+```
+
+Use `poll_notifications()` to check for queued notifications without blocking.
+
+### Error Handling
+
+Server errors carry structured information for programmatic handling:
+
+```mbt check
+///|
+async test "error handling" {
+  let config = Config::new("user", "pass", "dbname", host="127.0.0.1")
+  let client = Client::connect(config)
+
+  let result = client.query("SELECT 1") catch {
+    ServerError(info) => {
+      let _ = info.code()      // SQLSTATE, e.g. "42P01"
+      let _ = info.message()   // human-readable message
+      let _ = info.severity()  // ERROR, FATAL, PANIC
+      let _ = info.detail()    // optional detail
+      let _ = info.hint()      // optional hint
+      return
+    }
+  }
+  let _ = result
 
   client.close()
 }
