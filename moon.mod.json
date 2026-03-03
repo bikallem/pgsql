@@ -2,9 +2,14 @@
   "name": "bikallem/postgresql",
   "version": "0.1.0",
   "readme": "README.mbt.md",
-  "repository": "",
+  "repository": "https://github.com/bikallem/postgresql.mbt.git",
   "license": "Apache-2.0",
-  "keywords": [],
+  "keywords": [
+    "postgresql",
+    "database",
+    "driver",
+    "moonbit"
+  ],
   "source": "src",
   "description": "PostgreSQL database driver for MoonBit",
   "deps": {
