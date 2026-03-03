@@ -46,6 +46,22 @@ async fn Connection::send(
 }
 
 ///|
+/// Send multiple protocol messages in a single write to reduce syscalls
+async fn Connection::send_all(
+  self : Connection,
+  msgs : Array[@protocol.FrontendMessage],
+) -> Unit {
+  let buf : Array[Byte] = []
+  for msg in msgs {
+    let bytes = @protocol.encode(msg)
+    for i = 0; i < bytes.length(); i = i + 1 {
+      buf.push(bytes[i])
+    }
+  }
+  self.socket.write(Bytes::from_array(buf))
+}
+
+///|
 /// Receive messages from server
 async fn Connection::receive(
   self : Connection,
