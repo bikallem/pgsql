@@ -170,23 +170,16 @@ pub fn parse_text_value(data : Bytes?, type_oid : UInt) -> Value {
 ///|
 /// Parse text value based on type OID
 fn parse_text_value_inner(text : String, type_oid : UInt) -> Value {
-  // Use inline OID values:
-  // OID_BOOL = 16, OID_INT2 = 21, OID_INT4 = 23, OID_INT8 = 20
-  // OID_FLOAT4 = 700, OID_FLOAT8 = 701, OID_NUMERIC = 1700, OID_BYTEA = 17
-  if type_oid == 16U {
-    // BOOL
+  if type_oid == OID_BOOL {
     parse_bool(text)
-  } else if type_oid == 21U || type_oid == 23U {
-    // INT2 or INT4
+  } else if type_oid == OID_INT2 || type_oid == OID_INT4 {
     parse_int(text)
-  } else if type_oid == 20U {
-    // INT8
+  } else if type_oid == OID_INT8 {
     parse_int64(text)
-  } else if type_oid == 700U || type_oid == 701U || type_oid == 1700U {
-    // FLOAT4, FLOAT8, or NUMERIC
+  } else if type_oid == OID_FLOAT4 || type_oid == OID_FLOAT8 ||
+    type_oid == OID_NUMERIC {
     parse_float(text)
-  } else if type_oid == 17U {
-    // BYTEA
+  } else if type_oid == OID_BYTEA {
     parse_bytea(text)
   } else {
     // Default: treat as string
@@ -348,7 +341,7 @@ fn parse_float(text : String) -> Value {
 fn parse_bytea(text : String) -> Value {
   if text.length() >= 2 {
     // Check for hex format: \xHEXHEX...
-    let bytes = string_to_bytes_local(text)
+    let bytes = string_to_bytes(text)
     if bytes[0] == b'\\' && bytes[1] == b'x' {
       // Extract hex part (skip first 2 characters)
       let hex_str = substring_from(text, 2)
@@ -361,7 +354,7 @@ fn parse_bytea(text : String) -> Value {
       Bytes(bytes)
     }
   } else {
-    Bytes(string_to_bytes_local(text))
+    Bytes(string_to_bytes(text))
   }
 }
 
@@ -379,35 +372,11 @@ fn substring_from(s : String, start : Int) -> String {
   String::from_array(chars)
 }
 
-///|
-/// Convert string to bytes (local helper)
-fn string_to_bytes_local(s : String) -> Bytes {
-  let arr : Array[Byte] = []
-  for c in s {
-    let code = c.to_int()
-    if code < 0x80 {
-      arr.push(code.to_byte())
-    } else if code < 0x800 {
-      arr.push((0xC0 | (code >> 6)).to_byte())
-      arr.push((0x80 | (code & 0x3F)).to_byte())
-    } else if code < 0x10000 {
-      arr.push((0xE0 | (code >> 12)).to_byte())
-      arr.push((0x80 | ((code >> 6) & 0x3F)).to_byte())
-      arr.push((0x80 | (code & 0x3F)).to_byte())
-    } else {
-      arr.push((0xF0 | (code >> 18)).to_byte())
-      arr.push((0x80 | ((code >> 12) & 0x3F)).to_byte())
-      arr.push((0x80 | ((code >> 6) & 0x3F)).to_byte())
-      arr.push((0x80 | (code & 0x3F)).to_byte())
-    }
-  }
-  Bytes::from_array(arr)
-}
 
 ///|
 /// Decode hex string to bytes
 fn hex_decode(hex : String) -> Bytes? {
-  let hex_bytes = string_to_bytes_local(hex)
+  let hex_bytes = string_to_bytes(hex)
   if hex_bytes.length() % 2 != 0 {
     return None
   }
@@ -448,11 +417,11 @@ fn hex_digit_value(b : Byte) -> Int? {
 pub fn serialize_value(value : Value) -> Bytes? {
   match value {
     Null => None
-    Bool(b) => Some(string_to_bytes_local(if b { "t" } else { "f" }))
-    Int(n) => Some(string_to_bytes_local(n.to_string()))
-    Int64(n) => Some(string_to_bytes_local(n.to_string()))
-    Float(n) => Some(string_to_bytes_local(n.to_string()))
-    String(s) => Some(string_to_bytes_local(s))
+    Bool(b) => Some(string_to_bytes(if b { "t" } else { "f" }))
+    Int(n) => Some(string_to_bytes(n.to_string()))
+    Int64(n) => Some(string_to_bytes(n.to_string()))
+    Float(n) => Some(string_to_bytes(n.to_string()))
+    String(s) => Some(string_to_bytes(s))
     Bytes(b) => Some(bytea_to_hex(b))
   }
 }
@@ -460,29 +429,15 @@ pub fn serialize_value(value : Value) -> Bytes? {
 ///|
 /// Convert bytes to hex-encoded bytea format
 fn bytea_to_hex(data : Bytes) -> Bytes {
-  let hex_chars = "0123456789abcdef"
   let result : Array[Byte] = []
   result.push(b'\\')
   result.push(b'x')
   for i = 0; i < data.length(); i = i + 1 {
     let b = data[i].to_int()
-    result.push(hex_char_at_local(hex_chars, (b >> 4) & 0xF))
-    result.push(hex_char_at_local(hex_chars, b & 0xF))
+    result.push(hex_byte((b >> 4) & 0xF))
+    result.push(hex_byte(b & 0xF))
   }
   Bytes::from_array(result)
-}
-
-///|
-/// Get hex character at index
-fn hex_char_at_local(s : String, idx : Int) -> Byte {
-  let mut i = 0
-  for c in s {
-    if i == idx {
-      return c.to_int().to_byte()
-    }
-    i += 1
-  }
-  b'0'
 }
 
 // =============================================================================
@@ -559,7 +514,7 @@ pub fn Value::as_string(self : Value) -> String? {
 pub fn Value::as_bytes(self : Value) -> Bytes? {
   match self {
     Bytes(b) => Some(b)
-    String(s) => Some(string_to_bytes_local(s))
+    String(s) => Some(string_to_bytes(s))
     _ => None
   }
 }

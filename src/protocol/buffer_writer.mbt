@@ -63,24 +63,9 @@ pub fn BufferWriter::add_cstring(
   self : BufferWriter,
   value : String,
 ) -> BufferWriter {
-  // Encode string as UTF-8
-  for c in value {
-    let code = c.to_int()
-    if code < 0x80 {
-      self.data.push(code.to_byte())
-    } else if code < 0x800 {
-      self.data.push((0xC0 | (code >> 6)).to_byte())
-      self.data.push((0x80 | (code & 0x3F)).to_byte())
-    } else if code < 0x10000 {
-      self.data.push((0xE0 | (code >> 12)).to_byte())
-      self.data.push((0x80 | ((code >> 6) & 0x3F)).to_byte())
-      self.data.push((0x80 | (code & 0x3F)).to_byte())
-    } else {
-      self.data.push((0xF0 | (code >> 18)).to_byte())
-      self.data.push((0x80 | ((code >> 12) & 0x3F)).to_byte())
-      self.data.push((0x80 | ((code >> 6) & 0x3F)).to_byte())
-      self.data.push((0x80 | (code & 0x3F)).to_byte())
-    }
+  let bytes = string_to_bytes(value)
+  for i = 0; i < bytes.length(); i = i + 1 {
+    self.data.push(bytes[i])
   }
   self.data.push(b'\x00') // null terminator
   self
@@ -92,24 +77,9 @@ pub fn BufferWriter::add_string(
   self : BufferWriter,
   value : String,
 ) -> BufferWriter {
-  // Encode string as UTF-8
-  for c in value {
-    let code = c.to_int()
-    if code < 0x80 {
-      self.data.push(code.to_byte())
-    } else if code < 0x800 {
-      self.data.push((0xC0 | (code >> 6)).to_byte())
-      self.data.push((0x80 | (code & 0x3F)).to_byte())
-    } else if code < 0x10000 {
-      self.data.push((0xE0 | (code >> 12)).to_byte())
-      self.data.push((0x80 | ((code >> 6) & 0x3F)).to_byte())
-      self.data.push((0x80 | (code & 0x3F)).to_byte())
-    } else {
-      self.data.push((0xF0 | (code >> 18)).to_byte())
-      self.data.push((0x80 | ((code >> 12) & 0x3F)).to_byte())
-      self.data.push((0x80 | ((code >> 6) & 0x3F)).to_byte())
-      self.data.push((0x80 | (code & 0x3F)).to_byte())
-    }
+  let bytes = string_to_bytes(value)
+  for i = 0; i < bytes.length(); i = i + 1 {
+    self.data.push(bytes[i])
   }
   self
 }
