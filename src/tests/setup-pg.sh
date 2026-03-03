@@ -7,6 +7,14 @@ PGPORT=5433
 PGUSER=postgres
 PGPASSWORD=postgres
 
+# Add PostgreSQL binaries to PATH if not already available (e.g. GitHub Actions)
+if ! command -v initdb &>/dev/null; then
+  for dir in /usr/lib/postgresql/*/bin; do
+    export PATH="$dir:$PATH"
+    break
+  done
+fi
+
 start() {
   if [ -f "$PGDATA/postmaster.pid" ]; then
     echo "Test PostgreSQL already running (port $PGPORT)"
