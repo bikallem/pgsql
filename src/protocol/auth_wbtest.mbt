@@ -47,14 +47,14 @@ test "md5 empty string" {
 ///|
 test "md5 hello" {
   // MD5("hello") = 5d41402abc4b2a76b9719d911017c592
-  let hash = md5(string_to_bytes("hello"))
+  let hash = md5(@utf8.encode("hello"[:]))
   inspect(bytes_to_hex(hash), content="5d41402abc4b2a76b9719d911017c592")
 }
 
 ///|
 test "md5 abc" {
   // MD5("abc") = 900150983cd24fb0d6963f7d28e17f72
-  let hash = md5(string_to_bytes("abc"))
+  let hash = md5(@utf8.encode("abc"[:]))
   inspect(bytes_to_hex(hash), content="900150983cd24fb0d6963f7d28e17f72")
 }
 
@@ -70,7 +70,7 @@ test "md5_password known PostgreSQL value" {
   let result = md5_password("secret", "postgres", salt)
   assert_true(result[:3] == "md5")
   // Verify step 1 independently
-  let inner = md5(string_to_bytes("secretpostgres"))
+  let inner = md5(@utf8.encode("secretpostgres"[:]))
   inspect(
     bytes_to_hex(inner),
     content=(

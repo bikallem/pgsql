@@ -7,8 +7,8 @@
 struct Connection {
   /// Configuration
   config : Config
-  /// TCP socket
-  socket : @socket.Tcp
+  /// Transport (TCP or TLS)
+  transport : Transport
   /// Protocol decoder
   decoder : @protocol.Decoder
   /// Backend process ID
@@ -23,10 +23,10 @@ struct Connection {
 
 ///|
 /// Create a new connection (internal use)
-fn Connection::create(config : Config, socket : @socket.Tcp) -> Connection {
+fn Connection::create(config : Config, transport : Transport) -> Connection {
   {
     config,
-    socket,
+    transport,
     decoder: @protocol.Decoder::new(),
     process_id: 0,
     secret_key: 0,
@@ -42,7 +42,7 @@ async fn Connection::send(
   msg : @protocol.FrontendMessage,
 ) -> Unit {
   let bytes = @protocol.encode(msg)
-  self.socket.write(bytes)
+  self.transport.write(bytes)
 }
 
 ///|
@@ -58,7 +58,7 @@ async fn Connection::send_all(
       buf.push(bytes[i])
     }
   }
-  self.socket.write(Bytes::from_array(buf))
+  self.transport.write(Bytes::from_array(buf))
 }
 
 ///|
@@ -71,7 +71,7 @@ async fn Connection::receive(
   self : Connection,
 ) -> Array[@protocol.BackendMessage] {
   // Read available data
-  match self.socket.read_some() {
+  match self.transport.read_some() {
     Some(data) => self.decoder.parse(data)
     None => raise ConnectionClosedError
   }
@@ -129,7 +129,7 @@ async fn Connection::close(self : Connection) -> Unit {
   self.send(@protocol.Terminate) catch {
     _ => () // Best effort — socket may already be broken
   }
-  self.socket.close()
+  self.transport.close()
 }
 
 // =============================================================================
@@ -143,14 +143,42 @@ async fn connect(config : Config) -> Connection {
   let addr = @socket.Addr::resolve(config.host, port=config.port)
 
   // Connect TCP socket
-  let socket = @socket.Tcp::connect(addr)
+  let tcp = @socket.Tcp::connect(addr)
 
-  let conn = Connection::create(config, socket)
+  // Negotiate transport (plain TCP or TLS)
+  let transport = negotiate_transport(tcp, config)
+
+  let conn = Connection::create(config, transport)
 
   // Perform startup and authentication
   conn.startup()
 
   conn
+}
+
+///|
+/// Negotiate TLS transport based on SSL mode configuration.
+///
+/// PostgreSQL TLS negotiation: send SSLRequest, read single-byte response.
+/// 'S' (0x53) = server accepts TLS, 'N' (0x4E) = server refuses.
+async fn negotiate_transport(tcp : @socket.Tcp, config : Config) -> Transport {
+  match config.ssl_mode {
+    Disable => PlainTcp(tcp)
+    Prefer | Require | VerifyFull => {
+      // Send SSLRequest message
+      tcp.write(@protocol.encode(@protocol.SSLRequest))
+      // Read single-byte response
+      match tcp.read_some() {
+        Some(data) if data.length() > 0 && data[0] == b'S' => {
+          let verify = config.ssl_mode is VerifyFull
+          let tls = @tls.Tls::client(tcp, verify~, host=config.host)
+          TlsConn(tls, tcp)
+        }
+        _ if config.ssl_mode is Prefer => PlainTcp(tcp)
+        _ => raise AuthError("Server rejected SSL connection")
+      }
+    }
+  }
 }
 
 ///|
@@ -169,8 +197,23 @@ async fn Connection::startup(self : Connection) -> Unit {
 }
 
 ///|
+/// Generate a random nonce for SCRAM authentication.
+/// Uses cryptographic random bytes, base64-encoded.
+fn generate_nonce() -> String raise AuthError {
+  let random_bytes = @tls.rand_bytes(18) catch {
+    _ => raise AuthError("Failed to generate random nonce")
+  }
+  @base64.encode(random_bytes[:])
+}
+
+///|
 /// Handle authentication flow
 async fn Connection::authenticate(self : Connection) -> Unit {
+  // SCRAM state tracked across auth loop iterations
+  let mut scram_nonce = ""
+  let mut scram_client_first_bare = ""
+  let mut scram_expected_sig : Bytes = b""
+
   while true {
     let messages = self.receive()
 
@@ -191,6 +234,46 @@ async fn Connection::authenticate(self : Connection) -> Unit {
           )
           self.send(@protocol.PasswordMessage(hash))
         }
+        @protocol.AuthenticationSASL(mechanisms) => {
+          // SCRAM-SHA-256 initial handshake
+          guard mechanisms.contains("SCRAM-SHA-256") else {
+            raise AuthError("Server requires unsupported SASL mechanism")
+          }
+          let nonce = generate_nonce()
+          let (client_first, client_first_bare) = @protocol.scram_client_first(
+            self.config.user,
+            nonce,
+          )
+          scram_nonce = nonce
+          scram_client_first_bare = client_first_bare
+          self.send(
+            @protocol.SASLInitialResponse(
+              "SCRAM-SHA-256",
+              @utf8.encode(client_first[:]),
+            ),
+          )
+        }
+        @protocol.AuthenticationSASLContinue(data) => {
+          // SCRAM server-first-message → compute client-final
+          let server_first = bytes_to_string(data)
+          let (client_final, expected_sig) = @protocol.scram_client_final(
+            self.config.password,
+            scram_client_first_bare,
+            server_first,
+            scram_nonce,
+          ) catch {
+            @protocol.ScramError(msg) => raise AuthError(msg)
+          }
+          scram_expected_sig = expected_sig
+          self.send(@protocol.SASLResponse(@utf8.encode(client_final[:])))
+        }
+        @protocol.AuthenticationSASLFinal(data) => {
+          // SCRAM server-final-message → verify server signature
+          let server_final = bytes_to_string(data)
+          @protocol.scram_verify_server(server_final, scram_expected_sig) catch {
+            @protocol.ScramError(msg) => raise AuthError(msg)
+          }
+        }
         @protocol.ParameterStatus(name, value) =>
           self.server_params[name] = value
         @protocol.BackendKeyData(pid, key) => {
@@ -201,8 +284,6 @@ async fn Connection::authenticate(self : Connection) -> Unit {
           self.transaction_status = status
           return
         }
-        @protocol.AuthenticationSASL(_) =>
-          raise AuthError("SASL authentication is not supported")
         @protocol.ErrorResponse(fields) => {
           let info = ServerErrorInfo::from_fields(fields)
           raise AuthError(info.message)
@@ -211,4 +292,10 @@ async fn Connection::authenticate(self : Connection) -> Unit {
       }
     }
   }
+}
+
+///|
+/// Convert Bytes to String (UTF-8 decoding)
+fn bytes_to_string(data : Bytes) -> String {
+  @utf8.decode_lossy(data[:])
 }

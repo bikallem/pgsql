@@ -1,6 +1,10 @@
 {
   "name": "bikallem/postgresql",
   "version": "0.1.0",
+  "deps": {
+    "moonbitlang/async": "0.16.7",
+    "moonbitlang/x": "0.4.40"
+  },
   "readme": "README.mbt.md",
   "repository": "https://github.com/bikallem/postgresql.mbt.git",
   "license": "Apache-2.0",
@@ -10,10 +14,7 @@
     "driver",
     "moonbit"
   ],
-  "source": "src",
   "description": "PostgreSQL database driver for MoonBit",
-  "deps": {
-    "moonbitlang/async": "0.16.7"
-  },
+  "source": "src",
   "preferred-target": "native"
 }

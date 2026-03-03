@@ -342,7 +342,7 @@ fn parse_float(text : String) -> Value {
 fn parse_bytea(text : String) -> Value {
   if text.length() >= 2 {
     // Check for hex format: \xHEXHEX...
-    let bytes = string_to_bytes(text)
+    let bytes = @utf8.encode(text[:])
     if bytes[0] == b'\\' && bytes[1] == b'x' {
       // Extract hex part (skip first 2 characters)
       let hex_str = substring_from(text, 2)
@@ -355,7 +355,7 @@ fn parse_bytea(text : String) -> Value {
       Bytes(bytes)
     }
   } else {
-    Bytes(string_to_bytes(text))
+    Bytes(@utf8.encode(text[:]))
   }
 }
 
@@ -376,7 +376,7 @@ fn substring_from(s : String, start : Int) -> String {
 ///|
 /// Decode hex string to bytes
 fn hex_decode(hex : String) -> Bytes? {
-  let hex_bytes = string_to_bytes(hex)
+  let hex_bytes = @utf8.encode(hex[:])
   if hex_bytes.length() % 2 != 0 {
     return None
   }
@@ -417,11 +417,14 @@ fn hex_digit_value(b : Byte) -> Int? {
 pub fn serialize_value(value : Value) -> Bytes? {
   match value {
     Null => None
-    Bool(b) => Some(string_to_bytes(if b { "t" } else { "f" }))
-    Int(n) => Some(string_to_bytes(n.to_string()))
-    Int64(n) => Some(string_to_bytes(n.to_string()))
-    Float(n) => Some(string_to_bytes(n.to_string()))
-    String(s) => Some(string_to_bytes(s))
+    Bool(b) => {
+      let s = if b { "t" } else { "f" }
+      Some(@utf8.encode(s[:]))
+    }
+    Int(n) => Some(@utf8.encode(n.to_string()[:]))
+    Int64(n) => Some(@utf8.encode(n.to_string()[:]))
+    Float(n) => Some(@utf8.encode(n.to_string()[:]))
+    String(s) => Some(@utf8.encode(s[:]))
     Bytes(b) => Some(bytea_to_hex(b))
   }
 }
@@ -514,7 +517,7 @@ pub fn Value::as_string(self : Value) -> String? {
 pub fn Value::as_bytes(self : Value) -> Bytes? {
   match self {
     Bytes(b) => Some(b)
-    String(s) => Some(string_to_bytes(s))
+    String(s) => Some(@utf8.encode(s[:]))
     _ => None
   }
 }

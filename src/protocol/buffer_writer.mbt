@@ -63,7 +63,7 @@ pub fn BufferWriter::add_cstring(
   self : BufferWriter,
   value : String,
 ) -> BufferWriter {
-  let bytes = string_to_bytes(value)
+  let bytes = @utf8.encode(value[:])
   for i = 0; i < bytes.length(); i = i + 1 {
     self.data.push(bytes[i])
   }
@@ -77,7 +77,7 @@ pub fn BufferWriter::add_string(
   self : BufferWriter,
   value : String,
 ) -> BufferWriter {
-  let bytes = string_to_bytes(value)
+  let bytes = @utf8.encode(value[:])
   for i = 0; i < bytes.length(); i = i + 1 {
     self.data.push(bytes[i])
   }
