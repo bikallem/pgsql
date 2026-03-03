@@ -15,7 +15,21 @@ pub struct Config {
   password : String
   /// Database name to connect to
   database : String
-} derive(Show)
+}
+
+///|
+/// Show implementation that masks the password
+pub impl Show for Config with output(self, logger) {
+  logger.write_string("Config { host: ")
+  logger.write_string(self.host)
+  logger.write_string(", port: ")
+  Show::output(self.port, logger)
+  logger.write_string(", user: ")
+  logger.write_string(self.user)
+  logger.write_string(", password: ****, database: ")
+  logger.write_string(self.database)
+  logger.write_string(" }")
+}
 
 ///|
 /// Create a new Config with default values
