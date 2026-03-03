@@ -111,78 +111,34 @@ fn parse_message(
   data : Bytes,
 ) -> BackendMessage raise BufferUnderflow {
   let reader = BufferReader::new(data)
-
-  // Use byte literals directly for comparison
-  // Backend message type codes
-  if code == b'R' {
-    // Authentication
-    parse_authentication(reader)
-  } else if code == b'K' {
-    // BackendKeyData
-    parse_backend_key_data(reader)
-  } else if code == b'S' {
-    // ParameterStatus
-    parse_parameter_status(reader)
-  } else if code == b'Z' {
-    // ReadyForQuery
-    parse_ready_for_query(reader)
-  } else if code == b'T' {
-    // RowDescription
-    parse_row_description(reader)
-  } else if code == b'D' {
-    // DataRow
-    parse_data_row(reader)
-  } else if code == b'C' {
-    // CommandComplete
-    parse_command_complete(reader)
-  } else if code == b'E' {
-    // ErrorResponse
-    parse_error_or_notice(reader, is_error=true)
-  } else if code == b'N' {
-    // NoticeResponse
-    parse_error_or_notice(reader, is_error=false)
-  } else if code == b'1' {
-    // ParseComplete
-    ParseComplete
-  } else if code == b'2' {
-    // BindComplete
-    BindComplete
-  } else if code == b'3' {
-    // CloseComplete
-    CloseComplete
-  } else if code == b'n' {
-    // NoData
-    NoData
-  } else if code == b'I' {
-    // EmptyQueryResponse
-    EmptyQueryResponse
-  } else if code == b's' {
-    // PortalSuspended
-    PortalSuspended
-  } else if code == b't' {
-    // ParameterDescription
-    parse_parameter_description(reader)
-  } else if code == b'A' {
-    // NotificationResponse
-    parse_notification(reader)
-  } else if code == b'G' {
-    // CopyInResponse
-    parse_copy_response(reader, is_in=true)
-  } else if code == b'H' {
-    // CopyOutResponse
-    parse_copy_response(reader, is_in=false)
-  } else if code == b'd' {
-    // CopyData
-    CopyData(data)
-  } else if code == b'c' {
-    // CopyDone
-    CopyDone
-  } else {
-    // Unknown message type - create error response
-    let fields : Map[String, String] = {}
-    fields["M"] = "Unknown message type: " + code.to_int().to_string()
-    fields["S"] = "ERROR"
-    ErrorResponse(fields)
+  match code {
+    b'R' => parse_authentication(reader)
+    b'K' => parse_backend_key_data(reader)
+    b'S' => parse_parameter_status(reader)
+    b'Z' => parse_ready_for_query(reader)
+    b'T' => parse_row_description(reader)
+    b'D' => parse_data_row(reader)
+    b'C' => parse_command_complete(reader)
+    b'E' => parse_error_or_notice(reader, is_error=true)
+    b'N' => parse_error_or_notice(reader, is_error=false)
+    b'1' => ParseComplete
+    b'2' => BindComplete
+    b'3' => CloseComplete
+    b'n' => NoData
+    b'I' => EmptyQueryResponse
+    b's' => PortalSuspended
+    b't' => parse_parameter_description(reader)
+    b'A' => parse_notification(reader)
+    b'G' => parse_copy_response(reader, is_in=true)
+    b'H' => parse_copy_response(reader, is_in=false)
+    b'd' => CopyData(data)
+    b'c' => CopyDone
+    _ => {
+      let fields : Map[String, String] = {}
+      fields["M"] = "Unknown message type: " + code.to_int().to_string()
+      fields["S"] = "ERROR"
+      ErrorResponse(fields)
+    }
   }
 }
 
@@ -191,42 +147,30 @@ fn parse_message(
 fn parse_authentication(
   reader : BufferReader,
 ) -> BackendMessage raise BufferUnderflow {
-  let auth_type = reader.int32()
-
-  if auth_type == 0 {
-    AuthenticationOk
-  } else if auth_type == 3 {
-    AuthenticationCleartextPassword
-  } else if auth_type == 5 {
-    // MD5 password - read 4-byte salt
-    let salt = reader.bytes(4)
-    AuthenticationMD5Password(salt)
-  } else if auth_type == 10 {
-    // SASL - read mechanism names
-    let mechanisms : Array[String] = []
-    while reader.remaining() > 1 {
-      let mechanism = reader.cstring()
-      if mechanism.length() > 0 {
-        mechanisms.push(mechanism)
-      } else {
-        break
+  match reader.int32() {
+    0 => AuthenticationOk
+    3 => AuthenticationCleartextPassword
+    5 => AuthenticationMD5Password(reader.bytes(4))
+    10 => {
+      let mechanisms : Array[String] = []
+      while reader.remaining() > 1 {
+        let mechanism = reader.cstring()
+        if mechanism.length() > 0 {
+          mechanisms.push(mechanism)
+        } else {
+          break
+        }
       }
+      AuthenticationSASL(mechanisms)
     }
-    AuthenticationSASL(mechanisms)
-  } else if auth_type == 11 {
-    // SASL Continue
-    let data = reader.bytes(reader.remaining())
-    AuthenticationSASLContinue(data)
-  } else if auth_type == 12 {
-    // SASL Final
-    let data = reader.bytes(reader.remaining())
-    AuthenticationSASLFinal(data)
-  } else {
-    // Unsupported auth type
-    let fields : Map[String, String] = {}
-    fields["M"] = "Unsupported authentication type: " + auth_type.to_string()
-    fields["S"] = "ERROR"
-    ErrorResponse(fields)
+    11 => AuthenticationSASLContinue(reader.bytes(reader.remaining()))
+    12 => AuthenticationSASLFinal(reader.bytes(reader.remaining()))
+    auth_type => {
+      let fields : Map[String, String] = {}
+      fields["M"] = "Unsupported authentication type: " + auth_type.to_string()
+      fields["S"] = "ERROR"
+      ErrorResponse(fields)
+    }
   }
 }
 
@@ -253,13 +197,10 @@ fn parse_parameter_status(reader : BufferReader) -> BackendMessage {
 fn parse_ready_for_query(
   reader : BufferReader,
 ) -> BackendMessage raise BufferUnderflow {
-  let status_byte = reader.byte()
-  let status = if status_byte == b'I' {
-    Idle
-  } else if status_byte == b'T' {
-    InTransaction
-  } else {
-    Failed // 'E'
+  let status = match reader.byte() {
+    b'I' => Idle
+    b'T' => InTransaction
+    _ => Failed
   }
   ReadyForQuery(status)
 }
