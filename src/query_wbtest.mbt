@@ -194,3 +194,123 @@ test "Row::column_count" {
   let row = Row::new([String("x"), Int(1)], cols)
   inspect(row.column_count(), content="2")
 }
+
+///|
+test "build_query_result with rows" {
+  let messages : Array[@protocol.BackendMessage] = [
+    @protocol.RowDescription([
+      @protocol.FieldDescription::new("id", 0, 0, 23, 4, -1, @protocol.Text),
+      @protocol.FieldDescription::new("name", 0, 0, 25, -1, -1, @protocol.Text),
+    ]),
+    @protocol.DataRow([
+      Some(Bytes::from_array([b'1'])),
+      Some(Bytes::from_array([b'A', b'l', b'i', b'c', b'e'])),
+    ]),
+    @protocol.DataRow([
+      Some(Bytes::from_array([b'2'])),
+      Some(Bytes::from_array([b'B', b'o', b'b'])),
+    ]),
+    @protocol.CommandComplete("SELECT 2"),
+    @protocol.ReadyForQuery(@protocol.Idle),
+  ]
+  let result = build_query_result(messages)
+  inspect(result.row_count(), content="2")
+  inspect(result.column_count(), content="2")
+  inspect(result.get_command_tag(), content="SELECT 2")
+  inspect(result.get_row(0).unwrap().get_int(0), content="Some(1)")
+  inspect(
+    result.get_row(0).unwrap().get_string(1),
+    content=(
+      #|Some("Alice")
+    ),
+  )
+  inspect(
+    result.get_row(1).unwrap().get_string(1),
+    content=(
+      #|Some("Bob")
+    ),
+  )
+}
+
+///|
+test "build_query_result empty" {
+  let messages : Array[@protocol.BackendMessage] = [
+    @protocol.EmptyQueryResponse,
+    @protocol.ReadyForQuery(@protocol.Idle),
+  ]
+  let result = build_query_result(messages)
+  inspect(result.row_count(), content="0")
+  inspect(result.column_count(), content="0")
+}
+
+///|
+test "build_query_result command only" {
+  let messages : Array[@protocol.BackendMessage] = [
+    @protocol.CommandComplete("INSERT 0 3"),
+    @protocol.ReadyForQuery(@protocol.Idle),
+  ]
+  let result = build_query_result(messages)
+  inspect(result.row_count(), content="0")
+  inspect(result.get_command_tag(), content="INSERT 0 3")
+}
+
+///|
+test "convert_row_values null column" {
+  let fields = [
+    @protocol.FieldDescription::new("a", 0, 0, 25, -1, -1, @protocol.Text),
+    @protocol.FieldDescription::new("b", 0, 0, 23, 4, -1, @protocol.Text),
+  ]
+  let raw : Array[Bytes?] = [
+    None,
+    Some(Bytes::from_array([b'4', b'2'])),
+  ]
+  let values = convert_row_values(raw, fields)
+  inspect(values[0], content="Null")
+  inspect(values[1], content="Int(42)")
+}
+
+///|
+test "serialize_params mixed types" {
+  let params : Array[Value] = [
+    Int(42),
+    String("hello"),
+    Null,
+    Bool(true),
+  ]
+  let result = serialize_params(params)
+  inspect(result.length(), content="4")
+  inspect(result[2], content="None") // Null serializes to None
+  inspect(result[0] is Some(_), content="true")
+  inspect(result[1] is Some(_), content="true")
+  inspect(result[3] is Some(_), content="true")
+}
+
+///|
+test "parse_int_simple" {
+  inspect(parse_int_simple("42"), content="42")
+  inspect(parse_int_simple("-7"), content="-7")
+  inspect(parse_int_simple("0"), content="0")
+  inspect(parse_int_simple(""), content="0")
+}
+
+///|
+test "quote_identifier" {
+  inspect(
+    quote_identifier("simple"),
+    content=(
+      #|"simple"
+    ),
+  )
+  inspect(
+    quote_identifier("has\"quote"),
+    content=(
+      #|"has""quote"
+    ),
+  )
+  inspect(
+    quote_identifier(""),
+    content=(
+      #|""
+    ),
+  )
+}
