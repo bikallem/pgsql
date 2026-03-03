@@ -135,7 +135,7 @@ pub async fn Transaction::savepoint(self : Transaction, name : String) -> Unit {
   if not(self.active) {
     raise TxError("Transaction is no longer active")
   }
-  let _ = self.client.execute("SAVEPOINT " + name)
+  let _ = self.client.execute("SAVEPOINT " + quote_identifier(name))
 }
 
 ///|
@@ -147,7 +147,7 @@ pub async fn Transaction::rollback_to(
   if not(self.active) {
     raise TxError("Transaction is no longer active")
   }
-  let _ = self.client.execute("ROLLBACK TO SAVEPOINT " + name)
+  let _ = self.client.execute("ROLLBACK TO SAVEPOINT " + quote_identifier(name))
 }
 
 ///|
@@ -156,5 +156,5 @@ pub async fn Transaction::release(self : Transaction, name : String) -> Unit {
   if not(self.active) {
     raise TxError("Transaction is no longer active")
   }
-  let _ = self.client.execute("RELEASE SAVEPOINT " + name)
+  let _ = self.client.execute("RELEASE SAVEPOINT " + quote_identifier(name))
 }

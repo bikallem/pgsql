@@ -175,6 +175,21 @@ pub fn Client::get_process_id(self : Client) -> Int {
 // =============================================================================
 
 ///|
+/// Quote a SQL identifier with double quotes, escaping internal double quotes.
+/// e.g. `my"name` becomes `"my""name"`
+fn quote_identifier(name : String) -> String {
+  let buf : Array[Char] = ['"']
+  for c in name {
+    if c == '"' {
+      buf.push('"')
+    }
+    buf.push(c)
+  }
+  buf.push('"')
+  String::from_array(buf)
+}
+
+///|
 /// Build QueryResult from backend messages
 fn build_query_result(
   messages : Array[@protocol.BackendMessage],
