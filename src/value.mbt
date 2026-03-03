@@ -20,6 +20,20 @@ pub(all) enum Value {
   String(String)
   /// Binary data
   Bytes(Bytes)
+  /// Date value (e.g. "2024-03-15")
+  Date(String)
+  /// Time value (e.g. "14:30:00.123456")
+  Time(String)
+  /// Timestamp without timezone (e.g. "2024-03-15 14:30:00")
+  Timestamp(String)
+  /// Timestamp with timezone (e.g. "2024-03-15 14:30:00+00")
+  TimestampTz(String)
+  /// Interval value (e.g. "1 year 2 mons 3 days 04:05:06")
+  Interval(String)
+  /// JSON/JSONB value
+  Json(String)
+  /// UUID value (e.g. "550e8400-e29b-41d4-a716-446655440000")
+  Uuid(String)
 } derive(Show, Eq)
 
 ///|
@@ -80,6 +94,8 @@ pub fn Value::as_string(self : Value) -> String? {
     Float(n) => Some(n.to_string())
     String(s) => Some(s)
     Bytes(_) => None
+    Date(s) | Time(s) | Timestamp(s) | TimestampTz(s) | Interval(s) | Json(s) |
+    Uuid(s) => Some(s)
   }
 }
 
@@ -88,6 +104,60 @@ pub fn Value::as_string(self : Value) -> String? {
 pub fn Value::as_bytes(self : Value) -> Bytes? {
   match self {
     Bytes(b) => Some(b)
+    _ => None
+  }
+}
+
+///|
+/// Get value as Date string
+pub fn Value::as_date(self : Value) -> String? {
+  match self {
+    Date(s) => Some(s)
+    _ => None
+  }
+}
+
+///|
+/// Get value as Time string
+pub fn Value::as_time(self : Value) -> String? {
+  match self {
+    Time(s) => Some(s)
+    _ => None
+  }
+}
+
+///|
+/// Get value as Timestamp string (accepts both Timestamp and TimestampTz)
+pub fn Value::as_timestamp(self : Value) -> String? {
+  match self {
+    Timestamp(s) | TimestampTz(s) => Some(s)
+    _ => None
+  }
+}
+
+///|
+/// Get value as Interval string
+pub fn Value::as_interval(self : Value) -> String? {
+  match self {
+    Interval(s) => Some(s)
+    _ => None
+  }
+}
+
+///|
+/// Get value as JSON string
+pub fn Value::as_json(self : Value) -> String? {
+  match self {
+    Json(s) => Some(s)
+    _ => None
+  }
+}
+
+///|
+/// Get value as UUID string
+pub fn Value::as_uuid(self : Value) -> String? {
+  match self {
+    Uuid(s) => Some(s)
     _ => None
   }
 }

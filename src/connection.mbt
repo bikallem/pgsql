@@ -4,7 +4,7 @@
 
 ///|
 /// Internal connection state
-struct Connection {
+priv struct Connection {
   /// Configuration
   config : Config
   /// Transport (TCP or TLS)
@@ -19,6 +19,8 @@ struct Connection {
   mut transaction_status : @protocol.TransactionStatus
   /// Server parameters
   server_params : Map[String, String]
+  /// Queue of received notifications
+  notification_queue : Array[Notification]
 }
 
 ///|
@@ -32,6 +34,7 @@ fn Connection::create(config : Config, transport : Transport) -> Connection {
     secret_key: 0,
     transaction_status: @protocol.Idle,
     server_params: {},
+    notification_queue: [],
   }
 }
 
@@ -87,13 +90,15 @@ async fn Connection::receive_until_ready(
   while true {
     let messages = self.receive()
     for msg in messages {
-      all_messages.push(msg)
       match msg {
+        @protocol.NotificationResponse(pid, channel, payload) =>
+          self.notification_queue.push(Notification::new(channel, payload, pid))
         @protocol.ReadyForQuery(status) => {
+          all_messages.push(msg)
           self.transaction_status = status
           return all_messages
         }
-        _ => ()
+        _ => all_messages.push(msg)
       }
     }
   } nobreak {
@@ -193,13 +198,15 @@ async fn Connection::startup(self : Connection) -> Unit {
   self.authenticate()
 }
 
-///|
-/// Generate a random nonce for SCRAM authentication.
-/// Uses cryptographic random bytes, base64-encoded.
-fn generate_nonce() -> String raise AuthError {
-  let random_bytes = @tls.rand_bytes(18) catch {
-    _ => raise AuthError("Failed to generate random nonce")
-  }
+///| Generate a random nonce for SCRAM authentication.
+/// Uses random bytes, base64-encoded.
+fn generate_nonce() -> String {
+  let now = @async.now()
+  let seed_bytes = Bytes::makei(32, fn(i) {
+    ((now >> ((i % 8) * 8)) & 0xFFL).to_byte()
+  })
+  let rng = @random.Rand::chacha8(seed=seed_bytes)
+  let random_bytes = Bytes::makei(18, fn(_i) { rng.uint(limit=256).to_byte() })
   @base64.encode(random_bytes[:])
 }
 

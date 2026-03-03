@@ -10,6 +10,8 @@ pub const OID_BYTEA : UInt = 17
 
 pub const OID_CHAR : UInt = 18
 
+pub const OID_DATE : UInt = 1082
+
 pub const OID_FLOAT4 : UInt = 700
 
 pub const OID_FLOAT8 : UInt = 701
@@ -20,11 +22,25 @@ pub const OID_INT4 : UInt = 23
 
 pub const OID_INT8 : UInt = 20
 
+pub const OID_INTERVAL : UInt = 1186
+
+pub const OID_JSON : UInt = 114
+
+pub const OID_JSONB : UInt = 3802
+
 pub const OID_NAME : UInt = 19
 
 pub const OID_NUMERIC : UInt = 1700
 
 pub const OID_TEXT : UInt = 25
+
+pub const OID_TIME : UInt = 1083
+
+pub const OID_TIMESTAMP : UInt = 1114
+
+pub const OID_TIMESTAMPTZ : UInt = 1184
+
+pub const OID_UUID : UInt = 2950
 
 pub const OID_VARCHAR : UInt = 1043
 
@@ -171,13 +187,26 @@ pub(all) enum Value {
   Float(Double)
   String(String)
   Bytes(Bytes)
+  Date(String)
+  Time(String)
+  Timestamp(String)
+  TimestampTz(String)
+  Interval(String)
+  Json(String)
+  Uuid(String)
 }
 pub fn Value::as_bool(Self) -> Bool?
 pub fn Value::as_bytes(Self) -> Bytes?
+pub fn Value::as_date(Self) -> String?
 pub fn Value::as_float(Self) -> Double?
 pub fn Value::as_int(Self) -> Int?
 pub fn Value::as_int64(Self) -> Int64?
+pub fn Value::as_interval(Self) -> String?
+pub fn Value::as_json(Self) -> String?
 pub fn Value::as_string(Self) -> String?
+pub fn Value::as_time(Self) -> String?
+pub fn Value::as_timestamp(Self) -> String?
+pub fn Value::as_uuid(Self) -> String?
 pub fn Value::is_null(Self) -> Bool
 pub impl Eq for Value
 pub impl Show for Value

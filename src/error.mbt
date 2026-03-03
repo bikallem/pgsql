@@ -31,6 +31,24 @@ pub suberror PreparedStmtError {
 }
 
 ///|
+/// COPY operation error
+pub suberror CopyError {
+  CopyError(String)
+}
+
+///|
+/// Connection pool error
+pub suberror PoolError {
+  PoolError(String)
+}
+
+///|
+/// Row stream error
+pub suberror StreamError {
+  StreamError(String)
+}
+
+///|
 /// Detailed server error information from ErrorResponse
 pub struct ServerErrorInfo {
   /// Error severity (ERROR, FATAL, PANIC)
@@ -110,5 +128,26 @@ pub impl Show for TxError with output(self, logger) {
 pub impl Show for PreparedStmtError with output(self, logger) {
   let PreparedStmtError(msg) = self
   logger.write_string("PreparedStatementError: ")
+  logger.write_string(msg)
+}
+
+///|
+pub impl Show for CopyError with output(self, logger) {
+  let CopyError(msg) = self
+  logger.write_string("CopyError: ")
+  logger.write_string(msg)
+}
+
+///|
+pub impl Show for PoolError with output(self, logger) {
+  let PoolError(msg) = self
+  logger.write_string("PoolError: ")
+  logger.write_string(msg)
+}
+
+///|
+pub impl Show for StreamError with output(self, logger) {
+  let StreamError(msg) = self
+  logger.write_string("StreamError: ")
   logger.write_string(msg)
 }

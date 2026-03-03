@@ -172,3 +172,48 @@ pub fn Row::is_null(self : Row, index : Int) -> Bool {
     None => false
   }
 }
+
+///|
+/// Value as Date string at index
+pub fn Row::date(self : Row, index : Int) -> String? {
+  match self.get(index) {
+    Some(v) => v.as_date()
+    None => None
+  }
+}
+
+///|
+/// Value as Time string at index
+pub fn Row::time(self : Row, index : Int) -> String? {
+  match self.get(index) {
+    Some(v) => v.as_time()
+    None => None
+  }
+}
+
+///|
+/// Value as Timestamp string at index
+pub fn Row::timestamp(self : Row, index : Int) -> String? {
+  match self.get(index) {
+    Some(v) => v.as_timestamp()
+    None => None
+  }
+}
+
+///|
+/// Value as JSON string at index
+pub fn Row::json(self : Row, index : Int) -> String? {
+  match self.get(index) {
+    Some(v) => v.as_json()
+    None => None
+  }
+}
+
+///|
+/// Value as UUID string at index
+pub fn Row::uuid(self : Row, index : Int) -> String? {
+  match self.get(index) {
+    Some(v) => v.as_uuid()
+    None => None
+  }
+}

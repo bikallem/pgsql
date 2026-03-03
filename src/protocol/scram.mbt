@@ -47,11 +47,11 @@ pub fn scram_client_final(
   let mut iterations = 0
   for part in parts {
     if part.has_prefix("r=") {
-      server_nonce = part[2:].to_string()
+      server_nonce = substring_from(part, 2)
     } else if part.has_prefix("s=") {
-      salt_b64 = part[2:].to_string()
+      salt_b64 = substring_from(part, 2)
     } else if part.has_prefix("i=") {
-      iterations = parse_int_string(part[2:].to_string())
+      iterations = parse_int_string(substring_from(part, 2))
     }
   }
 
@@ -123,7 +123,7 @@ pub fn scram_verify_server(
   guard server_final.has_prefix("v=") else {
     raise ScramError("Invalid server-final-message: missing v= prefix")
   }
-  let sig_b64 = server_final[2:].to_string()
+  let sig_b64 = substring_from(server_final, 2)
   let actual_signature = @base64.decode(sig_b64[:]) catch {
     _ => raise ScramError("Invalid base64 in server signature")
   }

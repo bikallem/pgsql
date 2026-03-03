@@ -53,35 +53,38 @@ pub const OID_BPCHAR : UInt = 1042 // char(n)
 ///|
 pub const OID_BYTEA : UInt = 17 // bytea
 
-// Date/Time Types - for future use
+// Date/Time Types
 
 ///|
-let _oid_date : UInt = 1082
+pub const OID_DATE : UInt = 1082
 
 ///|
-let _oid_time : UInt = 1083
+pub const OID_TIME : UInt = 1083
 
 ///|
-let _oid_timestamp : UInt = 1114
+pub const OID_TIMESTAMP : UInt = 1114
 
 ///|
-let _oid_timestamptz : UInt = 1184
+pub const OID_TIMESTAMPTZ : UInt = 1184
 
 ///|
-let _oid_interval : UInt = 1186
-
-// JSON Types - for future use
+pub const OID_TIMETZ : UInt = 1266
 
 ///|
-let _oid_json : UInt = 114
+pub const OID_INTERVAL : UInt = 1186
+
+// JSON Types
 
 ///|
-let _oid_jsonb : UInt = 3802
-
-// UUID - for future use
+pub const OID_JSON : UInt = 114
 
 ///|
-let _oid_uuid : UInt = 2950
+pub const OID_JSONB : UInt = 3802
+
+// UUID
+
+///|
+pub const OID_UUID : UInt = 2950
 
 // Network Types - for future use
 
@@ -148,6 +151,20 @@ pub(all) enum Value {
   String(String)
   /// Binary data
   Bytes(Bytes)
+  /// Date value (e.g. "2024-03-15")
+  Date(String)
+  /// Time value (e.g. "14:30:00.123456")
+  Time(String)
+  /// Timestamp without timezone (e.g. "2024-03-15 14:30:00")
+  Timestamp(String)
+  /// Timestamp with timezone (e.g. "2024-03-15 14:30:00+00")
+  TimestampTz(String)
+  /// Interval value (e.g. "1 year 2 mons 3 days 04:05:06")
+  Interval(String)
+  /// JSON/JSONB value
+  Json(String)
+  /// UUID value (e.g. "550e8400-e29b-41d4-a716-446655440000")
+  Uuid(String)
 } derive(Show, Eq)
 
 // =============================================================================
@@ -182,6 +199,20 @@ fn parse_text_value_inner(text : String, type_oid : UInt) -> Value {
     parse_float(text)
   } else if type_oid == OID_BYTEA {
     parse_bytea(text)
+  } else if type_oid == OID_DATE {
+    Date(text)
+  } else if type_oid == OID_TIME || type_oid == OID_TIMETZ {
+    Time(text)
+  } else if type_oid == OID_TIMESTAMP {
+    Timestamp(text)
+  } else if type_oid == OID_TIMESTAMPTZ {
+    TimestampTz(text)
+  } else if type_oid == OID_INTERVAL {
+    Interval(text)
+  } else if type_oid == OID_JSON || type_oid == OID_JSONB {
+    Json(text)
+  } else if type_oid == OID_UUID {
+    Uuid(text)
   } else {
     // Default: treat as string
     String(text)
@@ -427,6 +458,8 @@ pub fn serialize_value(value : Value) -> Bytes? {
     Float(n) => Some(@utf8.encode(n.to_string()[:]))
     String(s) => Some(@utf8.encode(s[:]))
     Bytes(b) => Some(bytea_to_hex(b))
+    Date(s) | Time(s) | Timestamp(s) | TimestampTz(s) | Interval(s) | Json(s) |
+    Uuid(s) => Some(@utf8.encode(s[:]))
   }
 }
 
@@ -510,6 +543,8 @@ pub fn Value::as_string(self : Value) -> String? {
     Float(n) => Some(n.to_string())
     String(s) => Some(s)
     Bytes(b) => Some(bytes_to_ascii_string(b))
+    Date(s) | Time(s) | Timestamp(s) | TimestampTz(s) | Interval(s) | Json(s) |
+    Uuid(s) => Some(s)
   }
 }
 
@@ -519,6 +554,60 @@ pub fn Value::as_bytes(self : Value) -> Bytes? {
   match self {
     Bytes(b) => Some(b)
     String(s) => Some(@utf8.encode(s[:]))
+    _ => None
+  }
+}
+
+///|
+/// Get value as Date string
+pub fn Value::as_date(self : Value) -> String? {
+  match self {
+    Date(s) => Some(s)
+    _ => None
+  }
+}
+
+///|
+/// Get value as Time string
+pub fn Value::as_time(self : Value) -> String? {
+  match self {
+    Time(s) => Some(s)
+    _ => None
+  }
+}
+
+///|
+/// Get value as Timestamp string
+pub fn Value::as_timestamp(self : Value) -> String? {
+  match self {
+    Timestamp(s) | TimestampTz(s) => Some(s)
+    _ => None
+  }
+}
+
+///|
+/// Get value as Interval string
+pub fn Value::as_interval(self : Value) -> String? {
+  match self {
+    Interval(s) => Some(s)
+    _ => None
+  }
+}
+
+///|
+/// Get value as JSON string
+pub fn Value::as_json(self : Value) -> String? {
+  match self {
+    Json(s) => Some(s)
+    _ => None
+  }
+}
+
+///|
+/// Get value as UUID string
+pub fn Value::as_uuid(self : Value) -> String? {
+  match self {
+    Uuid(s) => Some(s)
     _ => None
   }
 }

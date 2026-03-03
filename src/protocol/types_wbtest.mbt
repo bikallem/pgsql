@@ -446,3 +446,257 @@ test "parse_float empty string falls back to String" {
     ),
   )
 }
+
+// =============================================================================
+// Date/Time/JSON/UUID type parsing tests
+// =============================================================================
+
+///|
+test "parse_text_value date" {
+  let bytes = Bytes::from_array([
+    b'2', b'0', b'2', b'4', b'-', b'0', b'3', b'-', b'1', b'5',
+  ])
+  inspect(
+    parse_text_value(Some(bytes), OID_DATE),
+    content=(
+      #|Date("2024-03-15")
+    ),
+  )
+}
+
+///|
+test "parse_text_value time" {
+  let bytes = Bytes::from_array([
+    b'1', b'4', b':', b'3', b'0', b':', b'0', b'0',
+  ])
+  inspect(
+    parse_text_value(Some(bytes), OID_TIME),
+    content=(
+      #|Time("14:30:00")
+    ),
+  )
+}
+
+///|
+test "parse_text_value timestamp" {
+  let bytes = Bytes::from_array([
+    b'2', b'0', b'2', b'4', b'-', b'0', b'3', b'-', b'1', b'5', b' ', b'1',
+    b'4', b':', b'3', b'0', b':', b'0', b'0',
+  ])
+  inspect(
+    parse_text_value(Some(bytes), OID_TIMESTAMP),
+    content=(
+      #|Timestamp("2024-03-15 14:30:00")
+    ),
+  )
+}
+
+///|
+test "parse_text_value timestamptz" {
+  let bytes = Bytes::from_array([
+    b'2', b'0', b'2', b'4', b'-', b'0', b'3', b'-', b'1', b'5', b' ', b'1',
+    b'4', b':', b'3', b'0', b':', b'0', b'0', b'+', b'0', b'0',
+  ])
+  inspect(
+    parse_text_value(Some(bytes), OID_TIMESTAMPTZ),
+    content=(
+      #|TimestampTz("2024-03-15 14:30:00+00")
+    ),
+  )
+}
+
+///|
+test "parse_text_value interval" {
+  let bytes = Bytes::from_array([
+    b'1', b' ', b'd', b'a', b'y',
+  ])
+  inspect(
+    parse_text_value(Some(bytes), OID_INTERVAL),
+    content=(
+      #|Interval("1 day")
+    ),
+  )
+}
+
+///|
+test "parse_text_value json" {
+  let bytes = Bytes::from_array([
+    b'{', b'"', b'k', b'"', b':', b'"', b'v', b'"', b'}',
+  ])
+  inspect(
+    parse_text_value(Some(bytes), OID_JSON),
+    content=(
+      #|Json("{\"k\":\"v\"}")
+    ),
+  )
+}
+
+///|
+test "parse_text_value jsonb" {
+  let bytes = Bytes::from_array([
+    b'{', b'"', b'a', b'"', b':', b'1', b'}',
+  ])
+  inspect(
+    parse_text_value(Some(bytes), OID_JSONB),
+    content=(
+      #|Json("{\"a\":1}")
+    ),
+  )
+}
+
+///|
+test "parse_text_value uuid" {
+  let bytes = Bytes::from_array([
+    b'5', b'5', b'0', b'e', b'8', b'4', b'0', b'0', b'-', b'e', b'2', b'9',
+    b'b', b'-', b'4', b'1', b'd', b'4', b'-', b'a', b'7', b'1', b'6', b'-',
+    b'4', b'4', b'6', b'6', b'5', b'5', b'4', b'4', b'0', b'0', b'0', b'0',
+  ])
+  inspect(
+    parse_text_value(Some(bytes), OID_UUID),
+    content=(
+      #|Uuid("550e8400-e29b-41d4-a716-446655440000")
+    ),
+  )
+}
+
+///|
+test "parse_text_value date null" {
+  inspect(parse_text_value(None, OID_DATE), content="Null")
+}
+
+///|
+test "serialize_value Date" {
+  match serialize_value(Date("2024-03-15")) {
+    Some(b) => inspect(test_bytes_to_string(b), content="2024-03-15")
+    None => fail("Expected Some")
+  }
+}
+
+///|
+test "serialize_value Json" {
+  match serialize_value(Json("{\"k\":\"v\"}")) {
+    Some(b) =>
+      inspect(
+        test_bytes_to_string(b),
+        content=(
+          #|{"k":"v"}
+        ),
+      )
+    None => fail("Expected Some")
+  }
+}
+
+///|
+test "serialize_value Uuid" {
+  match serialize_value(Uuid("550e8400-e29b-41d4-a716-446655440000")) {
+    Some(b) =>
+      inspect(
+        test_bytes_to_string(b),
+        content="550e8400-e29b-41d4-a716-446655440000",
+      )
+    None => fail("Expected Some")
+  }
+}
+
+///|
+test "Value::as_date" {
+  inspect(
+    Date("2024-03-15").as_date(),
+    content=(
+      #|Some("2024-03-15")
+    ),
+  )
+  inspect(String("2024-03-15").as_date(), content="None")
+  inspect(Null.as_date(), content="None")
+}
+
+///|
+test "Value::as_time" {
+  inspect(
+    Time("14:30:00").as_time(),
+    content=(
+      #|Some("14:30:00")
+    ),
+  )
+  inspect(Null.as_time(), content="None")
+}
+
+///|
+test "Value::as_timestamp" {
+  inspect(
+    Timestamp("2024-03-15 14:30:00").as_timestamp(),
+    content=(
+      #|Some("2024-03-15 14:30:00")
+    ),
+  )
+  inspect(
+    TimestampTz("2024-03-15 14:30:00+00").as_timestamp(),
+    content=(
+      #|Some("2024-03-15 14:30:00+00")
+    ),
+  )
+  inspect(Null.as_timestamp(), content="None")
+}
+
+///|
+test "Value::as_interval" {
+  inspect(
+    Interval("1 day").as_interval(),
+    content=(
+      #|Some("1 day")
+    ),
+  )
+  inspect(Null.as_interval(), content="None")
+}
+
+///|
+test "Value::as_json" {
+  inspect(
+    Json("{\"k\":\"v\"}").as_json(),
+    content=(
+      #|Some("{\"k\":\"v\"}")
+    ),
+  )
+  inspect(String("{\"k\":\"v\"}").as_json(), content="None")
+  inspect(Null.as_json(), content="None")
+}
+
+///|
+test "Value::as_uuid" {
+  inspect(
+    Uuid("550e8400-e29b-41d4-a716-446655440000").as_uuid(),
+    content=(
+      #|Some("550e8400-e29b-41d4-a716-446655440000")
+    ),
+  )
+  inspect(String("550e8400").as_uuid(), content="None")
+  inspect(Null.as_uuid(), content="None")
+}
+
+///|
+test "new types as_string" {
+  inspect(
+    Date("2024-03-15").as_string(),
+    content=(
+      #|Some("2024-03-15")
+    ),
+  )
+  inspect(
+    Time("14:30:00").as_string(),
+    content=(
+      #|Some("14:30:00")
+    ),
+  )
+  inspect(
+    Json("{\"k\":1}").as_string(),
+    content=(
+      #|Some("{\"k\":1}")
+    ),
+  )
+  inspect(
+    Uuid("abc").as_string(),
+    content=(
+      #|Some("abc")
+    ),
+  )
+}

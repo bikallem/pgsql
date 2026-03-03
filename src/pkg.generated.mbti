@@ -12,6 +12,16 @@ pub impl Show for AuthError
 pub suberror ConnectionClosedError
 pub impl Show for ConnectionClosedError
 
+pub suberror CopyError {
+  CopyError(String)
+}
+pub impl Show for CopyError
+
+pub suberror PoolError {
+  PoolError(String)
+}
+pub impl Show for PoolError
+
 pub suberror PreparedStmtError {
   PreparedStmtError(String)
 }
@@ -21,6 +31,11 @@ pub suberror ServerError {
   ServerError(ServerErrorInfo)
 }
 pub impl Show for ServerError
+
+pub suberror StreamError {
+  StreamError(String)
+}
+pub impl Show for StreamError
 
 pub suberror TxError {
   TxError(String)
@@ -33,67 +48,102 @@ pub async fn Client::begin(Self) -> Unit
 pub async fn Client::close(Self) -> Unit
 pub async fn Client::commit(Self) -> Unit
 pub async fn Client::connect(Config) -> Self
+pub async fn Client::copy_in(Self, String, async (CopyWriter) -> Unit) -> Int
+pub async fn Client::copy_out(Self, String, async (Bytes) -> Unit) -> Int
 pub async fn Client::execute(Self, String) -> Int
 pub async fn Client::execute_params(Self, String, Array[Value]) -> Int
-pub fn Client::get_process_id(Self) -> Int
-pub fn Client::get_server_param(Self, String) -> String?
-pub fn Client::get_transaction_status(Self) -> TransactionStatus
 pub fn Client::in_transaction(Self) -> Bool
+pub async fn Client::listen(Self, String) -> Unit
+pub fn Client::poll_notifications(Self) -> Array[Notification]
 pub async fn Client::prepare(Self, String) -> PreparedStatement
+pub fn Client::process_id(Self) -> Int
 pub async fn Client::query(Self, String) -> QueryResult
 pub async fn Client::query_params(Self, String, Array[Value]) -> QueryResult
+pub async fn Client::query_stream(Self, String, params? : Array[Value], batch_size? : Int) -> RowStream
 pub async fn Client::rollback(Self) -> Unit
+pub fn Client::secret_key(Self) -> Int
+pub fn Client::server_param(Self, String) -> String?
 pub async fn[T] Client::transaction(Self, async (Transaction) -> T) -> T
+pub fn Client::transaction_status(Self) -> TransactionStatus
+pub async fn Client::unlisten(Self, String) -> Unit
+pub async fn Client::wait_for_notification(Self) -> Notification
 
 type ColumnInfo
-pub fn ColumnInfo::get_name(Self) -> String
-pub fn ColumnInfo::get_type_oid(Self) -> UInt
-pub fn ColumnInfo::get_type_size(Self) -> Int
+pub fn ColumnInfo::name(Self) -> String
 pub fn ColumnInfo::new(String, UInt, Int) -> Self
+pub fn ColumnInfo::type_oid(Self) -> UInt
+pub fn ColumnInfo::type_size(Self) -> Int
 pub impl Eq for ColumnInfo
 pub impl Show for ColumnInfo
 
 type Config
-pub fn Config::get_database(Self) -> String
-pub fn Config::get_host(Self) -> String
-pub fn Config::get_password(Self) -> String
-pub fn Config::get_port(Self) -> Int
-pub fn Config::get_ssl_mode(Self) -> SslMode
-pub fn Config::get_user(Self) -> String
+pub fn Config::database(Self) -> String
+pub fn Config::host(Self) -> String
 pub fn Config::new(String, String, String, host? : String, port? : Int, ssl_mode? : SslMode) -> Self
+pub fn Config::password(Self) -> String
+pub fn Config::port(Self) -> Int
+pub fn Config::ssl_mode(Self) -> SslMode
+pub fn Config::user(Self) -> String
 pub impl Show for Config
 
-type Connection
+type CopyWriter
+pub async fn CopyWriter::write(Self, Bytes) -> Unit
+pub async fn CopyWriter::write_row(Self, Array[String]) -> Unit
+
+type Notification
+pub fn Notification::channel(Self) -> String
+pub fn Notification::payload(Self) -> String
+pub fn Notification::process_id(Self) -> Int
+pub impl Eq for Notification
+pub impl Show for Notification
+
+type Pool
+pub async fn Pool::acquire(Self) -> Client
+pub async fn Pool::close(Self) -> Unit
+pub fn Pool::new(Config, max_size? : Int, acquire_timeout_ms? : Int) -> Self
+pub async fn Pool::release(Self, Client) -> Unit
+pub async fn[T] Pool::with_connection(Self, async (Client) -> T) -> T
 
 type PreparedStatement
 pub async fn PreparedStatement::close(Self) -> Unit
 pub async fn PreparedStatement::execute(Self, Array[Value]) -> Int
-pub fn PreparedStatement::get_name(Self) -> String
-pub fn PreparedStatement::get_sql(Self) -> String
 pub fn PreparedStatement::is_closed(Self) -> Bool
+pub fn PreparedStatement::name(Self) -> String
 pub async fn PreparedStatement::query(Self, Array[Value]) -> QueryResult
+pub fn PreparedStatement::sql(Self) -> String
 
 type QueryResult
 pub fn QueryResult::column_count(Self) -> Int
-pub fn QueryResult::get_command_tag(Self) -> String
-pub fn QueryResult::get_fields(Self) -> Array[ColumnInfo]
-pub fn QueryResult::get_row(Self, Int) -> Row?
-pub fn QueryResult::get_rows(Self) -> Array[Row]
+pub fn QueryResult::command_tag(Self) -> String
+pub fn QueryResult::fields(Self) -> Array[ColumnInfo]
 pub fn QueryResult::iter(Self) -> Iter[Row]
+pub fn QueryResult::row(Self, Int) -> Row?
 pub fn QueryResult::row_count(Self) -> Int
+pub fn QueryResult::rows(Self) -> Array[Row]
 pub impl Show for QueryResult
 
 type Row
+pub fn Row::bool(Self, Int) -> Bool?
+pub fn Row::by_name(Self, String) -> Value?
 pub fn Row::column_count(Self) -> Int
+pub fn Row::date(Self, Int) -> String?
+pub fn Row::float(Self, Int) -> Double?
 pub fn Row::get(Self, Int) -> Value?
-pub fn Row::get_bool(Self, Int) -> Bool?
-pub fn Row::get_by_name(Self, String) -> Value?
-pub fn Row::get_float(Self, Int) -> Double?
-pub fn Row::get_int(Self, Int) -> Int?
-pub fn Row::get_int64(Self, Int) -> Int64?
-pub fn Row::get_string(Self, Int) -> String?
+pub fn Row::int(Self, Int) -> Int?
+pub fn Row::int64(Self, Int) -> Int64?
 pub fn Row::is_null(Self, Int) -> Bool
+pub fn Row::json(Self, Int) -> String?
+pub fn Row::string(Self, Int) -> String?
+pub fn Row::time(Self, Int) -> String?
+pub fn Row::timestamp(Self, Int) -> String?
+pub fn Row::uuid(Self, Int) -> String?
 pub impl Show for Row
+
+type RowStream
+pub async fn RowStream::close(Self) -> Unit
+pub fn RowStream::fields(Self) -> Array[ColumnInfo]
+pub async fn RowStream::for_each(Self, async (Row) -> Unit) -> Unit
+pub async fn RowStream::next(Self) -> Row?
 
 pub struct ServerErrorInfo {
   severity : String
@@ -147,13 +197,26 @@ pub(all) enum Value {
   Float(Double)
   String(String)
   Bytes(Bytes)
+  Date(String)
+  Time(String)
+  Timestamp(String)
+  TimestampTz(String)
+  Interval(String)
+  Json(String)
+  Uuid(String)
 }
 pub fn Value::as_bool(Self) -> Bool?
 pub fn Value::as_bytes(Self) -> Bytes?
+pub fn Value::as_date(Self) -> String?
 pub fn Value::as_float(Self) -> Double?
 pub fn Value::as_int(Self) -> Int?
 pub fn Value::as_int64(Self) -> Int64?
+pub fn Value::as_interval(Self) -> String?
+pub fn Value::as_json(Self) -> String?
 pub fn Value::as_string(Self) -> String?
+pub fn Value::as_time(Self) -> String?
+pub fn Value::as_timestamp(Self) -> String?
+pub fn Value::as_uuid(Self) -> String?
 pub fn Value::is_null(Self) -> Bool
 pub impl Eq for Value
 pub impl Show for Value

@@ -14,6 +14,13 @@ fn value_from_protocol(v : @protocol.Value) -> Value {
     @protocol.Float(f) => Float(f)
     @protocol.String(s) => String(s)
     @protocol.Bytes(b) => Bytes(b)
+    @protocol.Date(s) => Date(s)
+    @protocol.Time(s) => Time(s)
+    @protocol.Timestamp(s) => Timestamp(s)
+    @protocol.TimestampTz(s) => TimestampTz(s)
+    @protocol.Interval(s) => Interval(s)
+    @protocol.Json(s) => Json(s)
+    @protocol.Uuid(s) => Uuid(s)
   }
 }
 
@@ -28,6 +35,13 @@ fn value_to_protocol(v : Value) -> @protocol.Value {
     Float(f) => @protocol.Float(f)
     String(s) => @protocol.String(s)
     Bytes(b) => @protocol.Bytes(b)
+    Date(s) => @protocol.Date(s)
+    Time(s) => @protocol.Time(s)
+    Timestamp(s) => @protocol.Timestamp(s)
+    TimestampTz(s) => @protocol.TimestampTz(s)
+    Interval(s) => @protocol.Interval(s)
+    Json(s) => @protocol.Json(s)
+    Uuid(s) => @protocol.Uuid(s)
   }
 }
 

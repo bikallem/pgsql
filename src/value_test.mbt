@@ -122,6 +122,91 @@ test "ColumnInfo::getters" {
 }
 
 ///|
+test "Value::as_date" {
+  inspect(
+    @pgsql.Date("2024-03-15").as_date(),
+    content=(
+      #|Some("2024-03-15")
+    ),
+  )
+  inspect(@pgsql.String("2024-03-15").as_date(), content="None")
+  inspect(@pgsql.Null.as_date(), content="None")
+}
+
+///|
+test "Value::as_time" {
+  inspect(
+    @pgsql.Time("14:30:00").as_time(),
+    content=(
+      #|Some("14:30:00")
+    ),
+  )
+  inspect(@pgsql.Null.as_time(), content="None")
+}
+
+///|
+test "Value::as_timestamp" {
+  inspect(
+    @pgsql.Timestamp("2024-03-15 14:30:00").as_timestamp(),
+    content=(
+      #|Some("2024-03-15 14:30:00")
+    ),
+  )
+  inspect(
+    @pgsql.TimestampTz("2024-03-15 14:30:00+00").as_timestamp(),
+    content=(
+      #|Some("2024-03-15 14:30:00+00")
+    ),
+  )
+  inspect(@pgsql.Null.as_timestamp(), content="None")
+}
+
+///|
+test "Value::as_json" {
+  inspect(
+    @pgsql.Json("{\"key\":\"val\"}").as_json(),
+    content=(
+      #|Some("{\"key\":\"val\"}")
+    ),
+  )
+  inspect(@pgsql.String("{\"key\":\"val\"}").as_json(), content="None")
+  inspect(@pgsql.Null.as_json(), content="None")
+}
+
+///|
+test "Value::as_uuid" {
+  inspect(
+    @pgsql.Uuid("550e8400-e29b-41d4-a716-446655440000").as_uuid(),
+    content=(
+      #|Some("550e8400-e29b-41d4-a716-446655440000")
+    ),
+  )
+  inspect(@pgsql.Null.as_uuid(), content="None")
+}
+
+///|
+test "Value::as_string with new types" {
+  inspect(
+    @pgsql.Date("2024-03-15").as_string(),
+    content=(
+      #|Some("2024-03-15")
+    ),
+  )
+  inspect(
+    @pgsql.Json("{\"a\":1}").as_string(),
+    content=(
+      #|Some("{\"a\":1}")
+    ),
+  )
+  inspect(
+    @pgsql.Uuid("abc-def").as_string(),
+    content=(
+      #|Some("abc-def")
+    ),
+  )
+}
+
+///|
 test "TransactionStatus::equality" {
   inspect(@pgsql.Idle == @pgsql.Idle, content="true")
   inspect(@pgsql.InTransaction == @pgsql.InTransaction, content="true")

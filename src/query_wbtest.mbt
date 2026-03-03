@@ -256,12 +256,12 @@ test "build_query_result command only" {
 
 ///|
 test "convert_row_values null column" {
-  let fields = [
-    @protocol.FieldDescription::new("a", 0, 0, 25, -1, -1, @protocol.Text),
-    @protocol.FieldDescription::new("b", 0, 0, 23, 4, -1, @protocol.Text),
+  let columns = [
+    ColumnInfo::new("a", 25, -1),
+    ColumnInfo::new("b", 23, 4),
   ]
   let raw : Array[Bytes?] = [None, Some(Bytes::from_array([b'4', b'2']))]
-  let values = convert_row_values(raw, fields)
+  let values = convert_row_values(raw, columns)
   inspect(values[0], content="Null")
   inspect(values[1], content="Int(42)")
 }

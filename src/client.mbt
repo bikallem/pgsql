@@ -162,6 +162,61 @@ pub fn Client::process_id(self : Client) -> Int {
   self.conn.process_id
 }
 
+///|
+/// Backend secret key (for cancel requests)
+pub fn Client::secret_key(self : Client) -> Int {
+  self.conn.secret_key
+}
+
+///|
+/// Start listening on a notification channel
+pub async fn Client::listen(self : Client, channel : String) -> Unit {
+  let _ = self.execute("LISTEN " + quote_identifier(channel))
+}
+
+///|
+/// Stop listening on a notification channel
+pub async fn Client::unlisten(self : Client, channel : String) -> Unit {
+  let _ = self.execute("UNLISTEN " + quote_identifier(channel))
+}
+
+///|
+/// Return any queued notifications and clear the queue
+pub fn Client::poll_notifications(self : Client) -> Array[Notification] {
+  let result = self.conn.notification_queue.copy()
+  self.conn.notification_queue.clear()
+  result
+}
+
+///|
+/// Wait until a notification arrives.
+/// First checks the queue, then loops on receive until one arrives.
+pub async fn Client::wait_for_notification(self : Client) -> Notification {
+  self.check_open()
+  // Check queue first
+  if self.conn.notification_queue.length() > 0 {
+    return self.conn.notification_queue.unsafe_pop()
+  }
+  // Loop on receive until a notification arrives
+  while true {
+    let messages = self.conn.receive()
+    for msg in messages {
+      match msg {
+        @protocol.NotificationResponse(pid, channel, payload) =>
+          return Notification::new(channel, payload, pid)
+        @protocol.ReadyForQuery(status) =>
+          self.conn.transaction_status = status
+        @protocol.ParameterStatus(name, value) =>
+          self.conn.server_params[name] = value
+        _ => ()
+      }
+    }
+  } nobreak {
+    // Unreachable — loop runs until notification or error
+    Notification::new("", "", 0)
+  }
+}
+
 // =============================================================================
 // Internal Helpers
 // =============================================================================
@@ -223,19 +278,16 @@ fn quote_identifier(name : String) -> String {
 fn build_query_result(
   messages : Array[@protocol.BackendMessage],
 ) -> QueryResult {
-  let mut proto_fields : Array[@protocol.FieldDescription] = []
   let mut columns : Array[ColumnInfo] = []
   let rows : Array[Row] = []
   let mut command_tag = ""
 
   for msg in messages {
     match msg {
-      @protocol.RowDescription(f) => {
-        proto_fields = f
-        columns = proto_fields.map(fn(fd) { column_info_from_field(fd) })
-      }
+      @protocol.RowDescription(f) =>
+        columns = f.map(fn(fd) { column_info_from_field(fd) })
       @protocol.DataRow(values) => {
-        let typed_values = convert_row_values(values, proto_fields)
+        let typed_values = convert_row_values(values, columns)
         rows.push(Row::new(typed_values, columns))
       }
       @protocol.CommandComplete(tag) => command_tag = tag
@@ -251,13 +303,13 @@ fn build_query_result(
 /// Convert raw DataRow values to typed Values
 fn convert_row_values(
   raw_values : Array[Bytes?],
-  fields : Array[@protocol.FieldDescription],
+  columns : Array[ColumnInfo],
 ) -> Array[Value] {
   let result : Array[Value] = []
 
   for i = 0; i < raw_values.length(); i = i + 1 {
-    let type_oid = if i < fields.length() {
-      fields[i].type_oid()
+    let type_oid = if i < columns.length() {
+      columns[i].type_oid
     } else {
       @protocol.OID_TEXT
     }
