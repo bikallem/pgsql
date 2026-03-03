@@ -37,7 +37,7 @@ pub struct Client {
   mut stmt_counter : Int
 }
 pub async fn Client::begin(Self) -> Unit
-pub fn Client::close(Self) -> Unit
+pub async fn Client::close(Self) -> Unit
 pub async fn Client::commit(Self) -> Unit
 pub async fn Client::connect(Config) -> Self
 pub async fn Client::execute(Self, String) -> Int

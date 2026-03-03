@@ -154,7 +154,7 @@ pub fn Client::get_transaction_status(self : Client) -> TransactionStatus {
 
 ///|
 /// Close the client connection
-pub fn Client::close(self : Client) -> Unit {
+pub async fn Client::close(self : Client) -> Unit {
   self.conn.close()
 }
 
