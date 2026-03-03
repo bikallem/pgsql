@@ -4,7 +4,7 @@
 /// Requires a running PostgreSQL instance at 127.0.0.1:5432
 /// with user/password/database = postgres/postgres/postgres.
 ///
-/// Run with: moon test --target native src/tests/integration/
+/// Run with: moon test --target native tests/integration/
 fn get_config() -> @pgsql.Config {
   @pgsql.Config::new(
     "postgres",
