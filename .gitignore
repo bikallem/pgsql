@@ -22,3 +22,7 @@ refs
 .postgres
 src/tests/.postgres
 .direnv
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
