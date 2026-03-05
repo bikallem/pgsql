@@ -282,8 +282,9 @@ test "Value::as_bool" {
 ///|
 test "Value::as_int" {
   inspect(Int(42).as_int(), content="Some(42)")
-  inspect(Int64(100L).as_int(), content="Some(100)")
-  inspect(Float(3.9).as_int(), content="Some(3)")
+  inspect(Int(-7).as_int(), content="Some(-7)")
+  inspect(Int64(100L).as_int(), content="None")
+  inspect(Float(3.9).as_int(), content="None")
   inspect(Null.as_int(), content="None")
   inspect(String("42").as_int(), content="None")
 }
@@ -292,16 +293,18 @@ test "Value::as_int" {
 test "Value::as_int64" {
   inspect(Int(42).as_int64(), content="Some(42)")
   inspect(Int64(100L).as_int64(), content="Some(100)")
-  inspect(Float(2.7).as_int64(), content="Some(2)")
+  inspect(Float(2.7).as_int64(), content="None")
   inspect(Null.as_int64(), content="None")
+  inspect(String("0").as_int64(), content="None")
 }
 
 ///|
 test "Value::as_float" {
   inspect(Float(3.14).as_float(), content="Some(3.14)")
   inspect(Int(10).as_float(), content="Some(10)")
-  inspect(Int64(100L).as_float(), content="Some(100)")
+  inspect(Int64(100L).as_float(), content="None")
   inspect(Null.as_float(), content="None")
+  inspect(String("1.0").as_float(), content="None")
 }
 
 ///|

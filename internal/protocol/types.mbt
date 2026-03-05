@@ -471,40 +471,36 @@ pub fn Value::as_bool(self : Value) -> Bool? {
 }
 
 ///|
-/// Get value as Int (returns None if not numeric or Null)
+/// Get value as Int (exact match only)
 pub fn Value::as_int(self : Value) -> Int? {
   match self {
     Int(n) => Some(n)
-    Int64(n) => Some(n.to_int())
-    Float(n) => Some(n.to_int())
     _ => None
   }
 }
 
 ///|
-/// Get value as Int64 (returns None if not numeric or Null)
+/// Get value as Int64 (widens Int losslessly)
 pub fn Value::as_int64(self : Value) -> Int64? {
   match self {
     Int(n) => Some(n.to_int64())
     Int64(n) => Some(n)
-    Float(n) => Some(n.to_int64())
     _ => None
   }
 }
 
 ///|
-/// Get value as Double (returns None if not numeric or Null)
+/// Get value as Double (widens Int losslessly)
 pub fn Value::as_float(self : Value) -> Double? {
   match self {
     Int(n) => Some(n.to_double())
-    Int64(n) => Some(n.to_double())
     Float(n) => Some(n)
     _ => None
   }
 }
 
 ///|
-/// Get value as String (returns None if Null, converts other types)
+/// Get value as String (returns None if Null or Bytes)
 pub fn Value::as_string(self : Value) -> String? {
   match self {
     Null => None
@@ -513,7 +509,7 @@ pub fn Value::as_string(self : Value) -> String? {
     Int64(n) => Some(n.to_string())
     Float(n) => Some(n.to_string())
     String(s) => Some(s)
-    Bytes(b) => Some(bytes_to_ascii_string(b))
+    Bytes(_) => None
     Date(s)
     | Time(s)
     | Timestamp(s)
@@ -525,11 +521,10 @@ pub fn Value::as_string(self : Value) -> String? {
 }
 
 ///|
-/// Get value as Bytes (returns None if not Bytes or Null)
+/// Get value as Bytes (exact match only)
 pub fn Value::as_bytes(self : Value) -> Bytes? {
   match self {
     Bytes(b) => Some(b)
-    String(s) => Some(@utf8.encode(s[:]))
     _ => None
   }
 }
