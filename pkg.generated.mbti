@@ -9,6 +9,11 @@ pub suberror AuthError {
 }
 pub impl Show for AuthError
 
+pub suberror ClientUsageError {
+  ClientUsageError(String)
+}
+pub impl Show for ClientUsageError
+
 pub suberror ConnectionClosedError
 pub impl Show for ConnectionClosedError
 

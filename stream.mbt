@@ -75,7 +75,7 @@ async fn RowStream::for_each_inner(
 ) -> Unit {
   while true {
     match self.next() {
-      Some(row) => f(row)
+      Some(row) => self.client.run_user_callback(async fn() { f(row) })
       None => break
     }
   }
@@ -201,6 +201,7 @@ pub async fn Client::query_stream(
   params? : Array[Value] = [],
   batch_size? : Int = 100,
 ) -> RowStream {
+  self.check_not_in_user_callback()
   self.check_open()
 
   // Auto-start transaction if not in one (portals don't survive outside tx)

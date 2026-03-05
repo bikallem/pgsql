@@ -57,7 +57,7 @@ pub async fn Client::copy_out(
           @protocol.CopyOutResponse(_, _) => ()
           @protocol.CopyData(data) =>
             if handler_error is None {
-              handler(data) catch {
+              self.run_user_callback(async fn() { handler(data) }) catch {
                 err => handler_error = Some(err.to_string())
               }
             }
@@ -138,7 +138,7 @@ pub async fn Client::copy_in(
 
     // Let the caller write data
     let copy_writer = CopyWriter::{ conn: self.conn }
-    writer(copy_writer) catch {
+    self.run_user_callback(async fn() { writer(copy_writer) }) catch {
       err => {
         // On error, send CopyFail and wait for ReadyForQuery
         self.conn.send(@protocol.CopyFail(err.to_string()))

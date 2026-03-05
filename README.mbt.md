@@ -159,6 +159,7 @@ async test "row streaming" {
 ```
 
 Streaming wraps the query in a transaction automatically if needed (portals require one). Use `stream.next()` for manual iteration, and `stream.close()` when done early.
+Do not call database operations on the same `Client` from inside stream callbacks; this is rejected with `ClientUsageError` to avoid re-entrant deadlocks.
 
 ### COPY Protocol
 
@@ -189,6 +190,8 @@ async test "copy" {
 }
 ```
 
+Do not call database operations on the same `Client` from inside COPY callbacks. Re-entrant use is rejected (surfaced as `CopyError`) to avoid self-deadlock.
+
 ### LISTEN/NOTIFY
 
 Receive asynchronous notifications from PostgreSQL channels:
@@ -216,6 +219,7 @@ async test "listen/notify" {
 ```
 
 Use `poll_notifications()` to check for queued notifications without blocking.
+`wait_for_notification()` treats backend `ErrorResponse` as fatal and raises `ServerError` immediately.
 
 ### Error Handling
 

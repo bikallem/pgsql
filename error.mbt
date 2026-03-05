@@ -7,6 +7,12 @@
 pub suberror ConnectionClosedError
 
 ///|
+/// Client usage error
+pub suberror ClientUsageError {
+  ClientUsageError(String)
+}
+
+///|
 /// Authentication error
 pub suberror AuthError {
   AuthError(String)
@@ -147,6 +153,13 @@ pub fn ServerErrorInfo::constraint(self : ServerErrorInfo) -> String? {
 /// Implement Show for suberrors
 pub impl Show for ConnectionClosedError with output(_self, logger) {
   logger.write_string("ConnectionClosedError")
+}
+
+///|
+pub impl Show for ClientUsageError with output(self, logger) {
+  let ClientUsageError(msg) = self
+  logger.write_string("ClientUsageError: ")
+  logger.write_string(msg)
 }
 
 ///|

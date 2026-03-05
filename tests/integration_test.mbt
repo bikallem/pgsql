@@ -544,6 +544,68 @@ async test "COPY IN: import rows" {
 }
 
 ///|
+async test "COPY OUT: re-entrant callback operation fails fast" {
+  let client = @pgsql.Client::connect(get_config())
+
+  let mut saw_usage_error = false
+  let failed = try {
+    let _ = client.copy_out("COPY (SELECT 1) TO STDOUT", async fn(
+      _data : Bytes,
+    ) {
+      let _ = client.query("SELECT 1")
+    })
+    false
+  } catch {
+    @pgsql.CopyError(msg) => {
+      saw_usage_error = msg.contains("ClientUsageError")
+      true
+    }
+    _ => false
+  }
+  assert_true(failed)
+  assert_true(saw_usage_error)
+
+  // Connection should remain usable after fail-fast callback rejection.
+  let result = client.query("SELECT 1 AS ok")
+  assert_eq(result.row(0).unwrap().int(0), Some(1))
+  client.close()
+}
+
+///|
+async test "COPY IN: re-entrant callback operation fails fast" {
+  let client = @pgsql.Client::connect(get_config())
+  let _ = client.execute(
+    "CREATE TABLE IF NOT EXISTS test_copy_in_reentrant (id INT)",
+  )
+  let _ = client.execute("DELETE FROM test_copy_in_reentrant")
+
+  let mut saw_usage_error = false
+  let failed = try {
+    let _ = client.copy_in("COPY test_copy_in_reentrant FROM STDIN", async fn(
+      w : @pgsql.CopyWriter,
+    ) {
+      let _ = client.query("SELECT 1")
+      w.write_row(["1"])
+    })
+    false
+  } catch {
+    @pgsql.CopyError(msg) => {
+      saw_usage_error = msg.contains("ClientUsageError")
+      true
+    }
+    _ => false
+  }
+  assert_true(failed)
+  assert_true(saw_usage_error)
+
+  let count_result = client.query("SELECT COUNT(*) FROM test_copy_in_reentrant")
+  assert_eq(count_result.row(0).unwrap().int64(0), Some(0L))
+
+  let _ = client.execute("DROP TABLE test_copy_in_reentrant")
+  client.close()
+}
+
+///|
 async test "LISTEN/NOTIFY: basic notification" {
   let listener = @pgsql.Client::connect(get_config())
   let notifier = @pgsql.Client::connect(get_config())
@@ -716,6 +778,43 @@ async test "stream: parameterized streaming" {
   assert_eq(count, 2)
 
   let _ = client.execute("DROP TABLE test_stream_params")
+  client.close()
+}
+
+///|
+async test "stream: re-entrant callback operation fails fast" {
+  let client = @pgsql.Client::connect(get_config())
+  let _ = client.execute(
+    "CREATE TABLE IF NOT EXISTS test_stream_reentrant (id INT)",
+  )
+  let _ = client.execute("DELETE FROM test_stream_reentrant")
+  let _ = client.execute(
+    "INSERT INTO test_stream_reentrant VALUES (1), (2), (3)",
+  )
+
+  let stream = client.query_stream(
+    "SELECT id FROM test_stream_reentrant ORDER BY id",
+    batch_size=2,
+  )
+  let mut saw_usage_error = false
+  let failed = try {
+    stream.for_each(async fn(_row) { let _ = client.query("SELECT 1") })
+    false
+  } catch {
+    @pgsql.ClientUsageError(msg) => {
+      saw_usage_error = msg.contains("Re-entrant operations")
+      true
+    }
+    _ => false
+  }
+  assert_true(failed)
+  assert_true(saw_usage_error)
+
+  // Stream close on callback error should leave client usable.
+  let result = client.query("SELECT 1 AS val")
+  assert_eq(result.row(0).unwrap().int(0), Some(1))
+
+  let _ = client.execute("DROP TABLE test_stream_reentrant")
   client.close()
 }
 

@@ -11,13 +11,15 @@ struct Client {
   mut stmt_counter : Int
   /// Whether the client connection has been closed
   mut closed : Bool
+  /// True while executing a user callback under this client's operation lock
+  mut in_user_callback : Bool
 }
 
 ///|
 /// Create a new client by connecting to PostgreSQL
 pub async fn Client::connect(config : Config) -> Client {
   let conn = connect(config)
-  { conn, stmt_counter: 0, closed: false }
+  { conn, stmt_counter: 0, closed: false, in_user_callback: false }
 }
 
 ///|
@@ -29,10 +31,33 @@ fn Client::check_open(self : Client) -> Unit raise ConnectionClosedError {
 }
 
 ///|
+/// Guard: prevent re-entrant operations from callbacks running under lock.
+fn Client::check_not_in_user_callback(
+  self : Client,
+) -> Unit raise ClientUsageError {
+  raise_if_reentrant_user_callback(self.in_user_callback)
+}
+
+///|
+/// Execute user callback code while marking the client as callback-active.
+async fn[T] Client::run_user_callback(self : Client, f : async () -> T) -> T {
+  self.in_user_callback = true
+  let result = f() catch {
+    err => {
+      self.in_user_callback = false
+      raise err
+    }
+  }
+  self.in_user_callback = false
+  result
+}
+
+///|
 /// Execute a protocol operation under the per-connection operation guard.
 /// Ensures only one in-flight operation can touch the socket/decoder for
 /// a client at a time.
 async fn[T] Client::with_operation(self : Client, f : async () -> T) -> T {
+  self.check_not_in_user_callback()
   self.conn.operation_guard.acquire()
   if self.closed {
     self.conn.operation_guard.release()
@@ -152,6 +177,7 @@ pub async fn Client::close(self : Client) -> Unit {
   if self.closed {
     return
   }
+  self.check_not_in_user_callback()
   self.closed = true
   self.conn.operation_guard.acquire()
   self.conn.close()
@@ -216,6 +242,7 @@ pub async fn Client::wait_for_notification(self : Client) -> Notification {
     while true {
       let messages = self.conn.receive()
       for msg in messages {
+        raise_if_error_response(msg)
         match msg {
           @protocol.NotificationResponse(pid, channel, payload) =>
             self.conn.enqueue_notification(
@@ -276,6 +303,30 @@ async fn Client::bind_execute(
 // =============================================================================
 // Helper Functions
 // =============================================================================
+
+///|
+/// Raise ServerError when a backend message is ErrorResponse.
+fn raise_if_error_response(
+  msg : @protocol.BackendMessage,
+) -> Unit raise ServerError {
+  match msg {
+    @protocol.ErrorResponse(fields) =>
+      raise ServerError(ServerErrorInfo::from_fields(fields))
+    _ => ()
+  }
+}
+
+///|
+/// Raise ClientUsageError when entering a re-entrant callback operation.
+fn raise_if_reentrant_user_callback(
+  in_user_callback : Bool,
+) -> Unit raise ClientUsageError {
+  if in_user_callback {
+    raise ClientUsageError(
+      "Re-entrant operations on the same Client are not allowed inside stream/COPY callbacks",
+    )
+  }
+}
 
 ///|
 /// Quote a SQL identifier with double quotes, escaping internal double quotes.
