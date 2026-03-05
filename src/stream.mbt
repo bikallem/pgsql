@@ -75,9 +75,9 @@ pub async fn RowStream::close(self : RowStream) -> Unit {
   // Always close the named statement; also close portal if not exhausted
   let msgs : Array[@protocol.FrontendMessage] = []
   if not(self.exhausted) {
-    msgs.push(@protocol.Close(b'P', self.portal_name))
+    msgs.push(@protocol.Close(@protocol.TARGET_PORTAL, self.portal_name))
   }
-  msgs.push(@protocol.Close(b'S', self.stmt_name))
+  msgs.push(@protocol.Close(@protocol.TARGET_STATEMENT, self.stmt_name))
   msgs.push(@protocol.Sync)
   self.client.conn.send_all(msgs)
   let _ = self.client.conn.receive_until_ready()
@@ -158,7 +158,7 @@ pub async fn Client::query_stream(
   self.conn.send_all([
     @protocol.Parse(stmt_name, sql, []),
     @protocol.Bind(portal_name, stmt_name, [], param_bytes, []),
-    @protocol.Describe(b'P', portal_name),
+    @protocol.Describe(@protocol.TARGET_PORTAL, portal_name),
     @protocol.Execute(portal_name, batch_size),
     @protocol.Flush,
   ])

@@ -2,6 +2,24 @@
 package "bikallem/postgresql/protocol"
 
 // Values
+pub const FIELD_CODE : String = "C"
+
+pub const FIELD_COLUMN : String = "c"
+
+pub const FIELD_CONSTRAINT : String = "n"
+
+pub const FIELD_DETAIL : String = "D"
+
+pub const FIELD_HINT : String = "H"
+
+pub const FIELD_MESSAGE : String = "M"
+
+pub const FIELD_SEVERITY : String = "S"
+
+pub const FIELD_SEVERITY_NL : String = "V"
+
+pub const FIELD_TABLE : String = "t"
+
 pub const OID_BOOL : UInt = 16
 
 pub const OID_BPCHAR : UInt = 1042
@@ -47,6 +65,10 @@ pub const OID_UUID : UInt = 2950
 pub const OID_VARCHAR : UInt = 1043
 
 pub const PROTOCOL_VERSION : Int = 196608
+
+pub const TARGET_PORTAL : Byte = P
+
+pub const TARGET_STATEMENT : Byte = S
 
 pub fn encode(FrontendMessage) -> Bytes
 

@@ -100,31 +100,32 @@ fn parse_message(
 ) -> BackendMessage raise BufferUnderflow {
   let reader = BufferReader::new(data)
   match code {
-    b'R' => parse_authentication(reader)
-    b'K' => parse_backend_key_data(reader)
-    b'S' => parse_parameter_status(reader)
-    b'Z' => parse_ready_for_query(reader)
-    b'T' => parse_row_description(reader)
-    b'D' => parse_data_row(reader)
-    b'C' => parse_command_complete(reader)
-    b'E' => parse_error_or_notice(reader, is_error=true)
-    b'N' => parse_error_or_notice(reader, is_error=false)
-    b'1' => ParseComplete
-    b'2' => BindComplete
-    b'3' => CloseComplete
-    b'n' => NoData
-    b'I' => EmptyQueryResponse
-    b's' => PortalSuspended
-    b't' => parse_parameter_description(reader)
-    b'A' => parse_notification(reader)
-    b'G' => parse_copy_response(reader, is_in=true)
-    b'H' => parse_copy_response(reader, is_in=false)
-    b'd' => CopyData(data)
-    b'c' => CopyDone
+    BACKEND_AUTH => parse_authentication(reader)
+    BACKEND_KEY_DATA => parse_backend_key_data(reader)
+    BACKEND_PARAM_STATUS => parse_parameter_status(reader)
+    BACKEND_READY => parse_ready_for_query(reader)
+    BACKEND_ROW_DESC => parse_row_description(reader)
+    BACKEND_DATA_ROW => parse_data_row(reader)
+    BACKEND_CMD_COMPLETE => parse_command_complete(reader)
+    BACKEND_ERROR => parse_error_or_notice(reader, is_error=true)
+    BACKEND_NOTICE => parse_error_or_notice(reader, is_error=false)
+    BACKEND_PARSE_COMPLETE => ParseComplete
+    BACKEND_BIND_COMPLETE => BindComplete
+    BACKEND_CLOSE_COMPLETE => CloseComplete
+    BACKEND_NO_DATA => NoData
+    BACKEND_EMPTY_QUERY => EmptyQueryResponse
+    BACKEND_PORTAL_SUSPENDED => PortalSuspended
+    BACKEND_PARAM_DESC => parse_parameter_description(reader)
+    BACKEND_NOTIFICATION => parse_notification(reader)
+    BACKEND_COPY_IN => parse_copy_response(reader, is_in=true)
+    BACKEND_COPY_OUT => parse_copy_response(reader, is_in=false)
+    BACKEND_COPY_DATA => CopyData(data)
+    BACKEND_COPY_DONE => CopyDone
     _ => {
       let fields : Map[String, String] = {}
-      fields["M"] = "Unknown message type: " + code.to_int().to_string()
-      fields["S"] = "ERROR"
+      fields[FIELD_MESSAGE] = "Unknown message type: " +
+        code.to_int().to_string()
+      fields[FIELD_SEVERITY] = "ERROR"
       ErrorResponse(fields)
     }
   }
@@ -155,8 +156,9 @@ fn parse_authentication(
     12 => AuthenticationSASLFinal(reader.bytes(reader.remaining()))
     auth_type => {
       let fields : Map[String, String] = {}
-      fields["M"] = "Unsupported authentication type: " + auth_type.to_string()
-      fields["S"] = "ERROR"
+      fields[FIELD_MESSAGE] = "Unsupported authentication type: " +
+        auth_type.to_string()
+      fields[FIELD_SEVERITY] = "ERROR"
       ErrorResponse(fields)
     }
   }
@@ -186,8 +188,8 @@ fn parse_ready_for_query(
   reader : BufferReader,
 ) -> BackendMessage raise BufferUnderflow {
   let status = match reader.byte() {
-    b'I' => Idle
-    b'T' => InTransaction
+    TX_IDLE => Idle
+    TX_IN_TRANSACTION => InTransaction
     _ => Failed
   }
   ReadyForQuery(status)

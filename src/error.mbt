@@ -75,23 +75,23 @@ pub fn ServerErrorInfo::from_fields(
   fields : Map[String, String],
 ) -> ServerErrorInfo {
   // Get severity from S or V field
-  let severity = match fields.get("S") {
+  let severity = match fields.get(@protocol.FIELD_SEVERITY) {
     Some(s) => s
     None =>
-      match fields.get("V") {
+      match fields.get(@protocol.FIELD_SEVERITY_NL) {
         Some(v) => v
         None => "ERROR"
       }
   }
   {
     severity,
-    code: fields.get("C").unwrap_or(""),
-    message: fields.get("M").unwrap_or("Unknown error"),
-    detail: fields.get("D"),
-    hint: fields.get("H"),
-    table: fields.get("t"),
-    column: fields.get("c"),
-    constraint: fields.get("n"),
+    code: fields.get(@protocol.FIELD_CODE).unwrap_or(""),
+    message: fields.get(@protocol.FIELD_MESSAGE).unwrap_or("Unknown error"),
+    detail: fields.get(@protocol.FIELD_DETAIL),
+    hint: fields.get(@protocol.FIELD_HINT),
+    table: fields.get(@protocol.FIELD_TABLE),
+    column: fields.get(@protocol.FIELD_COLUMN),
+    constraint: fields.get(@protocol.FIELD_CONSTRAINT),
   }
 }
 

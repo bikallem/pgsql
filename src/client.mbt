@@ -90,8 +90,7 @@ pub async fn Client::prepare(self : Client, sql : String) -> PreparedStatement {
   let name = "__prep_" + self.stmt_counter.to_string()
 
   // Parse the statement on the server
-  self.conn.send(@protocol.Parse(name, sql, []))
-  self.conn.send(@protocol.Sync)
+  self.conn.send_all([@protocol.Parse(name, sql, []), @protocol.Sync])
 
   let messages = self.conn.receive_until_ready()
   check_error(messages)
@@ -227,7 +226,7 @@ async fn Client::bind_execute(
     msgs.push(msg)
   }
   msgs.push(@protocol.Bind("", stmt_name, [], param_bytes, []))
-  msgs.push(@protocol.Describe(b'P', ""))
+  msgs.push(@protocol.Describe(@protocol.TARGET_PORTAL, ""))
   msgs.push(@protocol.Execute("", 0))
   msgs.push(@protocol.Sync)
   self.conn.send_all(msgs)

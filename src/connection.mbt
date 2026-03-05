@@ -107,26 +107,16 @@ async fn Connection::receive_until_ready(
 }
 
 ///|
-/// Check if there's an error in messages
-fn find_error(messages : Array[@protocol.BackendMessage]) -> ServerErrorInfo? {
-  for msg in messages {
-    match msg {
-      @protocol.ErrorResponse(fields) =>
-        return Some(ServerErrorInfo::from_fields(fields))
-      _ => ()
-    }
-  }
-  None
-}
-
-///|
 /// Raise ServerError if messages contain an error
 fn check_error(
   messages : Array[@protocol.BackendMessage],
 ) -> Unit raise ServerError {
-  match find_error(messages) {
-    Some(err) => raise ServerError(err)
-    None => ()
+  for msg in messages {
+    match msg {
+      @protocol.ErrorResponse(fields) =>
+        raise ServerError(ServerErrorInfo::from_fields(fields))
+      _ => ()
+    }
   }
 }
 

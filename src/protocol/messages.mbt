@@ -12,71 +12,213 @@
 /// Encoded as Int32: (3 << 16) | 0 = 196608
 pub const PROTOCOL_VERSION : Int = 196608
 
-// Message type codes (Backend -> Frontend) - for documentation reference
-// Note: decoder.mbt uses literal bytes directly for performance
+// =============================================================================
+// Backend Message Type Codes (Server -> Client)
+// =============================================================================
 
 ///|
-let _code_authentication : Byte = b'R'
+/// Authentication message
+const BACKEND_AUTH : Byte = b'R'
 
 ///|
-let _code_backend_key_data : Byte = b'K'
+/// Backend key data (process ID and secret key)
+const BACKEND_KEY_DATA : Byte = b'K'
 
 ///|
-let _code_parameter_status : Byte = b'S'
+/// Parameter status
+const BACKEND_PARAM_STATUS : Byte = b'S'
 
 ///|
-let _code_ready_for_query : Byte = b'Z'
+/// Ready for query
+const BACKEND_READY : Byte = b'Z'
 
 ///|
-let _code_row_description : Byte = b'T'
+/// Row description (column metadata)
+const BACKEND_ROW_DESC : Byte = b'T'
 
 ///|
-let _code_data_row : Byte = b'D'
+/// Data row
+const BACKEND_DATA_ROW : Byte = b'D'
 
 ///|
-let _code_command_complete : Byte = b'C'
+/// Command complete
+const BACKEND_CMD_COMPLETE : Byte = b'C'
 
 ///|
-let _code_error_response : Byte = b'E'
+/// Error response
+const BACKEND_ERROR : Byte = b'E'
 
 ///|
-let _code_notice_response : Byte = b'N'
+/// Notice response
+const BACKEND_NOTICE : Byte = b'N'
 
 ///|
-let _code_parse_complete : Byte = b'1'
+/// Parse complete
+const BACKEND_PARSE_COMPLETE : Byte = b'1'
 
 ///|
-let _code_bind_complete : Byte = b'2'
+/// Bind complete
+const BACKEND_BIND_COMPLETE : Byte = b'2'
 
 ///|
-let _code_close_complete : Byte = b'3'
+/// Close complete
+const BACKEND_CLOSE_COMPLETE : Byte = b'3'
 
 ///|
-let _code_no_data : Byte = b'n'
+/// No data
+const BACKEND_NO_DATA : Byte = b'n'
 
 ///|
-let _code_empty_query : Byte = b'I'
+/// Empty query response
+const BACKEND_EMPTY_QUERY : Byte = b'I'
 
 ///|
-let _code_portal_suspended : Byte = b's'
+/// Portal suspended
+const BACKEND_PORTAL_SUSPENDED : Byte = b's'
 
 ///|
-let _code_parameter_description : Byte = b't'
+/// Parameter description
+const BACKEND_PARAM_DESC : Byte = b't'
 
 ///|
-let _code_notification : Byte = b'A'
+/// Notification response
+const BACKEND_NOTIFICATION : Byte = b'A'
 
 ///|
-let _code_copy_in_response : Byte = b'G'
+/// Copy in response
+const BACKEND_COPY_IN : Byte = b'G'
 
 ///|
-let _code_copy_out_response : Byte = b'H'
+/// Copy out response
+const BACKEND_COPY_OUT : Byte = b'H'
 
 ///|
-let _code_copy_data : Byte = b'd'
+/// Copy data
+const BACKEND_COPY_DATA : Byte = b'd'
 
 ///|
-let _code_copy_done : Byte = b'c'
+/// Copy done
+const BACKEND_COPY_DONE : Byte = b'c'
+
+// =============================================================================
+// Frontend Message Type Codes (Client -> Server)
+// =============================================================================
+
+///|
+/// Simple query
+const CODE_QUERY : Byte = b'Q'
+
+///|
+/// Parse
+const CODE_PARSE : Byte = b'P'
+
+///|
+/// Bind
+const CODE_BIND : Byte = b'B'
+
+///|
+/// Execute
+const CODE_EXECUTE : Byte = b'E'
+
+///|
+/// Describe
+const CODE_DESCRIBE : Byte = b'D'
+
+///|
+/// Close
+const CODE_CLOSE : Byte = b'C'
+
+///|
+/// Sync
+const CODE_SYNC : Byte = b'S'
+
+///|
+/// Flush
+const CODE_FLUSH : Byte = b'H'
+
+///|
+/// Terminate
+const CODE_TERMINATE : Byte = b'X'
+
+///|
+/// Password / SASL response
+const CODE_PASSWORD : Byte = b'p'
+
+///|
+/// Copy data (frontend)
+const CODE_COPY_DATA : Byte = b'd'
+
+///|
+/// Copy done (frontend)
+const CODE_COPY_DONE : Byte = b'c'
+
+///|
+/// Copy fail
+const CODE_COPY_FAIL : Byte = b'f'
+
+// =============================================================================
+// Transaction Status Bytes
+// =============================================================================
+
+///|
+/// Idle (not in transaction)
+const TX_IDLE : Byte = b'I'
+
+///|
+/// In transaction block
+const TX_IN_TRANSACTION : Byte = b'T'
+
+// =============================================================================
+// Describe/Close Target Types
+// =============================================================================
+
+///|
+/// Statement target for Describe and Close messages
+pub const TARGET_STATEMENT : Byte = b'S'
+
+///|
+/// Portal target for Describe and Close messages
+pub const TARGET_PORTAL : Byte = b'P'
+
+// =============================================================================
+// Error/Notice Field Keys
+// =============================================================================
+
+///|
+/// Severity field (localized)
+pub const FIELD_SEVERITY : String = "S"
+
+///|
+/// Severity field (non-localized)
+pub const FIELD_SEVERITY_NL : String = "V"
+
+///|
+/// SQLSTATE error code
+pub const FIELD_CODE : String = "C"
+
+///|
+/// Human-readable error message
+pub const FIELD_MESSAGE : String = "M"
+
+///|
+/// Detail message
+pub const FIELD_DETAIL : String = "D"
+
+///|
+/// Hint message
+pub const FIELD_HINT : String = "H"
+
+///|
+/// Table name
+pub const FIELD_TABLE : String = "t"
+
+///|
+/// Column name
+pub const FIELD_COLUMN : String = "c"
+
+///|
+/// Constraint name
+pub const FIELD_CONSTRAINT : String = "n"
 
 // =============================================================================
 // Common Types
@@ -284,63 +426,3 @@ pub(all) enum FrontendMessage {
   /// Close connection
   Terminate
 } derive(Show)
-
-// =============================================================================
-// Error Field Codes
-// =============================================================================
-
-///|
-/// Error/Notice field identifiers
-/// See https://www.postgresql.org/docs/current/protocol-error-fields.html
-let _error_field_severity : String = "S"
-
-///|
-let _error_field_severity_v : String = "V" // non-localized severity
-
-///|
-let _error_field_code : String = "C" // SQLSTATE code
-
-///|
-let _error_field_message : String = "M"
-
-///|
-let _error_field_detail : String = "D"
-
-///|
-let _error_field_hint : String = "H"
-
-///|
-let _error_field_position : String = "P"
-
-///|
-let _error_field_internal_position : String = "p"
-
-///|
-let _error_field_internal_query : String = "q"
-
-///|
-let _error_field_where : String = "W"
-
-///|
-let _error_field_schema : String = "s"
-
-///|
-let _error_field_table : String = "t"
-
-///|
-let _error_field_column : String = "c"
-
-///|
-let _error_field_datatype : String = "d"
-
-///|
-let _error_field_constraint : String = "n"
-
-///|
-let _error_field_file : String = "F"
-
-///|
-let _error_field_line : String = "L"
-
-///|
-let _error_field_routine : String = "R"

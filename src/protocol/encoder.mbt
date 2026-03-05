@@ -3,47 +3,6 @@
 ///
 /// Serializes FrontendMessage values to Bytes for transmission to the server.
 
-// Message type codes (Frontend -> Backend)
-
-///|
-let code_query : Byte = b'Q'
-
-///|
-let code_parse : Byte = b'P'
-
-///|
-let code_bind : Byte = b'B'
-
-///|
-let code_execute : Byte = b'E'
-
-///|
-let code_describe : Byte = b'D'
-
-///|
-let code_close : Byte = b'C'
-
-///|
-let code_sync : Byte = b'S'
-
-///|
-let code_flush : Byte = b'H'
-
-///|
-let code_terminate : Byte = b'X'
-
-///|
-let code_password : Byte = b'p'
-
-///|
-let code_copy_data : Byte = b'd'
-
-///|
-let code_copy_done : Byte = b'c'
-
-///|
-let code_copy_fail : Byte = b'f'
-
 ///|
 /// Encode a FrontendMessage to Bytes
 pub fn encode(msg : FrontendMessage) -> Bytes {
@@ -51,23 +10,23 @@ pub fn encode(msg : FrontendMessage) -> Bytes {
     StartupMessage(params) => encode_startup(params)
     SSLRequest => encode_ssl_request()
     CancelRequest(pid, key) => encode_cancel_request(pid, key)
-    PasswordMessage(password) => encode_password(password)
+    PasswordMessage(password) => enCODE_PASSWORD(password)
     SASLInitialResponse(mechanism, data) =>
       encode_sasl_initial_response(mechanism, data)
     SASLResponse(data) => encode_sasl_response(data)
-    Query(sql) => encode_query(sql)
-    Parse(name, query, type_oids) => encode_parse(name, query, type_oids)
+    Query(sql) => enCODE_QUERY(sql)
+    Parse(name, query, type_oids) => enCODE_PARSE(name, query, type_oids)
     Bind(portal, statement, param_formats, params, result_formats) =>
-      encode_bind(portal, statement, param_formats, params, result_formats)
-    Describe(kind, name) => encode_describe(kind, name)
-    Execute(portal, max_rows) => encode_execute(portal, max_rows)
-    Close(kind, name) => encode_close(kind, name)
-    Sync => encode_sync()
-    Flush => encode_flush()
-    CopyData(data) => encode_copy_data(data)
-    CopyDone => encode_copy_done()
-    CopyFail(message) => encode_copy_fail(message)
-    Terminate => encode_terminate()
+      enCODE_BIND(portal, statement, param_formats, params, result_formats)
+    Describe(kind, name) => enCODE_DESCRIBE(kind, name)
+    Execute(portal, max_rows) => enCODE_EXECUTE(portal, max_rows)
+    Close(kind, name) => enCODE_CLOSE(kind, name)
+    Sync => enCODE_SYNC()
+    Flush => enCODE_FLUSH()
+    CopyData(data) => enCODE_COPY_DATA(data)
+    CopyDone => enCODE_COPY_DONE()
+    CopyFail(message) => enCODE_COPY_FAIL(message)
+    Terminate => enCODE_TERMINATE()
   }
 }
 
@@ -149,10 +108,10 @@ fn encode_cancel_request(process_id : Int, secret_key : Int) -> Bytes {
 ///|
 /// Encode PasswordMessage
 /// Format: 'p' + length + password (cstring)
-fn encode_password(password : String) -> Bytes {
+fn enCODE_PASSWORD(password : String) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_cstring(password) |> ignore
-  writer.flush(code_password)
+  writer.flush(CODE_PASSWORD)
 }
 
 ///|
@@ -166,7 +125,7 @@ fn encode_sasl_initial_response(mechanism : String, data : Bytes) -> Bytes {
   } else {
     writer.add_int32(-1) |> ignore // no initial response
   }
-  writer.flush(code_password)
+  writer.flush(CODE_PASSWORD)
 }
 
 ///|
@@ -174,7 +133,7 @@ fn encode_sasl_initial_response(mechanism : String, data : Bytes) -> Bytes {
 fn encode_sasl_response(data : Bytes) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_bytes(data) |> ignore
-  writer.flush(code_password)
+  writer.flush(CODE_PASSWORD)
 }
 
 // -----------------------------------------------------------------------------
@@ -184,10 +143,10 @@ fn encode_sasl_response(data : Bytes) -> Bytes {
 ///|
 /// Encode Query (simple query protocol)
 /// Format: 'Q' + length + query (cstring)
-fn encode_query(sql : String) -> Bytes {
+fn enCODE_QUERY(sql : String) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_cstring(sql) |> ignore
-  writer.flush(code_query)
+  writer.flush(CODE_QUERY)
 }
 
 // -----------------------------------------------------------------------------
@@ -197,7 +156,7 @@ fn encode_query(sql : String) -> Bytes {
 ///|
 /// Encode Parse
 /// Format: 'P' + length + name (cstring) + query (cstring) + param count (int16) + param types (int32[])
-fn encode_parse(
+fn enCODE_PARSE(
   name : String,
   query : String,
   type_oids : Array[UInt],
@@ -209,7 +168,7 @@ fn encode_parse(
   for oid in type_oids {
     writer.add_int32(oid.reinterpret_as_int()) |> ignore
   }
-  writer.flush(code_parse)
+  writer.flush(CODE_PARSE)
 }
 
 ///|
@@ -218,7 +177,7 @@ fn encode_parse(
 ///         param format count (int16) + param formats (int16[]) +
 ///         param count (int16) + params (length + bytes)[] +
 ///         result format count (int16) + result formats (int16[])
-fn encode_bind(
+fn enCODE_BIND(
   portal : String,
   statement : String,
   param_formats : Array[FormatCode],
@@ -255,79 +214,95 @@ fn encode_bind(
     writer.add_int16(format_code_to_int(fmt)) |> ignore
   }
 
-  writer.flush(code_bind)
+  writer.flush(CODE_BIND)
 }
 
 ///|
 /// Encode Describe
 /// Format: 'D' + length + type ('S' or 'P') + name (cstring)
-fn encode_describe(kind : Byte, name : String) -> Bytes {
+fn enCODE_DESCRIBE(kind : Byte, name : String) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_byte(kind) |> ignore
   writer.add_cstring(name) |> ignore
-  writer.flush(code_describe)
+  writer.flush(CODE_DESCRIBE)
 }
 
 ///|
 /// Encode Execute
 /// Format: 'E' + length + portal (cstring) + max_rows (int32)
-fn encode_execute(portal : String, max_rows : Int) -> Bytes {
+fn enCODE_EXECUTE(portal : String, max_rows : Int) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_cstring(portal) |> ignore
   writer.add_int32(max_rows) |> ignore
-  writer.flush(code_execute)
+  writer.flush(CODE_EXECUTE)
 }
 
 ///|
 /// Encode Close
 /// Format: 'C' + length + type ('S' or 'P') + name (cstring)
-fn encode_close(kind : Byte, name : String) -> Bytes {
+fn enCODE_CLOSE(kind : Byte, name : String) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_byte(kind) |> ignore
   writer.add_cstring(name) |> ignore
-  writer.flush(code_close)
+  writer.flush(CODE_CLOSE)
 }
 
 // Pre-computed constant messages for efficiency
 
 ///|
 let sync_bytes : Bytes = Bytes::from_array([
-  code_sync, b'\x00', b'\x00', b'\x00', b'\x04',
+  CODE_SYNC,
+  b'\x00',
+  b'\x00',
+  b'\x00',
+  b'\x04',
 ])
 
 ///|
 let flush_bytes : Bytes = Bytes::from_array([
-  code_flush, b'\x00', b'\x00', b'\x00', b'\x04',
+  CODE_FLUSH,
+  b'\x00',
+  b'\x00',
+  b'\x00',
+  b'\x04',
 ])
 
 ///|
 let terminate_bytes : Bytes = Bytes::from_array([
-  code_terminate, b'\x00', b'\x00', b'\x00', b'\x04',
+  CODE_TERMINATE,
+  b'\x00',
+  b'\x00',
+  b'\x00',
+  b'\x04',
 ])
 
 ///|
 let copy_done_bytes : Bytes = Bytes::from_array([
-  code_copy_done, b'\x00', b'\x00', b'\x00', b'\x04',
+  CODE_COPY_DONE,
+  b'\x00',
+  b'\x00',
+  b'\x00',
+  b'\x04',
 ])
 
 ///|
 /// Encode Sync
 /// Format: 'S' + length (4)
-fn encode_sync() -> Bytes {
+fn enCODE_SYNC() -> Bytes {
   sync_bytes
 }
 
 ///|
 /// Encode Flush
 /// Format: 'H' + length (4)
-fn encode_flush() -> Bytes {
+fn enCODE_FLUSH() -> Bytes {
   flush_bytes
 }
 
 ///|
 /// Encode Terminate
 /// Format: 'X' + length (4)
-fn encode_terminate() -> Bytes {
+fn enCODE_TERMINATE() -> Bytes {
   terminate_bytes
 }
 
@@ -338,26 +313,26 @@ fn encode_terminate() -> Bytes {
 ///|
 /// Encode CopyData
 /// Format: 'd' + length + data
-fn encode_copy_data(data : Bytes) -> Bytes {
+fn enCODE_COPY_DATA(data : Bytes) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_bytes(data) |> ignore
-  writer.flush(code_copy_data)
+  writer.flush(CODE_COPY_DATA)
 }
 
 ///|
 /// Encode CopyDone
 /// Format: 'c' + length (4)
-fn encode_copy_done() -> Bytes {
+fn enCODE_COPY_DONE() -> Bytes {
   copy_done_bytes
 }
 
 ///|
 /// Encode CopyFail
 /// Format: 'f' + length + message (cstring)
-fn encode_copy_fail(message : String) -> Bytes {
+fn enCODE_COPY_FAIL(message : String) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_cstring(message) |> ignore
-  writer.flush(code_copy_fail)
+  writer.flush(CODE_COPY_FAIL)
 }
 
 // -----------------------------------------------------------------------------
