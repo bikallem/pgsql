@@ -513,63 +513,27 @@ fn serialize_params(params : Array[Value]) -> Array[Bytes?] {
 }
 
 ///|
-/// Parse affected rows from command tag
+/// Parse affected rows from command tag.
+/// Command tags have the form "VERB N" or "INSERT oid N" where N is
+/// the affected row count at the end.  We scan backwards from the
+/// end to extract the trailing integer directly, avoiding intermediate
+/// string splits and allocations.
 fn parse_affected_rows(tag : String) -> Int {
-  // Command tags like "INSERT 0 1", "UPDATE 5", "DELETE 3"
-  // The last number is the affected rows count
-  let parts = split_string(tag, ' ')
-  if parts.length() > 0 {
-    let last = parts[parts.length() - 1]
-    parse_int_simple(last)
-  } else {
-    0
+  let bytes = @utf8.encode(tag[:])
+  let len = bytes.length()
+  // Find the start of the trailing number by scanning backwards
+  let mut end = len
+  while end > 0 && bytes[end - 1] >= b'0' && bytes[end - 1] <= b'9' {
+    end -= 1
   }
-}
-
-///|
-/// Simple string split by character
-fn split_string(s : String, sep : Char) -> Array[String] {
-  let result : Array[String] = []
-  let current : Array[Char] = []
-
-  for c in s {
-    if c == sep {
-      if current.length() > 0 {
-        result.push(String::from_array(current))
-        current.clear()
-      }
-    } else {
-      current.push(c)
-    }
+  if end == len {
+    return 0 // no trailing digits
   }
-
-  if current.length() > 0 {
-    result.push(String::from_array(current))
-  }
-
-  result
-}
-
-///|
-/// Simple integer parsing
-fn parse_int_simple(s : String) -> Int {
   let mut result = 0
-  let mut negative = false
-  let mut started = false
-
-  for c in s {
-    if c == '-' && not(started) {
-      negative = true
-      started = true
-    } else if c >= '0' && c <= '9' {
-      result = result * 10 + (c.to_int() - '0'.to_int())
-      started = true
-    }
+  let mut multiplier = 1
+  for i = len - 1; i >= end; i = i - 1 {
+    result += (bytes[i].to_int() - b'0'.to_int()) * multiplier
+    multiplier *= 10
   }
-
-  if negative {
-    -result
-  } else {
-    result
-  }
+  result
 }

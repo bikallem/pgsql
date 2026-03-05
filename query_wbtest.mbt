@@ -30,39 +30,15 @@ test "parse_affected_rows CREATE TABLE" {
 }
 
 ///|
-test "split_string basic" {
-  inspect(
-    split_string("a b c", ' '),
-    content=(
-      #|["a", "b", "c"]
-    ),
-  )
+test "parse_affected_rows COPY" {
+  inspect(parse_affected_rows("COPY 100"), content="100")
 }
 
 ///|
-test "split_string single" {
-  inspect(
-    split_string("hello", ' '),
-    content=(
-      #|["hello"]
-    ),
-  )
+test "parse_affected_rows zero rows" {
+  inspect(parse_affected_rows("DELETE 0"), content="0")
 }
 
-///|
-test "split_string empty" {
-  inspect(split_string("", ' '), content="[]")
-}
-
-///|
-test "split_string multiple spaces" {
-  inspect(
-    split_string("a  b", ' '),
-    content=(
-      #|["a", "b"]
-    ),
-  )
-}
 
 ///|
 /// Helper to create a Row in tests (computes column_index automatically)
@@ -280,13 +256,6 @@ test "serialize_params mixed types" {
   inspect(result[3] is Some(_), content="true")
 }
 
-///|
-test "parse_int_simple" {
-  inspect(parse_int_simple("42"), content="42")
-  inspect(parse_int_simple("-7"), content="-7")
-  inspect(parse_int_simple("0"), content="0")
-  inspect(parse_int_simple(""), content="0")
-}
 
 ///|
 test "quote_identifier" {
