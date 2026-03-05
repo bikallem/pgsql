@@ -1,5 +1,5 @@
 import {
-  "bikallem/postgresql" @pgsql,
+  "bikallem/pgsql" @pgsql,
   "moonbitlang/async",
 } for "test"
 

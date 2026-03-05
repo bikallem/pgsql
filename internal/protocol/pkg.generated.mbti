@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "bikallem/postgresql/protocol"
+package "bikallem/pgsql/internal/protocol"
 
 // Values
 pub const FIELD_CODE : String = "C"
@@ -127,28 +127,20 @@ type BufferReader
 pub fn BufferReader::byte(Self) -> Byte raise BufferUnderflow
 pub fn BufferReader::bytes(Self, Int) -> Bytes raise BufferUnderflow
 pub fn BufferReader::cstring(Self) -> String
-pub fn BufferReader::empty() -> Self
-pub fn BufferReader::has_remaining(Self, Int) -> Bool
 pub fn BufferReader::int16(Self) -> Int raise BufferUnderflow
 pub fn BufferReader::int32(Self) -> Int raise BufferUnderflow
 pub fn BufferReader::new(Bytes) -> Self
-pub fn BufferReader::peek_byte(Self) -> Byte
 pub fn BufferReader::position(Self) -> Int
 pub fn BufferReader::remaining(Self) -> Int
 pub fn BufferReader::skip(Self, Int) -> Unit
-pub fn BufferReader::string(Self, Int) -> String
-pub fn BufferReader::uint16(Self) -> Int raise BufferUnderflow
 pub fn BufferReader::uint32(Self) -> UInt raise BufferUnderflow
 
 type BufferWriter
 pub fn BufferWriter::add_byte(Self, Byte) -> Self
 pub fn BufferWriter::add_bytes(Self, Bytes) -> Self
 pub fn BufferWriter::add_cstring(Self, String) -> Self
-pub fn BufferWriter::add_fixed_array(Self, FixedArray[Byte]) -> Self
 pub fn BufferWriter::add_int16(Self, Int) -> Self
 pub fn BufferWriter::add_int32(Self, Int) -> Self
-pub fn BufferWriter::add_string(Self, String) -> Self
-pub fn BufferWriter::clear(Self) -> Unit
 pub fn BufferWriter::flush(Self, Byte) -> Bytes
 pub fn BufferWriter::flush_startup(Self) -> Bytes
 pub fn BufferWriter::length(Self) -> Int

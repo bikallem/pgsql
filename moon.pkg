@@ -1,5 +1,5 @@
 import {
-  "bikallem/postgresql/internal/protocol",
+  "bikallem/pgsql/internal/protocol",
   "moonbitlang/async" @async,
   "moonbitlang/async/socket",
   "moonbitlang/async/tls",
@@ -9,7 +9,7 @@ import {
 }
 
 import {
-  "bikallem/postgresql" @pgsql,
+  "bikallem/pgsql" @pgsql,
 } for "test"
 
 options(
