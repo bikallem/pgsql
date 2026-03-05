@@ -1,5 +1,5 @@
 import {
-  "bikallem/postgresql/protocol",
+  "bikallem/postgresql/internal/protocol",
   "moonbitlang/async" @async,
   "moonbitlang/async/socket",
   "moonbitlang/async/tls",

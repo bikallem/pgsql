@@ -299,4 +299,3 @@ async fn Connection::authenticate(self : Connection) -> Unit {
     }
   }
 }
-

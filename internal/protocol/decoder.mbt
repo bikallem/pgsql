@@ -152,7 +152,8 @@ fn parse_authentication(
       }
       AuthenticationSASL(mechanisms)
     }
-    AUTH_SASL_CONTINUE => AuthenticationSASLContinue(reader.bytes(reader.remaining()))
+    AUTH_SASL_CONTINUE =>
+      AuthenticationSASLContinue(reader.bytes(reader.remaining()))
     AUTH_SASL_FINAL => AuthenticationSASLFinal(reader.bytes(reader.remaining()))
     auth_type => {
       let fields : Map[String, String] = {}

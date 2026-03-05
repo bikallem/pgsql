@@ -15,6 +15,11 @@
     "moonbit"
   ],
   "description": "PostgreSQL database driver for MoonBit",
-  "source": "src",
-  "preferred-target": "native"
+  "preferred-target": "native",
+  "exclude": [
+    "examples",
+    "flake.nix",
+    "flake.lock",
+    "Makefile"
+  ]
 }
