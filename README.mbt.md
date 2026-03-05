@@ -39,10 +39,9 @@ async test "simple and parameterized queries" {
   }
 
   // Parameterized query
-  let result = client.query_params(
-    "SELECT * FROM users WHERE age > $1",
-    [Int(21)],
-  )
+  let result = client.query_params("SELECT * FROM users WHERE age > $1", [
+    Int(21),
+  ])
   let _ = result
 
   client.close()
@@ -105,10 +104,9 @@ async test "transactions" {
 
   // Auto commit on success, rollback on error
   client.transaction(async fn(tx) {
-    let _ = tx.execute_params(
-      "INSERT INTO users (name) VALUES ($1)",
-      [String("Carol")],
-    )
+    let _ = tx.execute_params("INSERT INTO users (name) VALUES ($1)", [
+      String("Carol"),
+    ])
   })
 
   client.close()
@@ -146,15 +144,10 @@ async test "row streaming" {
   let config = Config::new("user", "pass", "dbname", host="127.0.0.1")
   let client = Client::connect(config)
 
-  let stream = client.query_stream(
-    "SELECT * FROM large_table",
-    batch_size=200,
-  )
+  let stream = client.query_stream("SELECT * FROM large_table", batch_size=200)
 
   // Iterate row-by-row, fetching in batches from the server
-  stream.for_each(async fn(row) {
-    let _ = row.string(0)
-  })
+  stream.for_each(fn(row) { let _ = row.string(0) })
   // stream is auto-closed after for_each
 
   client.close()
@@ -174,22 +167,18 @@ async test "copy" {
   let client = Client::connect(config)
 
   // COPY IN — bulk insert
-  let rows_imported = client.copy_in(
-    "COPY users (name, age) FROM STDIN",
-    async fn(writer) {
-      writer.write_row(["Alice", "30"])
-      writer.write_row(["Bob", "25"])
-    },
-  )
+  let rows_imported = client.copy_in("COPY users (name, age) FROM STDIN", async fn(
+    writer,
+  ) {
+    writer.write_row(["Alice", "30"])
+    writer.write_row(["Bob", "25"])
+  })
   let _ = rows_imported
 
   // COPY OUT — bulk export
-  let rows_exported = client.copy_out(
-    "COPY users TO STDOUT",
-    async fn(data) {
-      let _ = data // raw tab-separated bytes
-    },
-  )
+  let rows_exported = client.copy_out("COPY users TO STDOUT", fn(data) {
+    let _ = data // raw tab-separated bytes
+  })
   let _ = rows_exported
 
   client.close()
@@ -212,8 +201,8 @@ async test "listen/notify" {
   let _ = notifier.execute("NOTIFY events, 'hello'")
 
   let notification = listener.wait_for_notification()
-  let _ = notification.channel()  // "events"
-  let _ = notification.payload()  // "hello"
+  let _ = notification.channel() // "events"
+  let _ = notification.payload() // "hello"
 
   listener.unlisten("events")
 
@@ -235,14 +224,15 @@ async test "error handling" {
   let client = Client::connect(config)
 
   let result = client.query("SELECT 1") catch {
-    ServerError(info) => {
-      let _ = info.code()      // SQLSTATE, e.g. "42P01"
-      let _ = info.message()   // human-readable message
-      let _ = info.severity()  // ERROR, FATAL, PANIC
-      let _ = info.detail()    // optional detail
-      let _ = info.hint()      // optional hint
+    @pgsql.ServerError(info) => {
+      let _ = info.code() // SQLSTATE, e.g. "42P01"
+      let _ = info.message() // human-readable message
+      let _ = info.severity() // ERROR, FATAL, PANIC
+      let _ = info.detail() // optional detail
+      let _ = info.hint() // optional hint
       return
     }
+    _ => return
   }
   let _ = result
 
