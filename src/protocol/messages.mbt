@@ -157,6 +157,34 @@ const CODE_COPY_DONE : Byte = b'c'
 const CODE_COPY_FAIL : Byte = b'f'
 
 // =============================================================================
+// Authentication Type Codes
+// =============================================================================
+
+///|
+/// Authentication successful
+const AUTH_OK : Int = 0
+
+///|
+/// Cleartext password requested
+const AUTH_CLEARTEXT : Int = 3
+
+///|
+/// MD5-hashed password requested
+const AUTH_MD5 : Int = 5
+
+///|
+/// SASL authentication requested
+const AUTH_SASL : Int = 10
+
+///|
+/// SASL authentication continue
+const AUTH_SASL_CONTINUE : Int = 11
+
+///|
+/// SASL authentication final
+const AUTH_SASL_FINAL : Int = 12
+
+// =============================================================================
 // Transaction Status Bytes
 // =============================================================================
 

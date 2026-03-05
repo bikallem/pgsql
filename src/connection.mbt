@@ -261,7 +261,7 @@ async fn Connection::authenticate(self : Connection) -> Unit {
         }
         @protocol.AuthenticationSASLContinue(data) => {
           // SCRAM server-first-message → compute client-final
-          let server_first = bytes_to_string(data)
+          let server_first = @utf8.decode_lossy(data[:])
           let (client_final, expected_sig) = @protocol.scram_client_final(
             self.config.password,
             scram_client_first_bare,
@@ -275,7 +275,7 @@ async fn Connection::authenticate(self : Connection) -> Unit {
         }
         @protocol.AuthenticationSASLFinal(data) => {
           // SCRAM server-final-message → verify server signature
-          let server_final = bytes_to_string(data)
+          let server_final = @utf8.decode_lossy(data[:])
           @protocol.scram_verify_server(server_final, scram_expected_sig) catch {
             @protocol.ScramError(msg) => raise AuthError(msg)
           }
@@ -300,8 +300,3 @@ async fn Connection::authenticate(self : Connection) -> Unit {
   }
 }
 
-///|
-/// Convert Bytes to String (UTF-8 decoding)
-fn bytes_to_string(data : Bytes) -> String {
-  @utf8.decode_lossy(data[:])
-}

@@ -20,21 +20,9 @@ pub fn BufferReader::new(data : Bytes) -> BufferReader {
 }
 
 ///|
-/// Create an empty BufferReader
-pub fn BufferReader::empty() -> BufferReader {
-  { data: Bytes::new(0), offset: 0 }
-}
-
-///|
 /// Get remaining bytes count
 pub fn BufferReader::remaining(self : BufferReader) -> Int {
   self.data.length() - self.offset
-}
-
-///|
-/// Check if there are enough bytes remaining
-pub fn BufferReader::has_remaining(self : BufferReader, count : Int) -> Bool {
-  self.remaining() >= count
 }
 
 ///|
@@ -77,20 +65,6 @@ pub fn BufferReader::int16(self : BufferReader) -> Int raise BufferUnderflow {
 }
 
 ///|
-/// Read a 16-bit unsigned integer in big-endian format
-pub fn BufferReader::uint16(self : BufferReader) -> Int raise BufferUnderflow {
-  guard self.remaining() >= 2 else {
-    raise BufferUnderflow(
-      "uint16: need 2 bytes but only \{self.remaining()} remaining",
-    )
-  }
-  let b0 = self.data[self.offset].to_int()
-  let b1 = self.data[self.offset + 1].to_int()
-  self.offset += 2
-  (b0 << 8) | b1
-}
-
-///|
 /// Read a 32-bit signed integer in big-endian format
 pub fn BufferReader::int32(self : BufferReader) -> Int raise BufferUnderflow {
   guard self.remaining() >= 4 else {
@@ -120,17 +94,6 @@ pub fn BufferReader::uint32(self : BufferReader) -> UInt raise BufferUnderflow {
   let b3 = self.data[self.offset + 3].to_int().reinterpret_as_uint()
   self.offset += 4
   (b0 << 24) | (b1 << 16) | (b2 << 8) | b3
-}
-
-///|
-/// Read a fixed-length ASCII string (each byte becomes one character)
-pub fn BufferReader::string(self : BufferReader, len : Int) -> String {
-  let chars : Array[Char] = Array::new(capacity=len)
-  for i = 0; i < len; i = i + 1 {
-    chars.push(self.data[self.offset + i].to_int().unsafe_to_char())
-  }
-  self.offset += len
-  String::from_array(chars)
 }
 
 ///|
@@ -176,10 +139,4 @@ pub fn BufferReader::bytes(
 /// Skip bytes without reading
 pub fn BufferReader::skip(self : BufferReader, count : Int) -> Unit {
   self.offset += count
-}
-
-///|
-/// Peek at the next byte without consuming it
-pub fn BufferReader::peek_byte(self : BufferReader) -> Byte {
-  self.data[self.offset]
 }

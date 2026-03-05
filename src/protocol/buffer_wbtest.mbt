@@ -94,14 +94,6 @@ test "BufferReader::cstring" {
 }
 
 ///|
-test "BufferReader::string_fixed_length" {
-  let data = Bytes::from_array([b'h', b'e', b'l', b'l', b'o'])
-  let reader = BufferReader::new(data)
-  assert_eq(reader.string(3), "hel")
-  assert_eq(reader.remaining(), 2)
-}
-
-///|
 test "BufferReader::bytes" {
   let data = Bytes::from_array([b'\x01', b'\x02', b'\x03', b'\x04'])
   let reader = BufferReader::new(data)

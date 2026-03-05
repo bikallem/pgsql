@@ -137,10 +137,10 @@ fn parse_authentication(
   reader : BufferReader,
 ) -> BackendMessage raise BufferUnderflow {
   match reader.int32() {
-    0 => AuthenticationOk
-    3 => AuthenticationCleartextPassword
-    5 => AuthenticationMD5Password(reader.bytes(4))
-    10 => {
+    AUTH_OK => AuthenticationOk
+    AUTH_CLEARTEXT => AuthenticationCleartextPassword
+    AUTH_MD5 => AuthenticationMD5Password(reader.bytes(4))
+    AUTH_SASL => {
       let mechanisms : Array[String] = []
       while reader.remaining() > 1 {
         let mechanism = reader.cstring()
@@ -152,8 +152,8 @@ fn parse_authentication(
       }
       AuthenticationSASL(mechanisms)
     }
-    11 => AuthenticationSASLContinue(reader.bytes(reader.remaining()))
-    12 => AuthenticationSASLFinal(reader.bytes(reader.remaining()))
+    AUTH_SASL_CONTINUE => AuthenticationSASLContinue(reader.bytes(reader.remaining()))
+    AUTH_SASL_FINAL => AuthenticationSASLFinal(reader.bytes(reader.remaining()))
     auth_type => {
       let fields : Map[String, String] = {}
       fields[FIELD_MESSAGE] = "Unsupported authentication type: " +

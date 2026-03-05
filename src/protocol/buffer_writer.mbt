@@ -72,19 +72,6 @@ pub fn BufferWriter::add_cstring(
 }
 
 ///|
-/// Add a string without null terminator (for length-prefixed strings)
-pub fn BufferWriter::add_string(
-  self : BufferWriter,
-  value : String,
-) -> BufferWriter {
-  let bytes = @utf8.encode(value[:])
-  for i = 0; i < bytes.length(); i = i + 1 {
-    self.data.push(bytes[i])
-  }
-  self
-}
-
-///|
 /// Add raw bytes
 pub fn BufferWriter::add_bytes(
   self : BufferWriter,
@@ -97,25 +84,7 @@ pub fn BufferWriter::add_bytes(
 }
 
 ///|
-/// Add raw bytes from a FixedArray
-pub fn BufferWriter::add_fixed_array(
-  self : BufferWriter,
-  value : FixedArray[Byte],
-) -> BufferWriter {
-  for b in value {
-    self.data.push(b)
-  }
-  self
-}
-
-///|
-/// Clear the buffer for reuse
-pub fn BufferWriter::clear(self : BufferWriter) -> Unit {
-  self.data.clear()
-}
-
-///|
-/// Convert to Bytes
+/// Convert to Bytes (used by tests)
 pub fn BufferWriter::to_bytes(self : BufferWriter) -> Bytes {
   Bytes::from_array(self.data)
 }

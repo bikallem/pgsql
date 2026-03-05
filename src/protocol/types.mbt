@@ -86,36 +86,6 @@ pub const OID_JSONB : UInt = 3802
 ///|
 pub const OID_UUID : UInt = 2950
 
-// Network Types - for future use
-
-///|
-let _oid_inet : UInt = 869
-
-///|
-let _oid_cidr : UInt = 650
-
-///|
-let _oid_macaddr : UInt = 829
-
-// Array Types (common ones) - for future use
-
-///|
-let _oid_int4_array : UInt = 1007
-
-///|
-let _oid_text_array : UInt = 1009
-
-///|
-let _oid_float8_array : UInt = 1022
-
-// Special - for future use
-
-///|
-let _oid_void : UInt = 2278
-
-///|
-let _oid_unknown : UInt = 705
-
 // =============================================================================
 // Byte/String Conversion Helpers
 // =============================================================================

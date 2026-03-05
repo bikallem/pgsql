@@ -20,13 +20,13 @@ pub fn encode(msg : FrontendMessage) -> Bytes {
       encode_bind(portal, statement, param_formats, params, result_formats)
     Describe(kind, name) => encode_describe(kind, name)
     Execute(portal, max_rows) => encode_execute(portal, max_rows)
-    Close(kind, name) => enCODE_CLOSE(kind, name)
-    Sync => enCODE_SYNC()
-    Flush => enCODE_FLUSH()
-    CopyData(data) => enCODE_COPY_DATA(data)
-    CopyDone => enCODE_COPY_DONE()
-    CopyFail(message) => enCODE_COPY_FAIL(message)
-    Terminate => enCODE_TERMINATE()
+    Close(kind, name) => encode_close(kind, name)
+    Sync => encode_sync()
+    Flush => encode_flush()
+    CopyData(data) => encode_copy_data(data)
+    CopyDone => encode_copy_done()
+    CopyFail(message) => encode_copy_fail(message)
+    Terminate => encode_terminate()
   }
 }
 
@@ -240,7 +240,7 @@ fn encode_execute(portal : String, max_rows : Int) -> Bytes {
 ///|
 /// Encode Close
 /// Format: 'C' + length + type ('S' or 'P') + name (cstring)
-fn enCODE_CLOSE(kind : Byte, name : String) -> Bytes {
+fn encode_close(kind : Byte, name : String) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_byte(kind) |> ignore
   writer.add_cstring(name) |> ignore
@@ -288,21 +288,21 @@ let copy_done_bytes : Bytes = Bytes::from_array([
 ///|
 /// Encode Sync
 /// Format: 'S' + length (4)
-fn enCODE_SYNC() -> Bytes {
+fn encode_sync() -> Bytes {
   sync_bytes
 }
 
 ///|
 /// Encode Flush
 /// Format: 'H' + length (4)
-fn enCODE_FLUSH() -> Bytes {
+fn encode_flush() -> Bytes {
   flush_bytes
 }
 
 ///|
 /// Encode Terminate
 /// Format: 'X' + length (4)
-fn enCODE_TERMINATE() -> Bytes {
+fn encode_terminate() -> Bytes {
   terminate_bytes
 }
 
@@ -313,7 +313,7 @@ fn enCODE_TERMINATE() -> Bytes {
 ///|
 /// Encode CopyData
 /// Format: 'd' + length + data
-fn enCODE_COPY_DATA(data : Bytes) -> Bytes {
+fn encode_copy_data(data : Bytes) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_bytes(data) |> ignore
   writer.flush(CODE_COPY_DATA)
@@ -322,14 +322,14 @@ fn enCODE_COPY_DATA(data : Bytes) -> Bytes {
 ///|
 /// Encode CopyDone
 /// Format: 'c' + length (4)
-fn enCODE_COPY_DONE() -> Bytes {
+fn encode_copy_done() -> Bytes {
   copy_done_bytes
 }
 
 ///|
 /// Encode CopyFail
 /// Format: 'f' + length + message (cstring)
-fn enCODE_COPY_FAIL(message : String) -> Bytes {
+fn encode_copy_fail(message : String) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_cstring(message) |> ignore
   writer.flush(CODE_COPY_FAIL)
