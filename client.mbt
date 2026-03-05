@@ -154,7 +154,6 @@ pub async fn Client::query_params(
   sql : String,
   params : Array[Value],
 ) -> QueryResult {
-  self.check_open()
   // Parse + bind-execute in a single batch
   let messages = self.bind_execute("", params, prefix=[
     @protocol.Parse("", sql, []),
