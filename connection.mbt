@@ -77,13 +77,14 @@ fn NotificationQueue::compact_if_needed(self : NotificationQueue) -> Unit {
   if self.head < 128 || self.head * 2 < len {
     return
   }
-  let compacted : Array[Notification] = Array::new(capacity=len - self.head)
-  for i = self.head; i < len; i = i + 1 {
-    compacted.push(self.items[i])
+  // Shift remaining items to front in-place, avoiding a second copy.
+  let remaining = len - self.head
+  for i = 0; i < remaining; i = i + 1 {
+    self.items[i] = self.items[self.head + i]
   }
-  self.items.clear()
-  for notification in compacted {
-    self.items.push(notification)
+  // Trim the array to just the remaining items
+  while self.items.length() > remaining {
+    let _ = self.items.pop()
   }
   self.head = 0
 }
