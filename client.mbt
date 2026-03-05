@@ -58,17 +58,33 @@ fn Client::check_not_in_transaction_callback(
 }
 
 ///|
-/// Execute user callback code while marking the client as callback-active.
-async fn[T] Client::run_user_callback(self : Client, f : async () -> T) -> T {
-  self.in_user_callback = true
+/// Run a callback while a boolean flag is set. Resets the flag on both
+/// success and error, preventing stale flag state after exceptions.
+async fn[T] Client::with_flag(
+  self : Client,
+  set : (Client) -> Unit,
+  clear : (Client) -> Unit,
+  f : async () -> T,
+) -> T {
+  set(self)
   let result = f() catch {
     err => {
-      self.in_user_callback = false
+      clear(self)
       raise err
     }
   }
-  self.in_user_callback = false
+  clear(self)
   result
+}
+
+///|
+/// Execute user callback code while marking the client as callback-active.
+async fn[T] Client::run_user_callback(self : Client, f : async () -> T) -> T {
+  self.with_flag(
+    fn(c) { c.in_user_callback = true },
+    fn(c) { c.in_user_callback = false },
+    f,
+  )
 }
 
 ///|
@@ -77,15 +93,11 @@ async fn[T] Client::run_transaction_callback(
   self : Client,
   f : async () -> T,
 ) -> T {
-  self.in_transaction_callback = true
-  let result = f() catch {
-    err => {
-      self.in_transaction_callback = false
-      raise err
-    }
-  }
-  self.in_transaction_callback = false
-  result
+  self.with_flag(
+    fn(c) { c.in_transaction_callback = true },
+    fn(c) { c.in_transaction_callback = false },
+    f,
+  )
 }
 
 ///|
