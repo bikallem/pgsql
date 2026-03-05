@@ -11,15 +11,26 @@ struct Client {
   mut stmt_counter : Int
   /// Whether the client connection has been closed
   mut closed : Bool
+  /// Serializes transaction callback lifetimes across tasks.
+  tx_guard : @async.Semaphore
   /// True while executing a user callback under this client's operation lock
   mut in_user_callback : Bool
+  /// True while executing a Client::transaction user callback.
+  mut in_transaction_callback : Bool
 }
 
 ///|
 /// Create a new client by connecting to PostgreSQL
 pub async fn Client::connect(config : Config) -> Client {
   let conn = connect(config)
-  { conn, stmt_counter: 0, closed: false, in_user_callback: false }
+  {
+    conn,
+    stmt_counter: 0,
+    closed: false,
+    tx_guard: @async.Semaphore::new(1),
+    in_user_callback: false,
+    in_transaction_callback: false,
+  }
 }
 
 ///|
@@ -39,6 +50,14 @@ fn Client::check_not_in_user_callback(
 }
 
 ///|
+/// Guard: prevent re-entrant client operations from transaction callbacks.
+fn Client::check_not_in_transaction_callback(
+  self : Client,
+) -> Unit raise ClientUsageError {
+  raise_if_reentrant_transaction_callback(self.in_transaction_callback)
+}
+
+///|
 /// Execute user callback code while marking the client as callback-active.
 async fn[T] Client::run_user_callback(self : Client, f : async () -> T) -> T {
   self.in_user_callback = true
@@ -53,10 +72,56 @@ async fn[T] Client::run_user_callback(self : Client, f : async () -> T) -> T {
 }
 
 ///|
+/// Execute transaction callback code while marking tx-callback-active.
+async fn[T] Client::run_transaction_callback(
+  self : Client,
+  f : async () -> T,
+) -> T {
+  self.in_transaction_callback = true
+  let result = f() catch {
+    err => {
+      self.in_transaction_callback = false
+      raise err
+    }
+  }
+  self.in_transaction_callback = false
+  result
+}
+
+///|
 /// Execute a protocol operation under the per-connection operation guard.
 /// Ensures only one in-flight operation can touch the socket/decoder for
 /// a client at a time.
 async fn[T] Client::with_operation(self : Client, f : async () -> T) -> T {
+  self.check_not_in_user_callback()
+  self.check_not_in_transaction_callback()
+  self.tx_guard.acquire()
+  self.conn.operation_guard.acquire()
+  if self.closed {
+    self.conn.operation_guard.release()
+    self.tx_guard.release()
+    raise ConnectionClosedError
+  }
+  let result = f() catch {
+    err => {
+      self.conn.operation_guard.release()
+      self.tx_guard.release()
+      raise err
+    }
+  }
+  self.conn.operation_guard.release()
+  self.tx_guard.release()
+  result
+}
+
+///|
+/// Execute an operation while transaction lifetime ownership is already held.
+/// This acquires only the connection operation lock and is intended for
+/// Transaction methods and transaction lifecycle statements.
+async fn[T] Client::with_transaction_operation(
+  self : Client,
+  f : async () -> T,
+) -> T {
   self.check_not_in_user_callback()
   self.conn.operation_guard.acquire()
   if self.closed {
@@ -77,12 +142,7 @@ async fn[T] Client::with_operation(self : Client, f : async () -> T) -> T {
 /// Execute a simple query (non-parameterized)
 /// Returns query results
 pub async fn Client::query(self : Client, sql : String) -> QueryResult {
-  self.with_operation(async fn() {
-    self.conn.send(@protocol.Query(sql))
-    let messages = self.conn.receive_until_ready()
-    check_error(messages)
-    build_query_result(messages)
-  })
+  self.with_operation(async fn() { self.query_unlocked(sql) })
 }
 
 ///|
@@ -127,14 +187,7 @@ pub async fn Client::execute_params(
 /// Use PreparedStatement::query/execute to run it with parameters,
 /// and PreparedStatement::close when done.
 pub async fn Client::prepare(self : Client, sql : String) -> PreparedStatement {
-  self.with_operation(async fn() {
-    self.stmt_counter += 1
-    let name = "__prep_" + self.stmt_counter.to_string()
-    self.conn.send_all([@protocol.Parse(name, sql, []), @protocol.Sync])
-    let messages = self.conn.receive_until_ready()
-    check_error(messages)
-    { client: self, name, sql, closed: false }
-  })
+  self.with_operation(async fn() { self.prepare_unlocked(sql) })
 }
 
 ///|
@@ -178,10 +231,23 @@ pub async fn Client::close(self : Client) -> Unit {
     return
   }
   self.check_not_in_user_callback()
+  self.check_not_in_transaction_callback()
+  self.tx_guard.acquire()
+  if self.closed {
+    self.tx_guard.release()
+    return
+  }
   self.closed = true
   self.conn.operation_guard.acquire()
-  self.conn.close()
+  self.conn.close() catch {
+    err => {
+      self.conn.operation_guard.release()
+      self.tx_guard.release()
+      raise err
+    }
+  }
   self.conn.operation_guard.release()
+  self.tx_guard.release()
 }
 
 ///|
@@ -273,21 +339,55 @@ async fn Client::bind_execute(
   prefix? : Array[@protocol.FrontendMessage] = [],
 ) -> Array[@protocol.BackendMessage] {
   self.with_operation(async fn() {
-    let param_bytes = serialize_params(params)
-    let msgs : Array[@protocol.FrontendMessage] = []
-    for msg in prefix {
-      msgs.push(msg)
-    }
-    msgs.push(@protocol.Bind("", stmt_name, [], param_bytes, []))
-    msgs.push(@protocol.Describe(@protocol.TARGET_PORTAL, ""))
-    msgs.push(@protocol.Execute("", 0))
-    msgs.push(@protocol.Sync)
-    self.conn.send_all(msgs)
-
-    let messages = self.conn.receive_until_ready()
-    check_error(messages)
-    messages
+    self.bind_execute_unlocked(stmt_name, params, prefix~)
   })
+}
+
+///|
+/// Execute simple-query path assuming operation serialization is already held.
+async fn Client::query_unlocked(self : Client, sql : String) -> QueryResult {
+  self.conn.send(@protocol.Query(sql))
+  let messages = self.conn.receive_until_ready()
+  check_error(messages)
+  build_query_result(messages)
+}
+
+///|
+/// Execute prepare path assuming operation serialization is already held.
+async fn Client::prepare_unlocked(
+  self : Client,
+  sql : String,
+) -> PreparedStatement {
+  self.stmt_counter += 1
+  let name = "__prep_" + self.stmt_counter.to_string()
+  self.conn.send_all([@protocol.Parse(name, sql, []), @protocol.Sync])
+  let messages = self.conn.receive_until_ready()
+  check_error(messages)
+  { client: self, name, sql, closed: false, tx_scoped: false }
+}
+
+///|
+/// Shared bind-describe-execute-sync sequence assuming operation lock held.
+async fn Client::bind_execute_unlocked(
+  self : Client,
+  stmt_name : String,
+  params : Array[Value],
+  prefix? : Array[@protocol.FrontendMessage] = [],
+) -> Array[@protocol.BackendMessage] {
+  let param_bytes = serialize_params(params)
+  let msgs : Array[@protocol.FrontendMessage] = []
+  for msg in prefix {
+    msgs.push(msg)
+  }
+  msgs.push(@protocol.Bind("", stmt_name, [], param_bytes, []))
+  msgs.push(@protocol.Describe(@protocol.TARGET_PORTAL, ""))
+  msgs.push(@protocol.Execute("", 0))
+  msgs.push(@protocol.Sync)
+  self.conn.send_all(msgs)
+
+  let messages = self.conn.receive_until_ready()
+  check_error(messages)
+  messages
 }
 
 // =============================================================================
@@ -310,6 +410,18 @@ fn raise_if_reentrant_user_callback(
   if in_user_callback {
     raise ClientUsageError(
       "Re-entrant operations on the same Client are not allowed inside stream/COPY callbacks",
+    )
+  }
+}
+
+///|
+/// Raise ClientUsageError for direct Client operations inside tx callback.
+fn raise_if_reentrant_transaction_callback(
+  in_transaction_callback : Bool,
+) -> Unit raise ClientUsageError {
+  if in_transaction_callback {
+    raise ClientUsageError(
+      "Direct Client operations inside transaction callback are not allowed; use the Transaction handle",
     )
   }
 }

@@ -71,3 +71,84 @@ async test "Pool::acquire fails with PoolError when pool closes while waiting" {
   assert_true(err_msg.contains("Pool is closed"))
   assert_true(not(err_msg.contains("Acquire timeout")))
 }
+
+///|
+/// Regression: close must not over-release semaphore when pool is already idle.
+async test "Pool::close does not abort on fully idle semaphore" {
+  let cfg = Config::new(
+    "user",
+    "pass",
+    "db",
+    host="127.0.0.1",
+    port=1,
+    ssl_mode=Disable,
+    read_timeout=50,
+  )
+  let pool = Pool::new(cfg, max_size=1, acquire_timeout_ms=100)
+  // If close over-releases, this test process aborts.
+  pool.close()
+}
+
+///|
+/// Regression: permit release after close should remain valid.
+async test "Pool::close preserves permit accounting for later release" {
+  let cfg = Config::new(
+    "user",
+    "pass",
+    "db",
+    host="127.0.0.1",
+    port=1,
+    ssl_mode=Disable,
+    read_timeout=50,
+  )
+  let pool = Pool::new(cfg, max_size=1, acquire_timeout_ms=100)
+
+  // Simulate one in-flight checked-out client by consuming the only permit.
+  pool.semaphore.acquire()
+  pool.close()
+  // If close over-released, the pool's release-permit path aborts internally.
+  pool.release_permit()
+}
+
+///|
+/// Regression: close should wake multiple blocked acquires without timeouts.
+async test "Pool::close wakes all blocked acquires" {
+  let cfg = Config::new(
+    "user",
+    "pass",
+    "db",
+    host="127.0.0.1",
+    port=1,
+    ssl_mode=Disable,
+    read_timeout=50,
+  )
+  let pool = Pool::new(cfg, max_size=1, acquire_timeout_ms=2000)
+  pool.semaphore.acquire()
+
+  let (err1, err2) = @async.with_task_group(async fn(group) {
+    let waiter1 = group.spawn(async fn() {
+      try {
+        let _ = pool.acquire()
+        "acquired"
+      } catch {
+        err => err.to_string()
+      }
+    })
+    let waiter2 = group.spawn(async fn() {
+      try {
+        let _ = pool.acquire()
+        "acquired"
+      } catch {
+        err => err.to_string()
+      }
+    })
+    @async.sleep(20)
+    pool.close()
+    (waiter1.wait(), waiter2.wait())
+  })
+
+  assert_true(err1.contains("Pool is closed"))
+  assert_true(err2.contains("Pool is closed"))
+  assert_true(not(err1.contains("Acquire timeout")))
+  assert_true(not(err2.contains("Acquire timeout")))
+}

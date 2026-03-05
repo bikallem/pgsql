@@ -18,29 +18,53 @@ pub async fn[T] Client::transaction(
   self : Client,
   f : async (Transaction) -> T,
 ) -> T {
-  // Begin transaction
-  self.begin()
+  self.check_not_in_user_callback()
+  self.check_not_in_transaction_callback()
+  self.tx_guard.acquire()
+  if self.closed {
+    self.tx_guard.release()
+    raise ConnectionClosedError
+  }
+
+  self.with_transaction_operation(async fn() {
+    let _ = self.query_unlocked("BEGIN")
+  }) catch {
+    err => {
+      self.tx_guard.release()
+      raise err
+    }
+  }
 
   let tx = { client: self, active: true }
 
-  // Execute the function
-  let result = f(tx) catch {
+  let result = self.run_transaction_callback(async fn() { f(tx) }) catch {
     e => {
-      // Rollback on error
-      self.rollback() catch {
-        _ => () // Ignore rollback errors
+      if tx.active {
+        self.with_transaction_operation(async fn() {
+          let _ = self.query_unlocked("ROLLBACK")
+        }) catch {
+          _ => ()
+        }
+        tx.active = false
       }
-      tx.active = false
+      self.tx_guard.release()
       raise e
     }
   }
 
-  // Commit on success
   if tx.active {
-    self.commit()
+    self.with_transaction_operation(async fn() {
+      let _ = self.query_unlocked("COMMIT")
+    }) catch {
+      err => {
+        self.tx_guard.release()
+        raise err
+      }
+    }
     tx.active = false
   }
 
+  self.tx_guard.release()
   result
 }
 
@@ -59,7 +83,9 @@ pub async fn Transaction::query(
   sql : String,
 ) -> QueryResult {
   self.check_active()
-  self.client.query(sql)
+  self.client.with_transaction_operation(async fn() {
+    self.client.query_unlocked(sql)
+  })
 }
 
 ///|
@@ -70,14 +96,20 @@ pub async fn Transaction::query_params(
   params : Array[Value],
 ) -> QueryResult {
   self.check_active()
-  self.client.query_params(sql, params)
+  let messages = self.client.with_transaction_operation(async fn() {
+    self.client.bind_execute_unlocked("", params, prefix=[
+      @protocol.Parse("", sql, []),
+    ])
+  })
+  build_query_result(messages)
 }
 
 ///|
 /// Execute a statement within the transaction
 pub async fn Transaction::execute(self : Transaction, sql : String) -> Int {
   self.check_active()
-  self.client.execute(sql)
+  let result = self.query(sql)
+  parse_affected_rows(result.command_tag)
 }
 
 ///|
@@ -88,14 +120,17 @@ pub async fn Transaction::execute_params(
   params : Array[Value],
 ) -> Int {
   self.check_active()
-  self.client.execute_params(sql, params)
+  let result = self.query_params(sql, params)
+  parse_affected_rows(result.command_tag)
 }
 
 ///|
 /// Explicitly commit the transaction
 pub async fn Transaction::commit(self : Transaction) -> Unit {
   self.check_active()
-  self.client.commit()
+  let _ = self.client.with_transaction_operation(async fn() {
+    self.client.query_unlocked("COMMIT")
+  })
   self.active = false
 }
 
@@ -103,7 +138,9 @@ pub async fn Transaction::commit(self : Transaction) -> Unit {
 /// Explicitly rollback the transaction
 pub async fn Transaction::rollback(self : Transaction) -> Unit {
   self.check_active()
-  self.client.rollback()
+  let _ = self.client.with_transaction_operation(async fn() {
+    self.client.query_unlocked("ROLLBACK")
+  })
   self.active = false
 }
 
@@ -120,14 +157,18 @@ pub async fn Transaction::prepare(
   sql : String,
 ) -> PreparedStatement {
   self.check_active()
-  self.client.prepare(sql)
+  let stmt = self.client.with_transaction_operation(async fn() {
+    self.client.prepare_unlocked(sql)
+  })
+  stmt.tx_scoped = true
+  stmt
 }
 
 ///|
 /// Create a savepoint within the transaction
 pub async fn Transaction::savepoint(self : Transaction, name : String) -> Unit {
   self.check_active()
-  let _ = self.client.execute("SAVEPOINT " + quote_identifier(name))
+  let _ = self.execute("SAVEPOINT " + quote_identifier(name))
 }
 
 ///|
@@ -137,12 +178,12 @@ pub async fn Transaction::rollback_to(
   name : String,
 ) -> Unit {
   self.check_active()
-  let _ = self.client.execute("ROLLBACK TO SAVEPOINT " + quote_identifier(name))
+  let _ = self.execute("ROLLBACK TO SAVEPOINT " + quote_identifier(name))
 }
 
 ///|
 /// Release a savepoint
 pub async fn Transaction::release(self : Transaction, name : String) -> Unit {
   self.check_active()
-  let _ = self.client.execute("RELEASE SAVEPOINT " + quote_identifier(name))
+  let _ = self.execute("RELEASE SAVEPOINT " + quote_identifier(name))
 }

@@ -443,7 +443,7 @@ test "decode_retains_trailing_partial_frame_with_head_offset" {
   let decoder = Decoder::new()
   let first_chunk = Bytes::from_array([
     b'Z', b'\x00', b'\x00', b'\x00', b'\x05', b'I', // complete ReadyForQuery
-    b'Z', b'\x00', b'\x00', // partial next frame header
+     b'Z', b'\x00', b'\x00', // partial next frame header
   ])
   let first_messages = decoder.parse(first_chunk)
   inspect(first_messages.length(), content="1")

@@ -16,7 +16,10 @@ fn NotificationQueue::new() -> NotificationQueue {
 }
 
 ///|
-fn NotificationQueue::enqueue(self : NotificationQueue, notification : Notification) -> Unit {
+fn NotificationQueue::enqueue(
+  self : NotificationQueue,
+  notification : Notification,
+) -> Unit {
   self.items.push(notification)
 }
 
@@ -104,6 +107,8 @@ priv struct Connection {
   server_params : Map[String, String]
   /// Queue of received notifications
   notification_queue : NotificationQueue
+  /// True while COPY FROM STDIN is active on this connection.
+  mut copy_in_active : Bool
   /// Serialize protocol operations on this connection
   operation_guard : @async.Semaphore
 }
@@ -151,6 +156,7 @@ fn Connection::create(config : Config, transport : Transport) -> Connection {
     transaction_status: @protocol.Idle,
     server_params: {},
     notification_queue: NotificationQueue::new(),
+    copy_in_active: false,
     operation_guard: @async.Semaphore::new(1),
   }
 }
@@ -179,9 +185,7 @@ async fn Connection::send_all(
 
 ///|
 /// Encode a frontend message batch into a single contiguous frame.
-fn encode_frontend_batch(
-  msgs : Array[@protocol.FrontendMessage],
-) -> Bytes {
+fn encode_frontend_batch(msgs : Array[@protocol.FrontendMessage]) -> Bytes {
   if msgs.length() == 1 {
     return @protocol.encode(msgs[0])
   }
@@ -289,7 +293,8 @@ fn server_error_from_message(
   msg : @protocol.BackendMessage,
 ) -> ServerErrorInfo? {
   match msg {
-    @protocol.ErrorResponse(fields) => Some(ServerErrorInfo::from_fields(fields))
+    @protocol.ErrorResponse(fields) =>
+      Some(ServerErrorInfo::from_fields(fields))
     _ => None
   }
 }

@@ -91,13 +91,9 @@ pub const OID_UUID : UInt = 2950
 // =============================================================================
 
 ///|
-/// Convert ASCII bytes to string (each byte becomes one character)
+/// Convert UTF-8 bytes to string (invalid sequences are replaced).
 fn bytes_to_ascii_string(data : Bytes) -> String {
-  let chars : Array[Char] = Array::new(capacity=data.length())
-  for i = 0; i < data.length(); i = i + 1 {
-    chars.push(data[i].to_int().unsafe_to_char())
-  }
-  String::from_array(chars)
+  @utf8.decode_lossy(data[:])
 }
 
 // =============================================================================

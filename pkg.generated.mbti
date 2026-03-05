@@ -19,6 +19,7 @@ pub impl Show for ConnectionClosedError
 
 pub suberror CopyError {
   CopyError(String)
+  CopyCallbackError(CopyCallbackFailure)
 }
 pub impl Show for CopyError
 
@@ -92,9 +93,20 @@ pub fn Config::ssl_mode(Self) -> SslMode
 pub fn Config::user(Self) -> String
 pub impl Show for Config
 
+pub struct CopyCallbackFailure {
+  stage : String
+  message : String
+}
+pub fn CopyCallbackFailure::message(Self) -> String
+pub fn CopyCallbackFailure::new(String, String) -> Self
+pub fn CopyCallbackFailure::stage(Self) -> String
+pub impl Eq for CopyCallbackFailure
+pub impl Show for CopyCallbackFailure
+
 type CopyWriter
 pub async fn CopyWriter::write(Self, Bytes) -> Unit
 pub async fn CopyWriter::write_row(Self, Array[String]) -> Unit
+pub async fn CopyWriter::write_row_nullable(Self, Array[String?]) -> Unit
 
 type Notification
 pub fn Notification::channel(Self) -> String

@@ -1,6 +1,7 @@
 import {
   "bikallem/pgsql" @pgsql,
   "moonbitlang/async",
+  "moonbitlang/core/encoding/utf8" @utf8,
 } for "test"
 
 options(

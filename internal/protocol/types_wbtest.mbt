@@ -116,6 +116,20 @@ test "parse_text_value text" {
 }
 
 ///|
+test "parse_text_value text UTF-8" {
+  let bytes = Bytes::from_array([
+    b'\xE3', b'\x81', b'\x93', b'\xE3', b'\x82', b'\x93', b'\xE3', b'\x81', b'\xAB',
+    b'\xE3', b'\x81', b'\xA1', b'\xE3', b'\x81', b'\xAF', b' ', b'\xF0', b'\x9F',
+    b'\x9A', b'\x80',
+  ])
+  let expected = @utf8.decode_lossy(bytes[:])
+  match parse_text_value(Some(bytes), OID_TEXT) {
+    String(actual) => assert_eq(actual, expected)
+    _ => fail("Expected String")
+  }
+}
+
+///|
 test "parse_text_value varchar" {
   let bytes = Bytes::from_array([b'a', b'b', b'c'])
   inspect(
@@ -215,6 +229,20 @@ test "serialize_value Float" {
 test "serialize_value String" {
   match serialize_value(String("hello")) {
     Some(b) => inspect(test_bytes_to_string(b), content="hello")
+    None => fail("Expected Some")
+  }
+}
+
+///|
+test "serialize_value String UTF-8" {
+  let value = @utf8.decode_lossy(
+    Bytes::from_array([
+      b'\xE4', b'\xBD', b'\xA0', b'\xE5', b'\xA5', b'\xBD', b' ', b'\xF0', b'\x9F',
+      b'\x8C', b'\x8D',
+    ])[:],
+  )
+  match serialize_value(String(value)) {
+    Some(b) => assert_eq(@utf8.decode_lossy(b[:]), value)
     None => fail("Expected Some")
   }
 }

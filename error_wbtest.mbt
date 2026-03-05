@@ -42,7 +42,9 @@ test "Show for CopyError" {
 
 ///|
 test "Show for CopyCallbackError" {
-  let failure = CopyCallbackFailure::new("COPY IN writer", "ClientUsageError: boom")
+  let failure = CopyCallbackFailure::new(
+    "COPY IN writer", "ClientUsageError: boom",
+  )
   let err = CopyCallbackError(failure)
   inspect(
     err,

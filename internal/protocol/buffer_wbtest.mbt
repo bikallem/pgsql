@@ -94,6 +94,23 @@ test "BufferReader::cstring" {
 }
 
 ///|
+test "BufferReader::cstring UTF-8 payload" {
+  let utf8_bytes = Bytes::from_array([
+    b'n', b'a', b'i', b'v', b'e', b' ', b'c', b'a', b'f', b'e', b' ', b'\xE2', b'\x98',
+    b'\x95', b' ', b'\xF0', b'\x9F', b'\x9A', b'\x80',
+  ])
+  let text = @utf8.decode_lossy(utf8_bytes[:])
+  let arr : Array[Byte] = Array::new(capacity=utf8_bytes.length() + 1)
+  for i = 0; i < utf8_bytes.length(); i = i + 1 {
+    arr.push(utf8_bytes[i])
+  }
+  arr.push(b'\x00')
+
+  let reader = BufferReader::new(Bytes::from_array(arr))
+  assert_eq(reader.cstring(), text)
+}
+
+///|
 test "BufferReader::cstring rejects unterminated string" {
   let reader = BufferReader::new(Bytes::from_array([b'h', b'i']))
   let failed = try {

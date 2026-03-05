@@ -147,6 +147,77 @@ async test "transaction rollback on error" {
 }
 
 ///|
+/// Regression: direct Client operations in transaction callback must fail fast.
+async test "transaction callback: direct client query fails fast" {
+  let client = @pgsql.Client::connect(get_config())
+
+  let mut saw_usage_error = false
+  let failed = try {
+    client.transaction(async fn(_tx) { let _ = client.query("SELECT 1") })
+    false
+  } catch {
+    @pgsql.ClientUsageError(msg) => {
+      saw_usage_error = msg.contains("transaction callback")
+      true
+    }
+    _ => false
+  }
+
+  assert_true(failed)
+  assert_true(saw_usage_error)
+  // Client remains usable after fail-fast rejection.
+  let result = client.query("SELECT 1 AS ok")
+  assert_eq(result.row(0).unwrap().int(0), Some(1))
+  client.close()
+}
+
+///|
+/// Regression: concurrent Client operations are rejected while tx callback owns
+/// the connection lease.
+async test "transaction callback: concurrent client query fails fast" {
+  let client = @pgsql.Client::connect(get_config())
+  let _ = client.execute(
+    "CREATE TABLE IF NOT EXISTS test_tx_exclusive (id INT)",
+  )
+  let _ = client.execute("DELETE FROM test_tx_exclusive")
+
+  let concurrent_rejected = @async.with_task_group(async fn(group) {
+    let tx_task = group.spawn(async fn() {
+      client.transaction(async fn(tx) {
+        let _ = tx.execute("INSERT INTO test_tx_exclusive VALUES (1)")
+        // Keep callback active while concurrent operation attempts access.
+        @async.sleep(150)
+        let _ = tx.execute("INSERT INTO test_tx_exclusive VALUES (2)")
+      })
+    })
+
+    // Let callback start before launching concurrent query.
+    @async.sleep(50)
+    let concurrent_task = group.spawn(async fn() {
+      try {
+        let _ = client.query("SELECT COUNT(*) FROM test_tx_exclusive")
+        false
+      } catch {
+        @pgsql.ClientUsageError(msg) => msg.contains("transaction callback")
+        _ => false
+      }
+    })
+
+    let rejected = concurrent_task.wait()
+    tx_task.wait()
+    rejected
+  })
+
+  assert_true(concurrent_rejected)
+
+  let final_count = client.query("SELECT COUNT(*) FROM test_tx_exclusive")
+  assert_eq(final_count.row(0).unwrap().int64(0), Some(2L))
+
+  let _ = client.execute("DROP TABLE test_tx_exclusive")
+  client.close()
+}
+
+///|
 async test "parameterized queries with all Value types" {
   let client = @pgsql.Client::connect(get_config())
   let _ = client.execute(
@@ -180,6 +251,34 @@ async test "parameterized queries with all Value types" {
   assert_true(row.is_null(5))
 
   let _ = client.execute("DROP TABLE test_types")
+  client.close()
+}
+
+///|
+async test "UTF-8 text round-trip via parameters and row decoding" {
+  let client = @pgsql.Client::connect(get_config())
+  let _ = client.execute(
+    "CREATE TABLE IF NOT EXISTS test_utf8 (id INT PRIMARY KEY, val TEXT)",
+  )
+  let _ = client.execute("DELETE FROM test_utf8")
+
+  let text = @utf8.decode_lossy(
+    Bytes::from_array([
+      b'e', b'm', b'o', b'j', b'i', b'-', b'\xF0', b'\x9F', b'\x9A', b'\x80', b' ',
+      b'a', b'n', b'd', b' ', b'k', b'a', b'n', b'a', b'-', b'\xE3', b'\x81', b'\x93',
+      b'\xE3', b'\x82', b'\x93', b'\xE3', b'\x81', b'\xAB', b'\xE3', b'\x81', b'\xA1',
+      b'\xE3', b'\x81', b'\xAF',
+    ])[:],
+  )
+  let _ = client.execute_params(
+    "INSERT INTO test_utf8 (id, val) VALUES ($1, $2)",
+    [@pgsql.Int(1), @pgsql.String(text)],
+  )
+
+  let result = client.query("SELECT val FROM test_utf8 WHERE id = 1")
+  assert_eq(result.row(0).unwrap().string(0), Some(text))
+
+  let _ = client.execute("DROP TABLE test_utf8")
   client.close()
 }
 
@@ -544,6 +643,88 @@ async test "COPY IN: import rows" {
 }
 
 ///|
+async test "COPY IN: write_row escapes COPY text special characters" {
+  let client = @pgsql.Client::connect(get_config())
+  let _ = client.execute(
+    "CREATE TABLE IF NOT EXISTS test_copy_escape (a TEXT, b TEXT, c TEXT, d TEXT, e TEXT)",
+  )
+  let _ = client.execute("DELETE FROM test_copy_escape")
+
+  let rows = client.copy_in("COPY test_copy_escape FROM STDIN", async fn(w) {
+    w.write_row(["tab\tvalue", "line1\nline2", "car\rret", "slash\\\\x", "\\N"])
+  })
+  assert_eq(rows, 1)
+
+  let result = client.query("SELECT a, b, c, d, e FROM test_copy_escape")
+  let row = result.row(0).unwrap()
+  assert_eq(row.string(0), Some("tab\tvalue"))
+  assert_eq(row.string(1), Some("line1\nline2"))
+  assert_eq(row.string(2), Some("car\rret"))
+  assert_eq(row.string(3), Some("slash\\\\x"))
+  assert_eq(row.string(4), Some("\\N"))
+
+  let _ = client.execute("DROP TABLE test_copy_escape")
+  client.close()
+}
+
+///|
+async test "COPY IN: write_row_nullable supports NULL values" {
+  let client = @pgsql.Client::connect(get_config())
+  let _ = client.execute(
+    "CREATE TABLE IF NOT EXISTS test_copy_nullable (a TEXT, b TEXT)",
+  )
+  let _ = client.execute("DELETE FROM test_copy_nullable")
+
+  let rows = client.copy_in("COPY test_copy_nullable FROM STDIN", async fn(w) {
+    w.write_row_nullable([Some("alive"), None])
+  })
+  assert_eq(rows, 1)
+
+  let result = client.query("SELECT a, b FROM test_copy_nullable")
+  let row = result.row(0).unwrap()
+  assert_eq(row.string(0), Some("alive"))
+  assert_true(row.is_null(1))
+
+  let _ = client.execute("DROP TABLE test_copy_nullable")
+  client.close()
+}
+
+///|
+async test "COPY IN: writer rejects writes after callback return" {
+  let client = @pgsql.Client::connect(get_config())
+  let _ = client.execute(
+    "CREATE TABLE IF NOT EXISTS test_copy_writer_escape (id INT)",
+  )
+  let _ = client.execute("DELETE FROM test_copy_writer_escape")
+
+  let mut leaked_writer : @pgsql.CopyWriter? = None
+  let rows = client.copy_in("COPY test_copy_writer_escape FROM STDIN", async fn(
+    w,
+  ) {
+    leaked_writer = Some(w)
+    w.write_row(["1"])
+  })
+  assert_eq(rows, 1)
+
+  let mut rejected = false
+  match leaked_writer {
+    Some(writer) =>
+      writer.write_row(["2"]) catch {
+        @pgsql.CopyError(msg) => rejected = msg.contains("no longer active")
+        _ => ()
+      }
+    None => fail("Expected leaked writer to be captured in callback")
+  }
+  assert_true(rejected)
+
+  let result = client.query("SELECT COUNT(*) FROM test_copy_writer_escape")
+  assert_eq(result.row(0).unwrap().int64(0), Some(1L))
+
+  let _ = client.execute("DROP TABLE test_copy_writer_escape")
+  client.close()
+}
+
+///|
 async test "COPY OUT: re-entrant callback operation fails fast" {
   let client = @pgsql.Client::connect(get_config())
 
@@ -663,6 +844,32 @@ async test "LISTEN/NOTIFY: poll_notifications" {
 }
 
 ///|
+async test "LISTEN/NOTIFY: UTF-8 payload round-trip" {
+  let listener = @pgsql.Client::connect(get_config())
+  let notifier = @pgsql.Client::connect(get_config())
+
+  listener.listen("utf8_ch")
+
+  let payload = @utf8.decode_lossy(
+    Bytes::from_array([
+      b'n', b'o', b't', b'i', b'f', b'y', b'-', b'\xF0', b'\x9F', b'\x8E', b'\x89',
+      b'-', b'\xE4', b'\xB8', b'\x96', b'\xE7', b'\x95', b'\x8C',
+    ])[:],
+  )
+  let _ = notifier.execute_params("SELECT pg_notify('utf8_ch', $1)", [
+    @pgsql.String(payload),
+  ])
+
+  let notification = listener.wait_for_notification()
+  assert_eq(notification.channel(), "utf8_ch")
+  assert_eq(notification.payload(), payload)
+
+  listener.unlisten("utf8_ch")
+  listener.close()
+  notifier.close()
+}
+
+///|
 async test "pool: acquire and release" {
   let pool = @pgsql.Pool::new(get_config(), max_size=3)
 
@@ -765,6 +972,35 @@ async test "stream: close before exhaustion" {
 }
 
 ///|
+/// Regression: stream auto-transaction commit must occur before lock release.
+async test "stream: close commits before allowing concurrent query" {
+  let client = @pgsql.Client::connect(get_config())
+
+  let stream = client.query_stream(
+    "SELECT txid_current()::bigint AS xid, g FROM generate_series(1, 8) AS g",
+    batch_size=1,
+  )
+  let first_row = stream.next().unwrap()
+  let stream_xid = first_row.int64(0).unwrap()
+
+  let outsider_xid = @async.with_task_group(async fn(group) {
+    // This query blocks on stream-held operation lock until close releases it.
+    let outsider = group.spawn(async fn() {
+      let result = client.query("SELECT txid_current()::bigint")
+      result.row(0).unwrap().int64(0).unwrap()
+    })
+    @async.sleep(20)
+    stream.close()
+    outsider.wait()
+  })
+
+  // If close releases lock before COMMIT, outsider can run in same tx xid.
+  assert_true(outsider_xid != stream_xid)
+
+  client.close()
+}
+
+///|
 async test "stream: parameterized streaming" {
   let client = @pgsql.Client::connect(get_config())
   let _ = client.execute(
@@ -786,6 +1022,59 @@ async test "stream: parameterized streaming" {
   assert_eq(count, 2)
 
   let _ = client.execute("DROP TABLE test_stream_params")
+  client.close()
+}
+
+///|
+async test "stream: invalid batch_size rejected" {
+  let client = @pgsql.Client::connect(get_config())
+
+  let mut got_error = false
+  try {
+    let _ = client.query_stream("SELECT 1", batch_size=0)
+  } catch {
+    @pgsql.StreamError(msg) => got_error = msg.contains("batch_size")
+    _ => ()
+  }
+  assert_true(got_error)
+
+  // Ensure no lock leaked on validation error.
+  let result = client.query("SELECT 1 AS ok")
+  assert_eq(result.row(0).unwrap().int(0), Some(1))
+  client.close()
+}
+
+///|
+async test "stream: next() exhausts and auto-closes resources" {
+  let client = @pgsql.Client::connect(get_config())
+  let _ = client.execute(
+    "CREATE TABLE IF NOT EXISTS test_stream_auto_close (id INT)",
+  )
+  let _ = client.execute("DELETE FROM test_stream_auto_close")
+  let _ = client.execute(
+    "INSERT INTO test_stream_auto_close VALUES (1), (2), (3)",
+  )
+
+  let stream = client.query_stream(
+    "SELECT id FROM test_stream_auto_close ORDER BY id",
+    batch_size=1,
+  )
+  let seen : Array[Int] = []
+  while true {
+    match stream.next() {
+      Some(row) => seen.push(row.int(0).unwrap())
+      None => break
+    }
+  }
+  assert_eq(seen.length(), 3)
+  assert_eq(seen[0], 1)
+  assert_eq(seen[2], 3)
+
+  // Should work without explicit stream.close() call.
+  let result = client.query("SELECT COUNT(*) FROM test_stream_auto_close")
+  assert_eq(result.row(0).unwrap().int64(0), Some(3L))
+
+  let _ = client.execute("DROP TABLE test_stream_auto_close")
   client.close()
 }
 

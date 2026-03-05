@@ -109,14 +109,14 @@ pub fn BufferReader::cstring(
   guard self.offset < self.data.length() else {
     raise BufferUnderflow("cstring: missing null terminator")
   }
-  // Convert bytes to chars
-  let chars : Array[Char] = Array::new(capacity=self.offset - start)
+  // Decode UTF-8 payload between start and null terminator.
+  let utf8_bytes : Array[Byte] = Array::new(capacity=self.offset - start)
   for i = start; i < self.offset; i = i + 1 {
-    chars.push(self.data[i].to_int().unsafe_to_char())
+    utf8_bytes.push(self.data[i])
   }
   // Skip the null terminator
   self.offset += 1
-  String::from_array(chars)
+  @utf8.decode_lossy(Bytes::from_array(utf8_bytes)[:])
 }
 
 ///|

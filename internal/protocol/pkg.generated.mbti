@@ -126,7 +126,7 @@ pub impl Show for BackendMessage
 type BufferReader
 pub fn BufferReader::byte(Self) -> Byte raise BufferUnderflow
 pub fn BufferReader::bytes(Self, Int) -> Bytes raise BufferUnderflow
-pub fn BufferReader::cstring(Self) -> String
+pub fn BufferReader::cstring(Self) -> String raise BufferUnderflow
 pub fn BufferReader::int16(Self) -> Int raise BufferUnderflow
 pub fn BufferReader::int32(Self) -> Int raise BufferUnderflow
 pub fn BufferReader::new(Bytes) -> Self

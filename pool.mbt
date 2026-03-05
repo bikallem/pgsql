@@ -8,9 +8,12 @@ struct Pool {
   config : Config
   idle : @async.Queue[Client]
   semaphore : @async.Semaphore
-  max_size : Int
   acquire_timeout_ms : Int
   mut closed : Bool
+  /// Number of acquires currently waiting on semaphore.acquire().
+  mut waiting_acquires : Int
+  /// Synthetic permits released during close to wake blocked acquires.
+  mut synthetic_permits : Int
 }
 
 ///|
@@ -24,9 +27,10 @@ pub fn Pool::new(
     config,
     idle: @async.Queue::new(kind=Unbounded),
     semaphore: @async.Semaphore::new(max_size),
-    max_size,
     acquire_timeout_ms,
     closed: false,
+    waiting_acquires: 0,
+    synthetic_permits: 0,
   }
 }
 
@@ -39,23 +43,25 @@ pub async fn Pool::acquire(self : Pool) -> Client {
   @async.with_timeout(
     self.acquire_timeout_ms,
     async fn() {
-      self.semaphore.acquire()
+      self.acquire_permit()
       if self.closed {
-        self.semaphore.release()
+        self.release_permit()
         raise PoolError("Pool is closed")
       }
       let client = self.acquire_after_permit() catch {
         err => {
           // Connect failure after permit acquisition must not leak capacity.
-          self.semaphore.release()
+          self.release_permit()
           raise err
         }
       }
       if self.closed {
         if not(client.closed) {
-          client.close() catch { _ => () }
+          client.close() catch {
+            _ => ()
+          }
         }
-        self.semaphore.release()
+        self.release_permit()
         raise PoolError("Pool is closed")
       }
       client
@@ -92,11 +98,11 @@ pub async fn Pool::release(self : Pool, client : Client) -> Unit {
     if not(client.closed) {
       client.close()
     }
-    self.semaphore.release()
+    self.release_permit()
     return
   }
   self.idle.put(client)
-  self.semaphore.release()
+  self.release_permit()
 }
 
 ///|
@@ -106,10 +112,11 @@ pub async fn Pool::close(self : Pool) -> Unit {
     return
   }
   self.closed = true
-  // Wake waiters so blocked acquires can fail fast with "Pool is closed".
-  for i = 0; i < self.max_size; i = i + 1 {
-    self.semaphore.release()
-  }
+  // Wake currently blocked acquires without overflowing semaphore capacity.
+  self.wake_acquire_waiters(count=self.waiting_acquires)
+  // Also issue one wake-up kick to cover edge races where a waiter may be
+  // between try_acquire() and semaphore.acquire().
+  self.wake_acquire_waiters()
   // Drain idle connections before closing the queue
   while true {
     let client : Client? = self.idle.try_get() catch { _ => None }
@@ -119,6 +126,57 @@ pub async fn Pool::close(self : Pool) -> Unit {
     }
   }
   self.idle.close()
+}
+
+///|
+/// Acquire one semaphore permit, tracking waiters for close wake-up logic.
+async fn Pool::acquire_permit(self : Pool) -> Unit {
+  if self.semaphore.try_acquire() {
+    return
+  }
+  self.waiting_acquires += 1
+  self.semaphore.acquire() catch {
+    err => {
+      self.waiting_acquires -= 1
+      raise err
+    }
+  }
+  self.waiting_acquires -= 1
+}
+
+///|
+/// Release one permit while accounting for synthetic close wakeups.
+fn Pool::release_permit(self : Pool) -> Unit {
+  if self.closed && self.synthetic_permits > 0 {
+    self.synthetic_permits -= 1
+    return
+  }
+  self.semaphore.release()
+}
+
+///|
+/// Wake up to `count` blocked acquires while preserving permit accounting.
+fn Pool::wake_acquire_waiters(self : Pool, count? : Int = 1) -> Unit {
+  let mut remaining = count
+  while remaining > 0 {
+    if not(self.wake_one_acquire_waiter()) {
+      break
+    }
+    remaining -= 1
+  }
+}
+
+///|
+/// Attempt to wake one blocked acquire.
+/// Returns true if a synthetic wake permit was issued.
+fn Pool::wake_one_acquire_waiter(self : Pool) -> Bool {
+  if self.semaphore.try_acquire() {
+    self.semaphore.release()
+    return false
+  }
+  self.semaphore.release()
+  self.synthetic_permits += 1
+  true
 }
 
 ///|

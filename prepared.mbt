@@ -14,6 +14,8 @@ struct PreparedStatement {
   sql : String
   /// Whether the statement has been closed
   mut closed : Bool
+  /// True when created via Transaction::prepare and bound to tx callback scope.
+  mut tx_scoped : Bool
 }
 
 ///|
@@ -29,8 +31,19 @@ pub async fn PreparedStatement::query(
     raise PreparedStmtError("Client connection is closed")
   }
 
-  // Delegate to shared bind-execute helper
-  let messages = self.client.bind_execute(self.name, params)
+  // Transaction-scoped prepared statements execute under tx-owned operation path.
+  let messages = if self.tx_scoped {
+    if not(self.client.in_transaction_callback) {
+      raise PreparedStmtError(
+        "Transaction-scoped PreparedStatement can only be used inside its transaction callback",
+      )
+    }
+    self.client.with_transaction_operation(async fn() {
+      self.client.bind_execute_unlocked(self.name, params)
+    })
+  } else {
+    self.client.bind_execute(self.name, params)
+  }
   build_query_result(messages)
 }
 
@@ -57,14 +70,30 @@ pub async fn PreparedStatement::close(self : PreparedStatement) -> Unit {
     // Client already closed; server resources are already released.
     return
   }
-  self.client.with_operation(async fn() {
-    self.client.conn.send_all([
-      @protocol.Close(@protocol.TARGET_STATEMENT, self.name),
-      @protocol.Sync,
-    ])
-    let messages = self.client.conn.receive_until_ready()
-    check_error(messages)
-  })
+  if self.tx_scoped {
+    if not(self.client.in_transaction_callback) {
+      raise PreparedStmtError(
+        "Transaction-scoped PreparedStatement can only be closed inside its transaction callback",
+      )
+    }
+    self.client.with_transaction_operation(async fn() {
+      self.client.conn.send_all([
+        @protocol.Close(@protocol.TARGET_STATEMENT, self.name),
+        @protocol.Sync,
+      ])
+      let messages = self.client.conn.receive_until_ready()
+      check_error(messages)
+    })
+  } else {
+    self.client.with_operation(async fn() {
+      self.client.conn.send_all([
+        @protocol.Close(@protocol.TARGET_STATEMENT, self.name),
+        @protocol.Sync,
+      ])
+      let messages = self.client.conn.receive_until_ready()
+      check_error(messages)
+    })
+  }
 }
 
 ///|

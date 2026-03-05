@@ -18,6 +18,7 @@ struct RowStream {
   mut closed : Bool
   auto_tx : Bool
   mut lock_held : Bool
+  mut tx_guard_held : Bool
 }
 
 ///|
@@ -38,11 +39,13 @@ pub async fn RowStream::next(self : RowStream) -> Row? {
   }
   // If already exhausted, nothing more to fetch
   if self.exhausted {
+    self.close()
     return None
   }
   // Fetch next batch
   self.fetch_batch()
   if self.buffer.length() == 0 {
+    self.close()
     return None
   }
   let row = self.buffer[0]
@@ -96,6 +99,7 @@ pub async fn RowStream::close(self : RowStream) -> Unit {
   if self.client.closed {
     self.client.conn.operation_guard.release()
     self.lock_held = false
+    self.release_tx_guard()
     return
   }
   // Always close the named statement; also close portal if not exhausted
@@ -109,6 +113,7 @@ pub async fn RowStream::close(self : RowStream) -> Unit {
     err => {
       self.client.conn.operation_guard.release()
       self.lock_held = false
+      self.release_tx_guard()
       raise err
     }
   }
@@ -116,15 +121,41 @@ pub async fn RowStream::close(self : RowStream) -> Unit {
     err => {
       self.client.conn.operation_guard.release()
       self.lock_held = false
+      self.release_tx_guard()
       raise err
+    }
+  }
+  // Commit auto-transaction while still holding operation lock so no
+  // unrelated query can execute inside the stream-owned transaction.
+  if self.auto_tx {
+    self.client.conn.send(@protocol.Query("COMMIT")) catch {
+      err => {
+        self.client.conn.operation_guard.release()
+        self.lock_held = false
+        self.release_tx_guard()
+        raise err
+      }
+    }
+    let commit_msgs = self.client.conn.receive_until_ready() catch {
+      err => {
+        self.client.conn.operation_guard.release()
+        self.lock_held = false
+        self.release_tx_guard()
+        raise err
+      }
+    }
+    check_error(commit_msgs) catch {
+      err => {
+        self.client.conn.operation_guard.release()
+        self.lock_held = false
+        self.release_tx_guard()
+        raise err
+      }
     }
   }
   self.client.conn.operation_guard.release()
   self.lock_held = false
-  // Commit auto-transaction if we started one
-  if self.auto_tx {
-    let _ = self.client.execute("COMMIT")
-  }
+  self.release_tx_guard()
 }
 
 ///|
@@ -186,8 +217,18 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
         self.client.conn.operation_guard.release()
         self.lock_held = false
       }
+      self.release_tx_guard()
       raise err
     }
+  }
+}
+
+///|
+/// Release client tx_guard once for this stream.
+fn RowStream::release_tx_guard(self : RowStream) -> Unit {
+  if self.tx_guard_held {
+    self.client.tx_guard.release()
+    self.tx_guard_held = false
   }
 }
 
@@ -202,18 +243,44 @@ pub async fn Client::query_stream(
   batch_size? : Int = 100,
 ) -> RowStream {
   self.check_not_in_user_callback()
+  self.check_not_in_transaction_callback()
   self.check_open()
-
-  // Auto-start transaction if not in one (portals don't survive outside tx)
-  let auto_tx = not(self.in_transaction())
-  if auto_tx {
-    let _ = self.execute("BEGIN")
+  if batch_size <= 0 {
+    raise StreamError("batch_size must be greater than 0")
   }
 
+  self.tx_guard.acquire()
   self.conn.operation_guard.acquire()
   if self.closed {
     self.conn.operation_guard.release()
+    self.tx_guard.release()
     raise ConnectionClosedError
+  }
+  // Auto-start transaction if not in one (portals don't survive outside tx).
+  // This runs under operation lock to avoid cross-task interleaving.
+  let auto_tx = not(self.in_transaction())
+  if auto_tx {
+    self.conn.send(@protocol.Query("BEGIN")) catch {
+      err => {
+        self.conn.operation_guard.release()
+        self.tx_guard.release()
+        raise err
+      }
+    }
+    let begin_msgs = self.conn.receive_until_ready() catch {
+      err => {
+        self.conn.operation_guard.release()
+        self.tx_guard.release()
+        raise err
+      }
+    }
+    check_error(begin_msgs) catch {
+      err => {
+        self.conn.operation_guard.release()
+        self.tx_guard.release()
+        raise err
+      }
+    }
   }
   self.stmt_counter += 1
   let stmt_name = "__stream_" + self.stmt_counter.to_string()
@@ -293,6 +360,7 @@ pub async fn Client::query_stream(
       closed: false,
       auto_tx,
       lock_held: not(exhausted),
+      tx_guard_held: true,
     }
     stream
   } catch {
@@ -301,6 +369,7 @@ pub async fn Client::query_stream(
         _ => ()
       }
       self.conn.operation_guard.release()
+      self.tx_guard.release()
       raise err
     }
   }

@@ -7,13 +7,35 @@ PGPORT=5433
 PGUSER=postgres
 PGPASSWORD=postgres
 
-# Add PostgreSQL binaries to PATH if not already available (e.g. GitHub Actions)
-if ! command -v initdb &>/dev/null; then
-  for dir in /usr/lib/postgresql/*/bin; do
-    export PATH="$dir:$PATH"
-    break
+# Add PostgreSQL binaries to PATH when needed.
+# Supports distro paths and Nix-style store layouts.
+ensure_pg_tools() {
+  if command -v initdb >/dev/null 2>&1 && command -v pg_ctl >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local dir
+  for dir in \
+    /usr/lib/postgresql/*/bin \
+    /usr/local/opt/postgresql/bin \
+    /usr/local/opt/postgresql@*/bin \
+    /opt/homebrew/opt/postgresql/bin \
+    /opt/homebrew/opt/postgresql@*/bin \
+    /nix/store/*-postgresql-*/bin
+  do
+    if [ -x "$dir/initdb" ] && [ -x "$dir/pg_ctl" ]; then
+      export PATH="$dir:$PATH"
+      break
+    fi
   done
-fi
+
+  if ! command -v initdb >/dev/null 2>&1 || ! command -v pg_ctl >/dev/null 2>&1; then
+    echo "PostgreSQL tools not found (need initdb and pg_ctl in PATH)." >&2
+    return 127
+  fi
+}
+
+ensure_pg_tools
 
 start() {
   if [ -f "$PGDATA/postmaster.pid" ]; then

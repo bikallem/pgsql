@@ -73,9 +73,10 @@ test "NotificationQueue stays ordered under high volume" {
 
 ///|
 test "classify_backend_dispatch_message handles notification" {
-  match classify_backend_dispatch_message(
-    @protocol.NotificationResponse(77, "events", "hello"),
-  ) {
+  match
+    classify_backend_dispatch_message(
+      @protocol.NotificationResponse(77, "events", "hello"),
+    ) {
     QueueNotification(notification) => {
       assert_eq(notification.process_id(), 77)
       assert_eq(notification.channel(), "events")
@@ -87,9 +88,10 @@ test "classify_backend_dispatch_message handles notification" {
 
 ///|
 test "classify_backend_dispatch_message handles parameter status" {
-  match classify_backend_dispatch_message(
-    @protocol.ParameterStatus("client_encoding", "UTF8"),
-  ) {
+  match
+    classify_backend_dispatch_message(
+      @protocol.ParameterStatus("client_encoding", "UTF8"),
+    ) {
     UpdateParameter(name, value) => {
       assert_eq(name, "client_encoding")
       assert_eq(value, "UTF8")
@@ -100,7 +102,8 @@ test "classify_backend_dispatch_message handles parameter status" {
 
 ///|
 test "classify_backend_dispatch_message handles ready-for-query" {
-  match classify_backend_dispatch_message(@protocol.ReadyForQuery(@protocol.Failed)) {
+  match
+    classify_backend_dispatch_message(@protocol.ReadyForQuery(@protocol.Failed)) {
     UpdateReady(status) => assert_eq(status, @protocol.Failed)
     _ => fail("Expected UpdateReady action")
   }

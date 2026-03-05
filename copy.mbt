@@ -11,6 +11,9 @@ struct CopyWriter {
 ///|
 /// Write raw data chunk to the COPY stream
 pub async fn CopyWriter::write(self : CopyWriter, data : Bytes) -> Unit {
+  if not(self.conn.copy_in_active) {
+    raise CopyError("COPY writer is no longer active")
+  }
   self.conn.send(@protocol.CopyData(data))
 }
 
@@ -20,14 +23,34 @@ pub async fn CopyWriter::write_row(
   self : CopyWriter,
   values : Array[String],
 ) -> Unit {
+  let nullable_values : Array[String?] = Array::new(capacity=values.length())
+  for value in values {
+    nullable_values.push(Some(value))
+  }
+  self.write_row_nullable(nullable_values)
+}
+
+///|
+/// Write a tab-separated row with nullable text values.
+/// None values are encoded as PostgreSQL COPY NULL marker `\\N`.
+pub async fn CopyWriter::write_row_nullable(
+  self : CopyWriter,
+  values : Array[String?],
+) -> Unit {
+  if not(self.conn.copy_in_active) {
+    raise CopyError("COPY writer is no longer active")
+  }
   let buf : Array[Byte] = []
-  for i, v in values {
+  for i, maybe_value in values {
     if i > 0 {
       buf.push(b'\t')
     }
-    let bytes = @utf8.encode(v[:])
-    for j = 0; j < bytes.length(); j = j + 1 {
-      buf.push(bytes[j])
+    match maybe_value {
+      None => {
+        buf.push(b'\\')
+        buf.push(b'N')
+      }
+      Some(value) => append_copy_text_escaped(buf, value)
     }
   }
   buf.push(b'\n')
@@ -60,7 +83,10 @@ pub async fn Client::copy_out(
               self.run_user_callback(async fn() { handler(data) }) catch {
                 err =>
                   handler_error = Some(
-                    CopyCallbackFailure::new("COPY OUT handler", err.to_string()),
+                    CopyCallbackFailure::new(
+                      "COPY OUT handler",
+                      err.to_string(),
+                    ),
                   )
               }
             }
@@ -104,6 +130,7 @@ pub async fn Client::copy_in(
   writer : async (CopyWriter) -> Unit,
 ) -> Int {
   self.with_operation(async fn() {
+    self.conn.copy_in_active = false
     self.conn.send(@protocol.Query(sql))
 
     // Wait for CopyInResponse
@@ -132,6 +159,8 @@ pub async fn Client::copy_in(
       }
     }
 
+    self.conn.copy_in_active = true
+
     // Let the caller write data
     let copy_writer = CopyWriter::{ conn: self.conn }
     self.run_user_callback(async fn() { writer(copy_writer) }) catch {
@@ -139,28 +168,70 @@ pub async fn Client::copy_in(
         // On error, send CopyFail and wait for ReadyForQuery
         self.conn.send(@protocol.CopyFail(err.to_string()))
         let _ = self.conn.receive_until_ready()
+        self.conn.copy_in_active = false
         raise CopyCallbackError(
           CopyCallbackFailure::new("COPY IN writer", err.to_string()),
         )
       }
     }
 
-    // Send CopyDone
-    self.conn.send(@protocol.CopyDone)
+    let row_count = try {
+      // Send CopyDone
+      self.conn.send(@protocol.CopyDone)
 
-    // Wait for completion
-    let messages = self.conn.receive_until_ready()
+      // Wait for completion
+      let messages = self.conn.receive_until_ready()
+      self.conn.copy_in_active = false
 
-    check_error(messages)
+      check_error(messages)
 
-    // Extract row count from CommandComplete
-    let mut row_count = 0
-    for msg in messages {
-      match msg {
-        @protocol.CommandComplete(tag) => row_count = parse_affected_rows(tag)
-        _ => ()
+      // Extract row count from CommandComplete
+      let mut copied_rows = 0
+      for msg in messages {
+        match msg {
+          @protocol.CommandComplete(tag) =>
+            copied_rows = parse_affected_rows(tag)
+          _ => ()
+        }
+      }
+      copied_rows
+    } catch {
+      err => {
+        self.conn.copy_in_active = false
+        raise err
       }
     }
     row_count
   })
+}
+
+///|
+/// Append PostgreSQL COPY text escaped representation for one field.
+fn append_copy_text_escaped(
+  buf : Array[Byte],
+  value : String,
+) -> Unit raise CopyError {
+  let bytes = @utf8.encode(value[:])
+  for b in bytes {
+    match b {
+      b'\\' => {
+        buf.push(b'\\')
+        buf.push(b'\\')
+      }
+      b'\t' => {
+        buf.push(b'\\')
+        buf.push(b't')
+      }
+      b'\n' => {
+        buf.push(b'\\')
+        buf.push(b'n')
+      }
+      b'\r' => {
+        buf.push(b'\\')
+        buf.push(b'r')
+      }
+      b'\x00' => raise CopyError("COPY text format does not allow NUL bytes")
+      _ => buf.push(b)
+    }
+  }
 }
