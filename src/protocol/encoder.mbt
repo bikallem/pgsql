@@ -10,16 +10,16 @@ pub fn encode(msg : FrontendMessage) -> Bytes {
     StartupMessage(params) => encode_startup(params)
     SSLRequest => encode_ssl_request()
     CancelRequest(pid, key) => encode_cancel_request(pid, key)
-    PasswordMessage(password) => enCODE_PASSWORD(password)
+    PasswordMessage(password) => encode_password(password)
     SASLInitialResponse(mechanism, data) =>
       encode_sasl_initial_response(mechanism, data)
     SASLResponse(data) => encode_sasl_response(data)
-    Query(sql) => enCODE_QUERY(sql)
-    Parse(name, query, type_oids) => enCODE_PARSE(name, query, type_oids)
+    Query(sql) => encode_query(sql)
+    Parse(name, query, type_oids) => encode_parse(name, query, type_oids)
     Bind(portal, statement, param_formats, params, result_formats) =>
-      enCODE_BIND(portal, statement, param_formats, params, result_formats)
-    Describe(kind, name) => enCODE_DESCRIBE(kind, name)
-    Execute(portal, max_rows) => enCODE_EXECUTE(portal, max_rows)
+      encode_bind(portal, statement, param_formats, params, result_formats)
+    Describe(kind, name) => encode_describe(kind, name)
+    Execute(portal, max_rows) => encode_execute(portal, max_rows)
     Close(kind, name) => enCODE_CLOSE(kind, name)
     Sync => enCODE_SYNC()
     Flush => enCODE_FLUSH()
@@ -108,7 +108,7 @@ fn encode_cancel_request(process_id : Int, secret_key : Int) -> Bytes {
 ///|
 /// Encode PasswordMessage
 /// Format: 'p' + length + password (cstring)
-fn enCODE_PASSWORD(password : String) -> Bytes {
+fn encode_password(password : String) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_cstring(password) |> ignore
   writer.flush(CODE_PASSWORD)
@@ -143,7 +143,7 @@ fn encode_sasl_response(data : Bytes) -> Bytes {
 ///|
 /// Encode Query (simple query protocol)
 /// Format: 'Q' + length + query (cstring)
-fn enCODE_QUERY(sql : String) -> Bytes {
+fn encode_query(sql : String) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_cstring(sql) |> ignore
   writer.flush(CODE_QUERY)
@@ -156,7 +156,7 @@ fn enCODE_QUERY(sql : String) -> Bytes {
 ///|
 /// Encode Parse
 /// Format: 'P' + length + name (cstring) + query (cstring) + param count (int16) + param types (int32[])
-fn enCODE_PARSE(
+fn encode_parse(
   name : String,
   query : String,
   type_oids : Array[UInt],
@@ -177,7 +177,7 @@ fn enCODE_PARSE(
 ///         param format count (int16) + param formats (int16[]) +
 ///         param count (int16) + params (length + bytes)[] +
 ///         result format count (int16) + result formats (int16[])
-fn enCODE_BIND(
+fn encode_bind(
   portal : String,
   statement : String,
   param_formats : Array[FormatCode],
@@ -220,7 +220,7 @@ fn enCODE_BIND(
 ///|
 /// Encode Describe
 /// Format: 'D' + length + type ('S' or 'P') + name (cstring)
-fn enCODE_DESCRIBE(kind : Byte, name : String) -> Bytes {
+fn encode_describe(kind : Byte, name : String) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_byte(kind) |> ignore
   writer.add_cstring(name) |> ignore
@@ -230,7 +230,7 @@ fn enCODE_DESCRIBE(kind : Byte, name : String) -> Bytes {
 ///|
 /// Encode Execute
 /// Format: 'E' + length + portal (cstring) + max_rows (int32)
-fn enCODE_EXECUTE(portal : String, max_rows : Int) -> Bytes {
+fn encode_execute(portal : String, max_rows : Int) -> Bytes {
   let writer = BufferWriter::new()
   writer.add_cstring(portal) |> ignore
   writer.add_int32(max_rows) |> ignore
