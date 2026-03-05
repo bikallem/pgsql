@@ -114,6 +114,37 @@ test "split_string" {
 }
 
 ///|
+test "constant_time_bytes_equal: equal bytes" {
+  let a = Bytes::from_array([b'\x01', b'\x02', b'\x03'])
+  let b = Bytes::from_array([b'\x01', b'\x02', b'\x03'])
+  assert_true(constant_time_bytes_equal(a, b))
+}
+
+///|
+test "constant_time_bytes_equal: different bytes" {
+  let a = Bytes::from_array([b'\x01', b'\x02', b'\x03'])
+  let b = Bytes::from_array([b'\x01', b'\xFF', b'\x03'])
+  assert_true(not(constant_time_bytes_equal(a, b)))
+}
+
+///|
+test "constant_time_bytes_equal: all zeros" {
+  let a = Bytes::make(32, b'\x00')
+  let b = Bytes::make(32, b'\x00')
+  assert_true(constant_time_bytes_equal(a, b))
+}
+
+///|
+test "constant_time_bytes_equal: single bit difference" {
+  let a = Bytes::make(32, b'\x00')
+  let b_arr : Array[Byte] = Array::new(capacity=32)
+  for i = 0; i < 32; i = i + 1 {
+    b_arr.push(if i == 31 { b'\x01' } else { b'\x00' })
+  }
+  assert_true(not(constant_time_bytes_equal(a, Bytes::from_array(b_arr))))
+}
+
+///|
 test "parse_scram_iteration_count" {
   assert_eq(parse_scram_iteration_count("4096"), 4096)
   assert_eq(parse_scram_iteration_count("1"), 1)

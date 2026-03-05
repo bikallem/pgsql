@@ -133,16 +133,25 @@ pub fn scram_verify_server(
   guard actual_signature.length() == expected_signature.length() else {
     raise ScramError("Server signature length mismatch")
   }
-  for i = 0; i < actual_signature.length(); i = i + 1 {
-    guard actual_signature[i] == expected_signature[i] else {
-      raise ScramError("Server signature verification failed")
-    }
+  guard constant_time_bytes_equal(actual_signature, expected_signature) else {
+    raise ScramError("Server signature verification failed")
   }
 }
 
 // =============================================================================
 // Helper Functions
 // =============================================================================
+
+///|
+/// Constant-time byte comparison to prevent timing side-channels.
+/// Both slices must have the same length (caller must check).
+fn constant_time_bytes_equal(a : Bytes, b : Bytes) -> Bool {
+  let mut diff = 0
+  for i = 0; i < a.length(); i = i + 1 {
+    diff = diff | (a[i].to_int() ^ b[i].to_int())
+  }
+  diff == 0
+}
 
 ///|
 /// Escape username for SCRAM "saslname" format.
