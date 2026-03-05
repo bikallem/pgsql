@@ -96,3 +96,21 @@ test "tx_status_from_protocol" {
   )
   inspect(tx_status_from_protocol(@protocol.Failed), content="Failed")
 }
+
+///|
+test "value_from_protocol Date/Time/Timestamp round-trip" {
+  let cases : Array[@protocol.Value] = [
+    @protocol.Date("2024-03-15"),
+    @protocol.Time("14:30:00"),
+    @protocol.Timestamp("2024-03-15 14:30:00"),
+    @protocol.TimestampTz("2024-03-15 14:30:00+00"),
+    @protocol.Interval("1 day"),
+    @protocol.Json("{\"k\":1}"),
+    @protocol.Uuid("550e8400-e29b-41d4-a716-446655440000"),
+  ]
+  for proto_val in cases {
+    let pub_val = value_from_protocol(proto_val)
+    let back = value_to_protocol(pub_val)
+    inspect(back == proto_val, content="true")
+  }
+}

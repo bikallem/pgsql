@@ -72,6 +72,73 @@ test "NotificationQueue stays ordered under high volume" {
 }
 
 ///|
+test "NotificationQueue empty dequeue returns None" {
+  let queue = NotificationQueue::new()
+  inspect(queue.dequeue(), content="None")
+  inspect(queue.dequeue(), content="None") // idempotent
+}
+
+///|
+test "NotificationQueue empty drain returns empty array" {
+  let queue = NotificationQueue::new()
+  inspect(queue.drain().length(), content="0")
+  inspect(queue.drain().length(), content="0") // idempotent
+}
+
+///|
+test "NotificationQueue drain with head at zero copies all" {
+  let queue = NotificationQueue::new()
+  queue.enqueue(Notification::new("x", "1", 1))
+  queue.enqueue(Notification::new("y", "2", 2))
+  let result = queue.drain()
+  assert_eq(result.length(), 2)
+  assert_eq(result[0].channel(), "x")
+  assert_eq(result[1].channel(), "y")
+  // Queue should be empty after drain
+  inspect(queue.dequeue(), content="None")
+}
+
+///|
+test "NotificationQueue drain with nonzero head returns remaining" {
+  let queue = NotificationQueue::new()
+  queue.enqueue(Notification::new("a", "1", 1))
+  queue.enqueue(Notification::new("b", "2", 2))
+  queue.enqueue(Notification::new("c", "3", 3))
+  // Consume first item, advancing head
+  let _ = queue.dequeue()
+  let result = queue.drain()
+  assert_eq(result.length(), 2)
+  assert_eq(result[0].channel(), "b")
+  assert_eq(result[1].channel(), "c")
+  inspect(queue.dequeue(), content="None")
+}
+
+///|
+test "NotificationQueue compact preserves ordering" {
+  let queue = NotificationQueue::new()
+  // Enqueue enough to trigger compaction (head >= 128 and head*2 >= len)
+  for i = 0; i < 300; i = i + 1 {
+    queue.enqueue(Notification::new("ch", i.to_string(), i))
+  }
+  // Dequeue 200 items, leaving 100 with head=200
+  // head=200 >= 128 and 200*2=400 >= 300, so compaction will trigger
+  for i = 0; i < 200; i = i + 1 {
+    match queue.dequeue() {
+      Some(n) => assert_eq(n.process_id(), i)
+      None => fail("Expected notification at index " + i.to_string())
+    }
+  }
+  // Remaining 100 should be preserved in order
+  for i = 200; i < 300; i = i + 1 {
+    match queue.dequeue() {
+      Some(n) => assert_eq(n.process_id(), i)
+      None => fail("Expected notification at index " + i.to_string())
+    }
+  }
+  inspect(queue.dequeue(), content="None")
+}
+
+///|
 test "classify_backend_dispatch_message handles notification" {
   match
     classify_backend_dispatch_message(

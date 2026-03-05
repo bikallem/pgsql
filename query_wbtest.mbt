@@ -258,6 +258,41 @@ test "serialize_params mixed types" {
 
 
 ///|
+test "build_column_index maps names to indices" {
+  let cols : Array[ColumnInfo] = [
+    { name: "id", type_oid: 23, type_size: 4 },
+    { name: "name", type_oid: 25, type_size: -1 },
+    { name: "email", type_oid: 25, type_size: -1 },
+  ]
+  let index = build_column_index(cols)
+  inspect(index.get("id"), content="Some(0)")
+  inspect(index.get("name"), content="Some(1)")
+  inspect(index.get("email"), content="Some(2)")
+  inspect(index.get("missing"), content="None")
+}
+
+///|
+test "build_column_index empty" {
+  let index = build_column_index([])
+  inspect(index.get("anything"), content="None")
+}
+
+///|
+test "build_column_index duplicate names uses last index" {
+  let cols : Array[ColumnInfo] = [
+    { name: "x", type_oid: 23, type_size: 4 },
+    { name: "x", type_oid: 25, type_size: -1 },
+  ]
+  let index = build_column_index(cols)
+  inspect(index.get("x"), content="Some(1)")
+}
+
+///|
+test "parse_affected_rows large number" {
+  inspect(parse_affected_rows("INSERT 0 1000000"), content="1000000")
+}
+
+///|
 test "quote_identifier" {
   inspect(
     quote_identifier("simple"),
