@@ -70,29 +70,23 @@ pub async fn PreparedStatement::close(self : PreparedStatement) -> Unit {
     // Client already closed; server resources are already released.
     return
   }
+  let close_stmt = async fn() {
+    self.client.conn.send_all([
+      @protocol.Close(@protocol.TARGET_STATEMENT, self.name),
+      @protocol.Sync,
+    ])
+    let messages = self.client.conn.receive_until_ready()
+    check_error(messages)
+  }
   if self.tx_scoped {
     if not(self.client.in_transaction_callback) {
       raise PreparedStmtError(
         "Transaction-scoped PreparedStatement can only be closed inside its transaction callback",
       )
     }
-    self.client.with_transaction_operation(async fn() {
-      self.client.conn.send_all([
-        @protocol.Close(@protocol.TARGET_STATEMENT, self.name),
-        @protocol.Sync,
-      ])
-      let messages = self.client.conn.receive_until_ready()
-      check_error(messages)
-    })
+    self.client.with_transaction_operation(close_stmt)
   } else {
-    self.client.with_operation(async fn() {
-      self.client.conn.send_all([
-        @protocol.Close(@protocol.TARGET_STATEMENT, self.name),
-        @protocol.Sync,
-      ])
-      let messages = self.client.conn.receive_until_ready()
-      check_error(messages)
-    })
+    self.client.with_operation(close_stmt)
   }
 }
 
