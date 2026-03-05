@@ -97,65 +97,33 @@ pub async fn RowStream::close(self : RowStream) -> Unit {
     self.lock_held = true
   }
   if self.client.closed {
-    self.client.conn.operation_guard.release()
-    self.lock_held = false
-    self.release_tx_guard()
+    self.release_locks()
     return
   }
-  // Always close the named statement; also close portal if not exhausted
-  let msgs : Array[@protocol.FrontendMessage] = []
-  if not(self.exhausted) {
-    msgs.push(@protocol.Close(@protocol.TARGET_PORTAL, self.portal_name))
-  }
-  msgs.push(@protocol.Close(@protocol.TARGET_STATEMENT, self.stmt_name))
-  msgs.push(@protocol.Sync)
-  self.client.conn.send_all(msgs) catch {
+  try {
+    // Always close the named statement; also close portal if not exhausted
+    let msgs : Array[@protocol.FrontendMessage] = []
+    if not(self.exhausted) {
+      msgs.push(@protocol.Close(@protocol.TARGET_PORTAL, self.portal_name))
+    }
+    msgs.push(@protocol.Close(@protocol.TARGET_STATEMENT, self.stmt_name))
+    msgs.push(@protocol.Sync)
+    self.client.conn.send_all(msgs)
+    let _ = self.client.conn.receive_until_ready()
+    // Commit auto-transaction while still holding operation lock so no
+    // unrelated query can execute inside the stream-owned transaction.
+    if self.auto_tx {
+      self.client.conn.send(@protocol.Query("COMMIT"))
+      let commit_msgs = self.client.conn.receive_until_ready()
+      check_error(commit_msgs)
+    }
+  } catch {
     err => {
-      self.client.conn.operation_guard.release()
-      self.lock_held = false
-      self.release_tx_guard()
+      self.release_locks()
       raise err
     }
   }
-  let _ = self.client.conn.receive_until_ready() catch {
-    err => {
-      self.client.conn.operation_guard.release()
-      self.lock_held = false
-      self.release_tx_guard()
-      raise err
-    }
-  }
-  // Commit auto-transaction while still holding operation lock so no
-  // unrelated query can execute inside the stream-owned transaction.
-  if self.auto_tx {
-    self.client.conn.send(@protocol.Query("COMMIT")) catch {
-      err => {
-        self.client.conn.operation_guard.release()
-        self.lock_held = false
-        self.release_tx_guard()
-        raise err
-      }
-    }
-    let commit_msgs = self.client.conn.receive_until_ready() catch {
-      err => {
-        self.client.conn.operation_guard.release()
-        self.lock_held = false
-        self.release_tx_guard()
-        raise err
-      }
-    }
-    check_error(commit_msgs) catch {
-      err => {
-        self.client.conn.operation_guard.release()
-        self.lock_held = false
-        self.release_tx_guard()
-        raise err
-      }
-    }
-  }
-  self.client.conn.operation_guard.release()
-  self.lock_held = false
-  self.release_tx_guard()
+  self.release_locks()
 }
 
 ///|
@@ -221,6 +189,16 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
       raise err
     }
   }
+}
+
+///|
+/// Release both the operation guard and tx_guard for this stream.
+fn RowStream::release_locks(self : RowStream) -> Unit {
+  if self.lock_held {
+    self.client.conn.operation_guard.release()
+    self.lock_held = false
+  }
+  self.release_tx_guard()
 }
 
 ///|
