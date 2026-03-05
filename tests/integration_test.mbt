@@ -4,8 +4,8 @@
 /// Requires the dedicated test PostgreSQL instance at 127.0.0.1:5433
 /// with SCRAM-SHA-256 auth and self-signed TLS.
 ///
-/// Start with: ./src/tests/setup-pg.sh start
-/// Run with:   moon test --target native src/tests/
+/// Start with: ./tests/setup-pg.sh start
+/// Run with:   moon test --target native tests/
 fn get_config() -> @pgsql.Config {
   @pgsql.Config::new(
     "postgres",

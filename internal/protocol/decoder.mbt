@@ -121,6 +121,7 @@ fn parse_message(
     BACKEND_COPY_OUT => parse_copy_response(reader, is_in=false)
     BACKEND_COPY_DATA => CopyData(data)
     BACKEND_COPY_DONE => CopyDone
+    BACKEND_NEGOTIATE_VERSION => parse_negotiate_protocol_version(reader)
     _ => {
       let fields : Map[String, String] = {}
       fields[FIELD_MESSAGE] = "Unknown message type: " +
@@ -325,4 +326,18 @@ fn parse_copy_response(
   } else {
     CopyOutResponse(overall_format, column_formats)
   }
+}
+
+///|
+/// Parse NegotiateProtocolVersion message
+fn parse_negotiate_protocol_version(
+  reader : BufferReader,
+) -> BackendMessage raise BufferUnderflow {
+  let newest_minor = reader.int32()
+  let count = reader.int32()
+  let options : Array[String] = Array::new(capacity=count)
+  for i = 0; i < count; i = i + 1 {
+    options.push(reader.cstring())
+  }
+  NegotiateProtocolVersion(newest_minor, options)
 }

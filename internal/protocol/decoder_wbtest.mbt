@@ -571,6 +571,28 @@ test "decode_authentication_sasl_final" {
 }
 
 ///|
+test "decode_negotiate_protocol_version" {
+  // NegotiateProtocolVersion: 'v' + length + newest_minor(4) + count(4) + option\0
+  // newest_minor=1, count=1, option="_pq_.foo\0"
+  let data = Bytes::from_array([
+    b'v', b'\x00', b'\x00', b'\x00', b'\x15', // length=21
+     b'\x00', b'\x00', b'\x00', b'\x01', // newest_minor=1
+     b'\x00', b'\x00', b'\x00', b'\x01', // count=1
+     b'_', b'p', b'q', b'_', b'.', b'f', b'o', b'o', b'\x00', // "_pq_.foo\0"
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  match messages[0] {
+    NegotiateProtocolVersion(minor, options) => {
+      inspect(minor, content="1")
+      inspect(options.length(), content="1")
+      inspect(options[0], content="_pq_.foo")
+    }
+    _ => fail("Expected NegotiateProtocolVersion")
+  }
+}
+
+///|
 test "decode_unsupported_auth_type" {
   // Authentication type 99 (unsupported)
   let data = Bytes::from_array([

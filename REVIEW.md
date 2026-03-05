@@ -30,8 +30,8 @@ Each item has a checkbox for tracking progress.
 
 ## Medium: Design & Robustness
 
-- [ ] **8. No socket read timeout** (`src/connection.mbt:54`)
-  `read_some()` can block indefinitely if the server hangs. No timeout mechanism exists.
+- [x] **8. No socket read timeout** (`connection.mbt`)
+  Added `read_timeout` config option (milliseconds). Uses `@async.with_timeout` to wrap `read_some()`, raising `ConnectionClosedError` on timeout. Default 0 (no timeout).
 
 - [ ] **9. Unknown auth mechanisms silently ignored** (`src/connection.mbt:206`)
   The `_ => ()` wildcard during authentication means SCRAM-SHA-256 or other unsupported mechanisms are silently skipped, causing the client to hang. Should raise `AuthError` for unrecognized auth request types.
@@ -99,8 +99,8 @@ Each item has a checkbox for tracking progress.
 - [ ] **29. No malformed input tests for decoder**
   No tests for truncated messages, invalid message type codes, zero-length messages, or corrupted field data.
 
-- [ ] **30. Untested decoder paths**
-  `CopyOutResponse`, `NegotiateProtocolVersion`, `AuthenticationSASLContinue`, `AuthenticationSASLFinal` are never tested.
+- [x] **30. Untested decoder paths**
+  Added tests for all: `CopyOutResponse`, `NegotiateProtocolVersion`, `AuthenticationSASLContinue`, `AuthenticationSASLFinal`. Also added parser for `NegotiateProtocolVersion`.
 
 - [ ] **31. Missing edge case tests for Value coercions**
   No tests for `Int64(large).as_int()` truncation, `Float(3.9).as_int()` truncation, `Bytes(b).as_string()` returning `None`.
@@ -113,11 +113,11 @@ Each item has a checkbox for tracking progress.
 
 ## Low: Documentation
 
-- [ ] **34. MEMORY.md paths are stale**
-  References `src/pgsql/` (should be `src/`), `src/pgsql/protocol/` (should be `src/protocol/`), `src/examples/contact_app/` (should be `examples/contacts/`).
+- [x] **34. MEMORY.md paths are stale**
+  Updated all paths: root-level source files, `internal/protocol/`, `tests/`, `examples/contacts/`.
 
-- [ ] **35. Integration test file header is outdated** (`src/tests/integration_test.mbt:7`)
-  Says `Run with: moon test --target native tests/integration/` but tests now live under `src/tests/`.
+- [x] **35. Integration test file header is outdated** (`tests/integration_test.mbt`)
+  Fixed paths: `./tests/setup-pg.sh start` and `moon test --target native tests/`.
 
 - [ ] **36. README doesn't mention `Bytes`, `Int64`, `Null` value types**
   Users working with `BYTEA`, `BIGINT`, or nullable columns have no documentation guidance.

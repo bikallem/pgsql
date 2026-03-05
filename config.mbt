@@ -30,6 +30,8 @@ struct Config {
   database : String
   /// SSL/TLS mode (default: Disable)
   ssl_mode : SslMode
+  /// Read timeout in milliseconds (0 = no timeout)
+  read_timeout : Int
 }
 
 ///|
@@ -57,8 +59,9 @@ pub fn Config::new(
   host? : String = "localhost",
   port? : Int = 5432,
   ssl_mode? : SslMode = Disable,
+  read_timeout? : Int = 0,
 ) -> Config {
-  { host, port, user, password, database, ssl_mode }
+  { host, port, user, password, database, ssl_mode, read_timeout }
 }
 
 ///|

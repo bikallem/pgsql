@@ -65,17 +65,23 @@ async fn Connection::send_all(
 }
 
 ///|
-/// Receive messages from server
-///
-/// Note: read_some() blocks until data arrives. The underlying socket library
-/// does not currently expose timeout configuration, so a hung server will
-/// cause the caller to block indefinitely. This is a known limitation.
+/// Receive messages from server.
+/// If a read_timeout is configured, the read will fail with
+/// ConnectionClosedError after the timeout expires.
 async fn Connection::receive(
   self : Connection,
 ) -> Array[@protocol.BackendMessage] {
-  // Read available data
-  match self.transport.read_some() {
-    Some(data) => self.decoder.parse(data)
+  let data = if self.config.read_timeout > 0 {
+    @async.with_timeout(
+      self.config.read_timeout,
+      async fn() { self.transport.read_some() },
+      error=ConnectionClosedError,
+    )
+  } else {
+    self.transport.read_some()
+  }
+  match data {
+    Some(d) => self.decoder.parse(d)
     None => raise ConnectionClosedError
   }
 }

@@ -100,6 +100,10 @@ const BACKEND_COPY_DATA : Byte = b'd'
 /// Copy done
 const BACKEND_COPY_DONE : Byte = b'c'
 
+///|
+/// Negotiate protocol version
+const BACKEND_NEGOTIATE_VERSION : Byte = b'v'
+
 // =============================================================================
 // Frontend Message Type Codes (Client -> Server)
 // =============================================================================
