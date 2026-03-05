@@ -1,0 +1,15 @@
+{"created_at":"2026-03-05T17:04:35Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm","issue_id":"pgsql-jrm.1","type":"parent-child"}
+{"created_at":"2026-03-05T17:04:35Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm","issue_id":"pgsql-jrm.2","type":"parent-child"}
+{"created_at":"2026-03-05T17:05:01Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm","issue_id":"pgsql-jrm.3","type":"parent-child"}
+{"created_at":"2026-03-05T17:05:02Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm","issue_id":"pgsql-jrm.4","type":"parent-child"}
+{"created_at":"2026-03-05T17:05:16Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm.2","issue_id":"pgsql-jrm.4","type":"blocks"}
+{"created_at":"2026-03-05T17:05:02Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm","issue_id":"pgsql-jrm.5","type":"parent-child"}
+{"created_at":"2026-03-05T17:05:16Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm.2","issue_id":"pgsql-jrm.5","type":"blocks"}
+{"created_at":"2026-03-05T17:05:02Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm","issue_id":"pgsql-jrm.6","type":"parent-child"}
+{"created_at":"2026-03-05T17:05:02Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm","issue_id":"pgsql-jrm.7","type":"parent-child"}
+{"created_at":"2026-03-05T17:05:16Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm.1","issue_id":"pgsql-jrm.7","type":"blocks"}
+{"created_at":"2026-03-05T17:05:16Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm.2","issue_id":"pgsql-jrm.7","type":"blocks"}
+{"created_at":"2026-03-05T17:05:16Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm.3","issue_id":"pgsql-jrm.7","type":"blocks"}
+{"created_at":"2026-03-05T17:05:16Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm.4","issue_id":"pgsql-jrm.7","type":"blocks"}
+{"created_at":"2026-03-05T17:05:17Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm.5","issue_id":"pgsql-jrm.7","type":"blocks"}
+{"created_at":"2026-03-05T17:05:17Z","created_by":"Bikal Gurung","depends_on_id":"pgsql-jrm.6","issue_id":"pgsql-jrm.7","type":"blocks"}
