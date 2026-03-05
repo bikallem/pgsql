@@ -12,17 +12,23 @@ const HEADER_SIZE : Int = 5
 const MAX_FRAME_LENGTH : Int = 8 * 1024 * 1024
 
 ///|
+/// Compact buffered unread bytes only after enough progress to amortize copies.
+const COMPACT_THRESHOLD : Int = 4096
+
+///|
 /// Decoder for PostgreSQL protocol messages
 /// Handles incremental parsing of data that may arrive in chunks
 struct Decoder {
   /// Buffer for incomplete messages
   mut buffer : Array[Byte]
+  /// Start index of unread bytes inside `buffer`.
+  mut start : Int
 }
 
 ///|
 /// Create a new Decoder
 pub fn Decoder::new() -> Decoder {
-  { buffer: [] }
+  { buffer: [], start: 0 }
 }
 
 ///|
@@ -30,13 +36,18 @@ pub fn Decoder::new() -> Decoder {
 /// Returns all complete messages that can be parsed from the buffer
 /// Incomplete messages are buffered for the next call
 pub fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
+  if self.start >= self.buffer.length() {
+    self.buffer.clear()
+    self.start = 0
+  }
+
   // Append new data to buffer
   for i = 0; i < data.length(); i = i + 1 {
     self.buffer.push(data[i])
   }
 
   let messages : Array[BackendMessage] = []
-  let mut offset = 0
+  let mut offset = self.start
 
   // Parse as many complete messages as possible
   while offset + HEADER_SIZE <= self.buffer.length() {
@@ -51,12 +62,13 @@ pub fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
 
     // Validate message length (includes itself, so minimum is 4).
     if len < 4 {
-      // Malformed message: skip past header and continue
-      offset += HEADER_SIZE
-      continue
+      self.buffer.clear()
+      self.start = 0
+      return [decoder_error("Protocol frame has invalid length")]
     }
     if len > MAX_FRAME_LENGTH {
       self.buffer.clear()
+      self.start = 0
       return [decoder_error("Protocol frame exceeds max length")]
     }
 
@@ -74,27 +86,49 @@ pub fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
     }
     let msg_bytes = Bytes::from_array(msg_arr)
 
-    // Parse the message, skip on buffer underflow
+    // Parse the message; malformed payloads are fatal for protocol sync.
     try {
       let msg = parse_message(code, msg_bytes)
       messages.push(msg)
     } catch {
-      BufferUnderflow(_) => () // Skip malformed message
+      BufferUnderflow(msg) => {
+        self.buffer.clear()
+        self.start = 0
+        return [decoder_error("Malformed protocol frame: " + msg)]
+      }
     }
 
     offset += total_len
   }
 
-  // Remove processed bytes from buffer
-  if offset > 0 {
-    let new_buffer : Array[Byte] = []
-    for i = offset; i < self.buffer.length(); i = i + 1 {
-      new_buffer.push(self.buffer[i])
-    }
-    self.buffer = new_buffer
-  }
+  self.start = offset
+  self.compact_if_needed()
 
   messages
+}
+
+///|
+/// Compact unread bytes to the front of the buffer when worthwhile.
+fn Decoder::compact_if_needed(self : Decoder) -> Unit {
+  if self.start == 0 {
+    return
+  }
+  let len = self.buffer.length()
+  if self.start >= len {
+    self.buffer.clear()
+    self.start = 0
+    return
+  }
+  if self.start < COMPACT_THRESHOLD || self.start * 2 < len {
+    return
+  }
+
+  let compacted : Array[Byte] = Array::new(capacity=len - self.start)
+  for i = self.start; i < len; i = i + 1 {
+    compacted.push(self.buffer[i])
+  }
+  self.buffer = compacted
+  self.start = 0
 }
 
 ///|
@@ -196,7 +230,9 @@ fn parse_backend_key_data(
 
 ///|
 /// Parse ParameterStatus message
-fn parse_parameter_status(reader : BufferReader) -> BackendMessage {
+fn parse_parameter_status(
+  reader : BufferReader,
+) -> BackendMessage raise BufferUnderflow {
   let name = reader.cstring()
   let value = reader.cstring()
   ParameterStatus(name, value)
@@ -273,7 +309,9 @@ fn parse_data_row(
 
 ///|
 /// Parse CommandComplete message
-fn parse_command_complete(reader : BufferReader) -> BackendMessage {
+fn parse_command_complete(
+  reader : BufferReader,
+) -> BackendMessage raise BufferUnderflow {
   let tag = reader.cstring()
   CommandComplete(tag)
 }

@@ -98,11 +98,16 @@ pub fn BufferReader::uint32(self : BufferReader) -> UInt raise BufferUnderflow {
 
 ///|
 /// Read a null-terminated C string (ASCII)
-pub fn BufferReader::cstring(self : BufferReader) -> String {
+pub fn BufferReader::cstring(
+  self : BufferReader,
+) -> String raise BufferUnderflow {
   let start = self.offset
   // Find the null terminator
   while self.offset < self.data.length() && self.data[self.offset] != b'\x00' {
     self.offset += 1
+  }
+  guard self.offset < self.data.length() else {
+    raise BufferUnderflow("cstring: missing null terminator")
   }
   // Convert bytes to chars
   let chars : Array[Char] = Array::new(capacity=self.offset - start)
@@ -110,9 +115,7 @@ pub fn BufferReader::cstring(self : BufferReader) -> String {
     chars.push(self.data[i].to_int().unsafe_to_char())
   }
   // Skip the null terminator
-  if self.offset < self.data.length() {
-    self.offset += 1
-  }
+  self.offset += 1
   String::from_array(chars)
 }
 

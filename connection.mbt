@@ -3,6 +3,89 @@
 /// Handles TCP connection and PostgreSQL protocol message exchange.
 
 ///|
+/// FIFO queue for notifications with amortized O(1) dequeue.
+/// Uses a moving head index and periodic compaction to avoid per-pop array rebuilds.
+priv struct NotificationQueue {
+  items : Array[Notification]
+  mut head : Int
+}
+
+///|
+fn NotificationQueue::new() -> NotificationQueue {
+  { items: [], head: 0 }
+}
+
+///|
+fn NotificationQueue::enqueue(self : NotificationQueue, notification : Notification) -> Unit {
+  self.items.push(notification)
+}
+
+///|
+fn NotificationQueue::dequeue(self : NotificationQueue) -> Notification? {
+  if self.head >= self.items.length() {
+    self.items.clear()
+    self.head = 0
+    return None
+  }
+  let notification = self.items[self.head]
+  self.head += 1
+  self.compact_if_needed()
+  Some(notification)
+}
+
+///|
+fn NotificationQueue::drain(self : NotificationQueue) -> Array[Notification] {
+  if self.head >= self.items.length() {
+    self.items.clear()
+    self.head = 0
+    return []
+  }
+  if self.head == 0 {
+    let result = self.items.copy()
+    self.items.clear()
+    self.head = 0
+    return result
+  }
+  let result : Array[Notification] = Array::new(
+    capacity=self.items.length() - self.head,
+  )
+  for i = self.head; i < self.items.length(); i = i + 1 {
+    result.push(self.items[i])
+  }
+  self.items.clear()
+  self.head = 0
+  result
+}
+
+///|
+/// Compact once head has advanced enough to reclaim significant space.
+fn NotificationQueue::compact_if_needed(self : NotificationQueue) -> Unit {
+  if self.head == 0 {
+    return
+  }
+  let len = self.items.length()
+  if self.head >= len {
+    self.items.clear()
+    self.head = 0
+    return
+  }
+  // Avoid frequent compaction for small queues; compact when head consumed
+  // at least half of the queue and crossed a practical threshold.
+  if self.head < 128 || self.head * 2 < len {
+    return
+  }
+  let compacted : Array[Notification] = Array::new(capacity=len - self.head)
+  for i = self.head; i < len; i = i + 1 {
+    compacted.push(self.items[i])
+  }
+  self.items.clear()
+  for notification in compacted {
+    self.items.push(notification)
+  }
+  self.head = 0
+}
+
+///|
 /// Internal connection state
 priv struct Connection {
   /// Configuration
@@ -20,9 +103,40 @@ priv struct Connection {
   /// Server parameters
   server_params : Map[String, String]
   /// Queue of received notifications
-  notification_queue : Array[Notification]
+  notification_queue : NotificationQueue
   /// Serialize protocol operations on this connection
   operation_guard : @async.Semaphore
+}
+
+///|
+/// Result of processing a backend control message with connection side effects.
+priv enum BackendDispatchAction {
+  QueueNotification(Notification)
+  UpdateParameter(String, String)
+  UpdateReady(@protocol.TransactionStatus)
+  Ignore
+}
+
+///|
+/// Classify backend messages that mutate connection state out of band.
+fn classify_backend_dispatch_message(
+  msg : @protocol.BackendMessage,
+) -> BackendDispatchAction {
+  match msg {
+    @protocol.NotificationResponse(pid, channel, payload) =>
+      QueueNotification(Notification::new(channel, payload, pid))
+    @protocol.ParameterStatus(name, value) => UpdateParameter(name, value)
+    @protocol.ReadyForQuery(status) => UpdateReady(status)
+    _ => Ignore
+  }
+}
+
+///|
+/// Result of applying backend dispatch action to connection state.
+priv enum BackendDispatchResult {
+  Consumed
+  Ready
+  Unhandled
 }
 
 ///|
@@ -36,7 +150,7 @@ fn Connection::create(config : Config, transport : Transport) -> Connection {
     secret_key: 0,
     transaction_status: @protocol.Idle,
     server_params: {},
-    notification_queue: [],
+    notification_queue: NotificationQueue::new(),
     operation_guard: @async.Semaphore::new(1),
   }
 }
@@ -57,14 +171,36 @@ async fn Connection::send_all(
   self : Connection,
   msgs : Array[@protocol.FrontendMessage],
 ) -> Unit {
-  let buf : Array[Byte] = []
+  if msgs.length() == 0 {
+    return
+  }
+  self.transport.write(encode_frontend_batch(msgs))
+}
+
+///|
+/// Encode a frontend message batch into a single contiguous frame.
+fn encode_frontend_batch(
+  msgs : Array[@protocol.FrontendMessage],
+) -> Bytes {
+  if msgs.length() == 1 {
+    return @protocol.encode(msgs[0])
+  }
+  // Pre-encode and reserve exact output capacity to reduce allocation churn.
+  let encoded : Array[Bytes] = Array::new(capacity=msgs.length())
+  let mut total_len = 0
   for msg in msgs {
     let bytes = @protocol.encode(msg)
+    total_len += bytes.length()
+    encoded.push(bytes)
+  }
+
+  let buf : Array[Byte] = Array::new(capacity=total_len)
+  for bytes in encoded {
     for i = 0; i < bytes.length(); i = i + 1 {
       buf.push(bytes[i])
     }
   }
-  self.transport.write(Bytes::from_array(buf))
+  Bytes::from_array(buf)
 }
 
 ///|
@@ -99,15 +235,13 @@ async fn Connection::receive_until_ready(
   while true {
     let messages = self.receive()
     for msg in messages {
-      match msg {
-        @protocol.NotificationResponse(pid, channel, payload) =>
-          self.enqueue_notification(Notification::new(channel, payload, pid))
-        @protocol.ReadyForQuery(status) => {
+      match self.dispatch_backend_message(msg) {
+        Ready => {
           all_messages.push(msg)
-          self.transaction_status = status
           return all_messages
         }
-        _ => all_messages.push(msg)
+        Consumed => ()
+        Unhandled => all_messages.push(msg)
       }
     }
   } nobreak {
@@ -121,39 +255,19 @@ fn Connection::enqueue_notification(
   self : Connection,
   notification : Notification,
 ) -> Unit {
-  self.notification_queue.push(notification)
+  self.notification_queue.enqueue(notification)
 }
 
 ///|
 /// Pop the next queued notification in FIFO order.
 fn Connection::dequeue_notification(self : Connection) -> Notification? {
-  if self.notification_queue.length() == 0 {
-    return None
-  }
-  let first = self.notification_queue[0]
-  if self.notification_queue.length() == 1 {
-    self.notification_queue.clear()
-    return Some(first)
-  }
-  let remaining : Array[Notification] = Array::new(
-    capacity=self.notification_queue.length() - 1,
-  )
-  for i = 1; i < self.notification_queue.length(); i = i + 1 {
-    remaining.push(self.notification_queue[i])
-  }
-  self.notification_queue.clear()
-  for item in remaining {
-    self.notification_queue.push(item)
-  }
-  Some(first)
+  self.notification_queue.dequeue()
 }
 
 ///|
 /// Return queued notifications in order and clear the queue.
 fn Connection::drain_notifications(self : Connection) -> Array[Notification] {
-  let result = self.notification_queue.copy()
-  self.notification_queue.clear()
-  result
+  self.notification_queue.drain()
 }
 
 ///|
@@ -162,11 +276,55 @@ fn check_error(
   messages : Array[@protocol.BackendMessage],
 ) -> Unit raise ServerError {
   for msg in messages {
-    match msg {
-      @protocol.ErrorResponse(fields) =>
-        raise ServerError(ServerErrorInfo::from_fields(fields))
-      _ => ()
+    match server_error_from_message(msg) {
+      Some(info) => raise ServerError(info)
+      None => ()
     }
+  }
+}
+
+///|
+/// Parse ErrorResponse into structured server error info.
+fn server_error_from_message(
+  msg : @protocol.BackendMessage,
+) -> ServerErrorInfo? {
+  match msg {
+    @protocol.ErrorResponse(fields) => Some(ServerErrorInfo::from_fields(fields))
+    _ => None
+  }
+}
+
+///|
+/// Raise ServerError when backend message is ErrorResponse.
+fn raise_if_server_error_message(
+  msg : @protocol.BackendMessage,
+) -> Unit raise ServerError {
+  match server_error_from_message(msg) {
+    Some(info) => raise ServerError(info)
+    None => ()
+  }
+}
+
+///|
+/// Apply shared side effects from backend control messages.
+fn Connection::dispatch_backend_message(
+  self : Connection,
+  msg : @protocol.BackendMessage,
+) -> BackendDispatchResult {
+  match classify_backend_dispatch_message(msg) {
+    QueueNotification(notification) => {
+      self.enqueue_notification(notification)
+      Consumed
+    }
+    UpdateParameter(name, value) => {
+      self.server_params[name] = value
+      Consumed
+    }
+    UpdateReady(status) => {
+      self.transaction_status = status
+      Ready
+    }
+    Ignore => Unhandled
   }
 }
 
@@ -344,21 +502,20 @@ async fn Connection::authenticate(self : Connection) -> Unit {
             @protocol.ScramError(msg) => raise AuthError(msg)
           }
         }
-        @protocol.ParameterStatus(name, value) =>
-          self.server_params[name] = value
         @protocol.BackendKeyData(pid, key) => {
           self.process_id = pid
           self.secret_key = key
         }
-        @protocol.ReadyForQuery(status) => {
-          self.transaction_status = status
-          return
-        }
-        @protocol.ErrorResponse(fields) => {
-          let info = ServerErrorInfo::from_fields(fields)
-          raise AuthError(info.message)
-        }
-        _ => ()
+        _ =>
+          match self.dispatch_backend_message(msg) {
+            Ready => return
+            Consumed => ()
+            Unhandled =>
+              match server_error_from_message(msg) {
+                Some(info) => raise AuthError(info.message)
+                None => ()
+              }
+          }
       }
     }
   }

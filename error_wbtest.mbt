@@ -33,3 +33,26 @@ test "Show for PreparedStmtError" {
   let err = PreparedStmtError("statement closed")
   inspect(err, content="PreparedStatementError: statement closed")
 }
+
+///|
+test "Show for CopyError" {
+  let err = CopyError("copy failed")
+  inspect(err, content="CopyError: copy failed")
+}
+
+///|
+test "Show for CopyCallbackError" {
+  let failure = CopyCallbackFailure::new("COPY IN writer", "ClientUsageError: boom")
+  let err = CopyCallbackError(failure)
+  inspect(
+    err,
+    content="CopyCallbackError[COPY IN writer]: ClientUsageError: boom",
+  )
+}
+
+///|
+test "CopyCallbackFailure accessors" {
+  let failure = CopyCallbackFailure::new("COPY OUT handler", "handler failure")
+  assert_eq(failure.stage(), "COPY OUT handler")
+  assert_eq(failure.message(), "handler failure")
+}

@@ -37,9 +37,39 @@ pub suberror PreparedStmtError {
 }
 
 ///|
+/// Structured details for user callback failures in COPY operations.
+pub struct CopyCallbackFailure {
+  /// Callback stage where failure happened.
+  stage : String
+  /// Original callback error rendered as text.
+  message : String
+} derive(Show, Eq)
+
+///|
+pub fn CopyCallbackFailure::new(
+  stage : String,
+  message : String,
+) -> CopyCallbackFailure {
+  { stage, message }
+}
+
+///|
+/// Callback stage where failure happened.
+pub fn CopyCallbackFailure::stage(self : CopyCallbackFailure) -> String {
+  self.stage
+}
+
+///|
+/// Original callback error rendered as text.
+pub fn CopyCallbackFailure::message(self : CopyCallbackFailure) -> String {
+  self.message
+}
+
+///|
 /// COPY operation error
 pub suberror CopyError {
   CopyError(String)
+  CopyCallbackError(CopyCallbackFailure)
 }
 
 ///|
@@ -194,9 +224,18 @@ pub impl Show for PreparedStmtError with output(self, logger) {
 
 ///|
 pub impl Show for CopyError with output(self, logger) {
-  let CopyError(msg) = self
-  logger.write_string("CopyError: ")
-  logger.write_string(msg)
+  match self {
+    CopyError(msg) => {
+      logger.write_string("CopyError: ")
+      logger.write_string(msg)
+    }
+    CopyCallbackError(failure) => {
+      logger.write_string("CopyCallbackError[")
+      logger.write_string(failure.stage)
+      logger.write_string("]: ")
+      logger.write_string(failure.message)
+    }
+  }
 }
 
 ///|

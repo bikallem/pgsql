@@ -166,17 +166,17 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
             self.lock_held = false
             return
           }
-          @protocol.ErrorResponse(fields) => {
-            let info = ServerErrorInfo::from_fields(fields)
-            self.client.conn.send(@protocol.Sync)
-            let _ = self.client.conn.receive_until_ready()
-            raise ServerError(info)
-          }
-          @protocol.NotificationResponse(pid, channel, payload) =>
-            self.client.conn.enqueue_notification(
-              Notification::new(channel, payload, pid),
-            )
-          _ => ()
+          _ =>
+            match server_error_from_message(msg) {
+              Some(info) => {
+                self.client.conn.send(@protocol.Sync)
+                let _ = self.client.conn.receive_until_ready()
+                raise ServerError(info)
+              }
+              None => {
+                let _ = self.client.conn.dispatch_backend_message(msg)
+              }
+            }
         }
       }
     }
@@ -262,13 +262,13 @@ pub async fn Client::query_stream(
             let _ = self.conn.receive_until_ready()
             done = true
           }
-          @protocol.ErrorResponse(fields) =>
-            raise ServerError(ServerErrorInfo::from_fields(fields))
-          @protocol.NotificationResponse(pid, channel, payload) =>
-            self.conn.enqueue_notification(
-              Notification::new(channel, payload, pid),
-            )
-          _ => ()
+          _ =>
+            match server_error_from_message(msg) {
+              Some(info) => raise ServerError(info)
+              None => {
+                let _ = self.conn.dispatch_backend_message(msg)
+              }
+            }
         }
       }
       if done {

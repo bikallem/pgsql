@@ -556,6 +556,10 @@ async test "COPY OUT: re-entrant callback operation fails fast" {
     })
     false
   } catch {
+    @pgsql.CopyCallbackError(failure) => {
+      saw_usage_error = failure.message().contains("ClientUsageError")
+      true
+    }
     @pgsql.CopyError(msg) => {
       saw_usage_error = msg.contains("ClientUsageError")
       true
@@ -589,6 +593,10 @@ async test "COPY IN: re-entrant callback operation fails fast" {
     })
     false
   } catch {
+    @pgsql.CopyCallbackError(failure) => {
+      saw_usage_error = failure.message().contains("ClientUsageError")
+      true
+    }
     @pgsql.CopyError(msg) => {
       saw_usage_error = msg.contains("ClientUsageError")
       true

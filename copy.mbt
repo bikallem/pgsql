@@ -49,7 +49,7 @@ pub async fn Client::copy_out(
     let mut row_count = 0
     let mut command_tag = ""
     let mut server_error : ServerErrorInfo? = None
-    let mut handler_error : String? = None
+    let mut handler_error : CopyCallbackFailure? = None
     while true {
       let messages = self.conn.receive()
       for msg in messages {
@@ -58,7 +58,10 @@ pub async fn Client::copy_out(
           @protocol.CopyData(data) =>
             if handler_error is None {
               self.run_user_callback(async fn() { handler(data) }) catch {
-                err => handler_error = Some(err.to_string())
+                err =>
+                  handler_error = Some(
+                    CopyCallbackFailure::new("COPY OUT handler", err.to_string()),
+                  )
               }
             }
           @protocol.CopyDone => ()
@@ -67,26 +70,23 @@ pub async fn Client::copy_out(
             if server_error is None {
               server_error = Some(ServerErrorInfo::from_fields(fields))
             }
-          @protocol.NotificationResponse(pid, channel, payload) =>
-            self.conn.enqueue_notification(
-              Notification::new(channel, payload, pid),
-            )
-          @protocol.ParameterStatus(name, value) =>
-            self.conn.server_params[name] = value
-          @protocol.ReadyForQuery(status) => {
-            self.conn.transaction_status = status
-            match server_error {
-              Some(info) => raise ServerError(info)
-              None => ()
+          _ =>
+            match self.conn.dispatch_backend_message(msg) {
+              Ready => {
+                match server_error {
+                  Some(info) => raise ServerError(info)
+                  None => ()
+                }
+                match handler_error {
+                  Some(failure) => raise CopyCallbackError(failure)
+                  None => ()
+                }
+                row_count = parse_affected_rows(command_tag)
+                return row_count
+              }
+              Consumed => ()
+              Unhandled => ()
             }
-            match handler_error {
-              Some(msg) => raise CopyError(msg)
-              None => ()
-            }
-            row_count = parse_affected_rows(command_tag)
-            return row_count
-          }
-          _ => ()
         }
       }
     } nobreak {
@@ -118,20 +118,16 @@ pub async fn Client::copy_in(
             if startup_error is None {
               startup_error = Some(ServerErrorInfo::from_fields(fields))
             }
-          @protocol.NotificationResponse(pid, channel, payload) =>
-            self.conn.enqueue_notification(
-              Notification::new(channel, payload, pid),
-            )
-          @protocol.ParameterStatus(name, value) =>
-            self.conn.server_params[name] = value
-          @protocol.ReadyForQuery(status) => {
-            self.conn.transaction_status = status
-            match startup_error {
-              Some(info) => raise ServerError(info)
-              None => raise CopyError("COPY IN was not started")
+          _ =>
+            match self.conn.dispatch_backend_message(msg) {
+              Ready =>
+                match startup_error {
+                  Some(info) => raise ServerError(info)
+                  None => raise CopyError("COPY IN was not started")
+                }
+              Consumed => ()
+              Unhandled => ()
             }
-          }
-          _ => ()
         }
       }
     }
@@ -143,7 +139,9 @@ pub async fn Client::copy_in(
         // On error, send CopyFail and wait for ReadyForQuery
         self.conn.send(@protocol.CopyFail(err.to_string()))
         let _ = self.conn.receive_until_ready()
-        raise CopyError(err.to_string())
+        raise CopyCallbackError(
+          CopyCallbackFailure::new("COPY IN writer", err.to_string()),
+        )
       }
     }
 

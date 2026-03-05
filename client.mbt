@@ -243,17 +243,7 @@ pub async fn Client::wait_for_notification(self : Client) -> Notification {
       let messages = self.conn.receive()
       for msg in messages {
         raise_if_error_response(msg)
-        match msg {
-          @protocol.NotificationResponse(pid, channel, payload) =>
-            self.conn.enqueue_notification(
-              Notification::new(channel, payload, pid),
-            )
-          @protocol.ReadyForQuery(status) =>
-            self.conn.transaction_status = status
-          @protocol.ParameterStatus(name, value) =>
-            self.conn.server_params[name] = value
-          _ => ()
-        }
+        let _ = self.conn.dispatch_backend_message(msg)
       }
       match self.conn.dequeue_notification() {
         Some(notification) => return notification
@@ -309,11 +299,7 @@ async fn Client::bind_execute(
 fn raise_if_error_response(
   msg : @protocol.BackendMessage,
 ) -> Unit raise ServerError {
-  match msg {
-    @protocol.ErrorResponse(fields) =>
-      raise ServerError(ServerErrorInfo::from_fields(fields))
-    _ => ()
-  }
+  raise_if_server_error_message(msg)
 }
 
 ///|

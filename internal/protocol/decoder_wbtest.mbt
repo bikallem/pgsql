@@ -438,9 +438,69 @@ test "decode_parameter_description" {
   }
 }
 
+///|
+test "decode_retains_trailing_partial_frame_with_head_offset" {
+  let decoder = Decoder::new()
+  let first_chunk = Bytes::from_array([
+    b'Z', b'\x00', b'\x00', b'\x00', b'\x05', b'I', // complete ReadyForQuery
+    b'Z', b'\x00', b'\x00', // partial next frame header
+  ])
+  let first_messages = decoder.parse(first_chunk)
+  inspect(first_messages.length(), content="1")
+  assert_true(decoder.start > 0)
+  assert_true(decoder.buffer.length() > decoder.start)
+
+  let second_chunk = Bytes::from_array([b'\x00', b'\x05', b'T'])
+  let second_messages = decoder.parse(second_chunk)
+  inspect(second_messages.length(), content="1")
+  match second_messages[0] {
+    ReadyForQuery(status) => inspect(status, content="InTransaction")
+    _ => fail("Expected ReadyForQuery")
+  }
+  inspect(decoder.buffer.length(), content="0")
+  inspect(decoder.start, content="0")
+}
+
+///|
+test "decode_compacts_large_consumed_prefix" {
+  let decoder = Decoder::new()
+  let payload : Array[Byte] = []
+
+  for _i = 0; _i < 800; _i = _i + 1 {
+    payload.push(b'Z')
+    payload.push(b'\x00')
+    payload.push(b'\x00')
+    payload.push(b'\x00')
+    payload.push(b'\x05')
+    payload.push(b'I')
+  }
+  // Leave a small trailing incomplete frame to keep unread bytes buffered.
+  payload.push(b'Z')
+  payload.push(b'\x00')
+  payload.push(b'\x00')
+
+  let messages = decoder.parse(Bytes::from_array(payload))
+  inspect(messages.length(), content="800")
+  // Consumed prefix should compact away and keep only unread tail.
+  inspect(decoder.start, content="0")
+  inspect(decoder.buffer.length(), content="3")
+}
+
 // =============================================================================
 // Malformed input tests (#29)
 // =============================================================================
+
+///|
+fn assert_decoder_error(
+  messages : Array[BackendMessage],
+  contains~ : String,
+) -> Unit raise {
+  inspect(messages.length(), content="1")
+  match messages[0] {
+    ErrorResponse(fields) => assert_true(fields["M"].contains(contains))
+    _ => fail("Expected ErrorResponse")
+  }
+}
 
 ///|
 test "decode_malformed_length_too_small" {
@@ -449,8 +509,8 @@ test "decode_malformed_length_too_small" {
   )
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
-  // Should skip the malformed message
-  inspect(messages.length(), content="0")
+  assert_decoder_error(messages, contains="invalid length")
+  inspect(decoder.buffer.length(), content="0")
 }
 
 ///|
@@ -497,8 +557,8 @@ test "decode_buffer_underflow_in_payload" {
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
-  // Should skip the malformed message (BufferUnderflow caught)
-  inspect(messages.length(), content="0")
+  assert_decoder_error(messages, contains="Malformed protocol frame")
+  inspect(decoder.buffer.length(), content="0")
 }
 
 ///|
@@ -508,7 +568,7 @@ test "decode_row_description_negative_field_count" {
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
-  inspect(messages.length(), content="0")
+  assert_decoder_error(messages, contains="negative field count")
 }
 
 ///|
@@ -518,7 +578,7 @@ test "decode_data_row_negative_column_count" {
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
-  inspect(messages.length(), content="0")
+  assert_decoder_error(messages, contains="negative column count")
 }
 
 ///|
@@ -529,7 +589,7 @@ test "decode_data_row_invalid_negative_column_length" {
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
-  inspect(messages.length(), content="0")
+  assert_decoder_error(messages, contains="invalid negative column length")
 }
 
 ///|
@@ -539,7 +599,7 @@ test "decode_parameter_description_negative_count" {
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
-  inspect(messages.length(), content="0")
+  assert_decoder_error(messages, contains="negative count")
 }
 
 ///|
@@ -549,7 +609,7 @@ test "decode_copy_response_negative_column_count" {
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
-  inspect(messages.length(), content="0")
+  assert_decoder_error(messages, contains="negative column count")
 }
 
 ///|
@@ -560,7 +620,7 @@ test "decode_negotiate_protocol_version_negative_count" {
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
-  inspect(messages.length(), content="0")
+  assert_decoder_error(messages, contains="negative option count")
 }
 
 ///|

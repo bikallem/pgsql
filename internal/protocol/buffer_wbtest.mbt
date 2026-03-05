@@ -94,6 +94,18 @@ test "BufferReader::cstring" {
 }
 
 ///|
+test "BufferReader::cstring rejects unterminated string" {
+  let reader = BufferReader::new(Bytes::from_array([b'h', b'i']))
+  let failed = try {
+    let _ = reader.cstring()
+    false
+  } catch {
+    BufferUnderflow(msg) => msg.contains("missing null terminator")
+  }
+  assert_true(failed)
+}
+
+///|
 test "BufferReader::bytes" {
   let data = Bytes::from_array([b'\x01', b'\x02', b'\x03', b'\x04'])
   let reader = BufferReader::new(data)

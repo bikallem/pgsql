@@ -8,6 +8,7 @@ struct Pool {
   config : Config
   idle : @async.Queue[Client]
   semaphore : @async.Semaphore
+  max_size : Int
   acquire_timeout_ms : Int
   mut closed : Bool
 }
@@ -23,6 +24,7 @@ pub fn Pool::new(
     config,
     idle: @async.Queue::new(kind=Unbounded),
     semaphore: @async.Semaphore::new(max_size),
+    max_size,
     acquire_timeout_ms,
     closed: false,
   }
@@ -38,13 +40,25 @@ pub async fn Pool::acquire(self : Pool) -> Client {
     self.acquire_timeout_ms,
     async fn() {
       self.semaphore.acquire()
-      self.acquire_after_permit() catch {
+      if self.closed {
+        self.semaphore.release()
+        raise PoolError("Pool is closed")
+      }
+      let client = self.acquire_after_permit() catch {
         err => {
           // Connect failure after permit acquisition must not leak capacity.
           self.semaphore.release()
           raise err
         }
       }
+      if self.closed {
+        if not(client.closed) {
+          client.close() catch { _ => () }
+        }
+        self.semaphore.release()
+        raise PoolError("Pool is closed")
+      }
+      client
     },
     error=PoolError("Acquire timeout"),
   )
@@ -88,7 +102,14 @@ pub async fn Pool::release(self : Pool, client : Client) -> Unit {
 ///|
 /// Close the pool, closing all idle connections
 pub async fn Pool::close(self : Pool) -> Unit {
+  if self.closed {
+    return
+  }
   self.closed = true
+  // Wake waiters so blocked acquires can fail fast with "Pool is closed".
+  for i = 0; i < self.max_size; i = i + 1 {
+    self.semaphore.release()
+  }
   // Drain idle connections before closing the queue
   while true {
     let client : Client? = self.idle.try_get() catch { _ => None }

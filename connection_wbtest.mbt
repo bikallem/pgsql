@@ -1,0 +1,148 @@
+///|
+test "NotificationQueue dequeues in FIFO order" {
+  let queue = NotificationQueue::new()
+  queue.enqueue(Notification::new("a", "payload-a", 1))
+  queue.enqueue(Notification::new("b", "payload-b", 2))
+  queue.enqueue(Notification::new("c", "payload-c", 3))
+
+  match queue.dequeue() {
+    Some(notification) => {
+      assert_eq(notification.channel(), "a")
+      assert_eq(notification.payload(), "payload-a")
+      assert_eq(notification.process_id(), 1)
+    }
+    None => fail("Expected first queued notification")
+  }
+
+  match queue.dequeue() {
+    Some(notification) => {
+      assert_eq(notification.channel(), "b")
+      assert_eq(notification.payload(), "payload-b")
+      assert_eq(notification.process_id(), 2)
+    }
+    None => fail("Expected second queued notification")
+  }
+
+  match queue.dequeue() {
+    Some(notification) => {
+      assert_eq(notification.channel(), "c")
+      assert_eq(notification.payload(), "payload-c")
+      assert_eq(notification.process_id(), 3)
+    }
+    None => fail("Expected third queued notification")
+  }
+
+  match queue.dequeue() {
+    None => ()
+    Some(_) => fail("Expected empty queue after all dequeues")
+  }
+}
+
+///|
+test "NotificationQueue stays ordered under high volume" {
+  let queue = NotificationQueue::new()
+  let total = 3000
+  let consumed = 2500
+
+  for i = 0; i < total; i = i + 1 {
+    queue.enqueue(Notification::new("bulk", i.to_string(), i))
+  }
+
+  for i = 0; i < consumed; i = i + 1 {
+    match queue.dequeue() {
+      Some(notification) => {
+        assert_eq(notification.process_id(), i)
+        assert_eq(notification.payload(), i.to_string())
+      }
+      None => fail("Expected queued notification during high-volume dequeue")
+    }
+  }
+
+  let remaining = queue.drain()
+  assert_eq(remaining.length(), total - consumed)
+  for i, notification in remaining {
+    assert_eq(notification.process_id(), consumed + i)
+    assert_eq(notification.payload(), (consumed + i).to_string())
+  }
+
+  match queue.dequeue() {
+    None => ()
+    Some(_) => fail("Expected queue to be empty after drain")
+  }
+}
+
+///|
+test "classify_backend_dispatch_message handles notification" {
+  match classify_backend_dispatch_message(
+    @protocol.NotificationResponse(77, "events", "hello"),
+  ) {
+    QueueNotification(notification) => {
+      assert_eq(notification.process_id(), 77)
+      assert_eq(notification.channel(), "events")
+      assert_eq(notification.payload(), "hello")
+    }
+    _ => fail("Expected QueueNotification action")
+  }
+}
+
+///|
+test "classify_backend_dispatch_message handles parameter status" {
+  match classify_backend_dispatch_message(
+    @protocol.ParameterStatus("client_encoding", "UTF8"),
+  ) {
+    UpdateParameter(name, value) => {
+      assert_eq(name, "client_encoding")
+      assert_eq(value, "UTF8")
+    }
+    _ => fail("Expected UpdateParameter action")
+  }
+}
+
+///|
+test "classify_backend_dispatch_message handles ready-for-query" {
+  match classify_backend_dispatch_message(@protocol.ReadyForQuery(@protocol.Failed)) {
+    UpdateReady(status) => assert_eq(status, @protocol.Failed)
+    _ => fail("Expected UpdateReady action")
+  }
+}
+
+///|
+test "classify_backend_dispatch_message ignores unrelated messages" {
+  match classify_backend_dispatch_message(@protocol.ParseComplete) {
+    Ignore => ()
+    _ => fail("Expected Ignore action")
+  }
+}
+
+///|
+test "encode_frontend_batch matches concatenated protocol encoding" {
+  let msgs : Array[@protocol.FrontendMessage] = [
+    @protocol.Query("SELECT 1"),
+    @protocol.Sync,
+  ]
+  let batch = encode_frontend_batch(msgs)
+
+  let expected : Array[Byte] = []
+  for msg in msgs {
+    let encoded = @protocol.encode(msg)
+    for i = 0; i < encoded.length(); i = i + 1 {
+      expected.push(encoded[i])
+    }
+  }
+
+  assert_eq(batch.length(), expected.length())
+  for i = 0; i < batch.length(); i = i + 1 {
+    assert_eq(batch[i], expected[i])
+  }
+}
+
+///|
+test "encode_frontend_batch passes through single message encoding" {
+  let msg = @protocol.Flush
+  let batch = encode_frontend_batch([msg])
+  let encoded = @protocol.encode(msg)
+  assert_eq(batch.length(), encoded.length())
+  for i = 0; i < batch.length(); i = i + 1 {
+    assert_eq(batch[i], encoded[i])
+  }
+}
