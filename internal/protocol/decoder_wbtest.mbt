@@ -501,6 +501,83 @@ test "decode_buffer_underflow_in_payload" {
   inspect(messages.length(), content="0")
 }
 
+///|
+test "decode_row_description_negative_field_count" {
+  let data = Bytes::from_array([
+    b'T', b'\x00', b'\x00', b'\x00', b'\x06', b'\xFF', b'\xFF',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="0")
+}
+
+///|
+test "decode_data_row_negative_column_count" {
+  let data = Bytes::from_array([
+    b'D', b'\x00', b'\x00', b'\x00', b'\x06', b'\xFF', b'\xFF',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="0")
+}
+
+///|
+test "decode_data_row_invalid_negative_column_length" {
+  let data = Bytes::from_array([
+    b'D', b'\x00', b'\x00', b'\x00', b'\x0A', b'\x00', b'\x01', b'\xFF', b'\xFF',
+    b'\xFF', b'\xFE',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="0")
+}
+
+///|
+test "decode_parameter_description_negative_count" {
+  let data = Bytes::from_array([
+    b't', b'\x00', b'\x00', b'\x00', b'\x06', b'\xFF', b'\xFF',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="0")
+}
+
+///|
+test "decode_copy_response_negative_column_count" {
+  let data = Bytes::from_array([
+    b'G', b'\x00', b'\x00', b'\x00', b'\x07', b'\x00', b'\xFF', b'\xFF',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="0")
+}
+
+///|
+test "decode_negotiate_protocol_version_negative_count" {
+  let data = Bytes::from_array([
+    b'v', b'\x00', b'\x00', b'\x00', b'\x0C', b'\x00', b'\x00', b'\x00', b'\x01',
+    b'\xFF', b'\xFF', b'\xFF', b'\xFF',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="0")
+}
+
+///|
+test "decode_frame_over_max_length_returns_error_and_clears_buffer" {
+  // len = 0x00800001 (8 MiB + 1), above decoder max frame length.
+  let data = Bytes::from_array([b'Z', b'\x00', b'\x80', b'\x00', b'\x01'])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="1")
+  match messages[0] {
+    ErrorResponse(fields) =>
+      assert_true(fields["M"].contains("exceeds max length"))
+    _ => fail("Expected ErrorResponse")
+  }
+  inspect(decoder.buffer.length(), content="0")
+}
+
 // =============================================================================
 // Previously untested decoder paths (#30)
 // =============================================================================

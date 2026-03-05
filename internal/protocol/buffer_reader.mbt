@@ -122,6 +122,9 @@ pub fn BufferReader::bytes(
   self : BufferReader,
   len : Int,
 ) -> Bytes raise BufferUnderflow {
+  guard len >= 0 else {
+    raise BufferUnderflow("bytes: length must be non-negative")
+  }
   guard self.remaining() >= len else {
     raise BufferUnderflow(
       "bytes: need \{len} bytes but only \{self.remaining()} remaining",

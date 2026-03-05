@@ -57,12 +57,14 @@ pub async fn PreparedStatement::close(self : PreparedStatement) -> Unit {
     // Client already closed; server resources are already released.
     return
   }
-  self.client.conn.send_all([
-    @protocol.Close(@protocol.TARGET_STATEMENT, self.name),
-    @protocol.Sync,
-  ])
-  let messages = self.client.conn.receive_until_ready()
-  check_error(messages)
+  self.client.with_operation(async fn() {
+    self.client.conn.send_all([
+      @protocol.Close(@protocol.TARGET_STATEMENT, self.name),
+      @protocol.Sync,
+    ])
+    let messages = self.client.conn.receive_until_ready()
+    check_error(messages)
+  })
 }
 
 ///|

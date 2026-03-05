@@ -45,6 +45,7 @@ pub impl Show for TxError
 // Types and methods
 type Client
 pub async fn Client::begin(Self) -> Unit
+pub async fn Client::cancel(Self) -> Unit
 pub async fn Client::close(Self) -> Unit
 pub async fn Client::commit(Self) -> Unit
 pub async fn Client::connect(Config) -> Self
@@ -79,7 +80,7 @@ pub impl Show for ColumnInfo
 type Config
 pub fn Config::database(Self) -> String
 pub fn Config::host(Self) -> String
-pub fn Config::new(String, String, String, host? : String, port? : Int, ssl_mode? : SslMode) -> Self
+pub fn Config::new(String, String, String, host? : String, port? : Int, ssl_mode? : SslMode, read_timeout? : Int) -> Self
 pub fn Config::password(Self) -> String
 pub fn Config::port(Self) -> Int
 pub fn Config::ssl_mode(Self) -> SslMode

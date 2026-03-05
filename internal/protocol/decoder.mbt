@@ -7,6 +7,11 @@
 const HEADER_SIZE : Int = 5
 
 ///|
+/// Maximum backend frame length accepted by decoder (includes length field).
+/// This bounds memory usage for incomplete frames from untrusted peers.
+const MAX_FRAME_LENGTH : Int = 8 * 1024 * 1024
+
+///|
 /// Decoder for PostgreSQL protocol messages
 /// Handles incremental parsing of data that may arrive in chunks
 struct Decoder {
@@ -44,11 +49,15 @@ pub fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
       (self.buffer[offset + 3].to_int() << 8) |
       self.buffer[offset + 4].to_int()
 
-    // Validate message length (includes itself, so minimum is 4; cap at 1GB)
-    if len < 4 || len > 1073741824 {
+    // Validate message length (includes itself, so minimum is 4).
+    if len < 4 {
       // Malformed message: skip past header and continue
       offset += HEADER_SIZE
       continue
+    }
+    if len > MAX_FRAME_LENGTH {
+      self.buffer.clear()
+      return [decoder_error("Protocol frame exceeds max length")]
     }
 
     let total_len = 1 + len // code + length field + payload
@@ -86,6 +95,15 @@ pub fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
   }
 
   messages
+}
+
+///|
+/// Construct an ErrorResponse for decoder-level protocol hardening failures.
+fn decoder_error(message : String) -> BackendMessage {
+  let fields : Map[String, String] = {}
+  fields[FIELD_MESSAGE] = message
+  fields[FIELD_SEVERITY] = "ERROR"
+  ErrorResponse(fields)
 }
 
 // -----------------------------------------------------------------------------
@@ -203,6 +221,9 @@ fn parse_row_description(
   reader : BufferReader,
 ) -> BackendMessage raise BufferUnderflow {
   let field_count = reader.int16()
+  guard field_count >= 0 else {
+    raise BufferUnderflow("row description has negative field count")
+  }
   let fields : Array[FieldDescription] = Array::new(capacity=field_count)
 
   for i = 0; i < field_count; i = i + 1 {
@@ -231,12 +252,17 @@ fn parse_data_row(
   reader : BufferReader,
 ) -> BackendMessage raise BufferUnderflow {
   let column_count = reader.int16()
+  guard column_count >= 0 else {
+    raise BufferUnderflow("data row has negative column count")
+  }
   let values : Array[Bytes?] = Array::new(capacity=column_count)
 
   for i = 0; i < column_count; i = i + 1 {
     let len = reader.int32()
     if len == -1 {
       values.push(None) // NULL
+    } else if len < -1 {
+      raise BufferUnderflow("data row has invalid negative column length")
     } else {
       values.push(Some(reader.bytes(len)))
     }
@@ -284,6 +310,9 @@ fn parse_parameter_description(
   reader : BufferReader,
 ) -> BackendMessage raise BufferUnderflow {
   let param_count = reader.int16()
+  guard param_count >= 0 else {
+    raise BufferUnderflow("parameter description has negative count")
+  }
   let type_oids : Array[UInt] = Array::new(capacity=param_count)
 
   for i = 0; i < param_count; i = i + 1 {
@@ -314,6 +343,9 @@ fn parse_copy_response(
   let overall_format = if format_byte == b'\x00' { Text } else { Binary }
 
   let column_count = reader.int16()
+  guard column_count >= 0 else {
+    raise BufferUnderflow("copy response has negative column count")
+  }
   let column_formats : Array[FormatCode] = Array::new(capacity=column_count)
 
   for i = 0; i < column_count; i = i + 1 {
@@ -335,6 +367,11 @@ fn parse_negotiate_protocol_version(
 ) -> BackendMessage raise BufferUnderflow {
   let newest_minor = reader.int32()
   let count = reader.int32()
+  guard count >= 0 else {
+    raise BufferUnderflow(
+      "negotiate protocol version has negative option count",
+    )
+  }
   let options : Array[String] = Array::new(capacity=count)
   for i = 0; i < count; i = i + 1 {
     options.push(reader.cstring())

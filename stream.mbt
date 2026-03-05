@@ -17,6 +17,7 @@ struct RowStream {
   mut exhausted : Bool
   mut closed : Bool
   auto_tx : Bool
+  mut lock_held : Bool
 }
 
 ///|
@@ -55,13 +56,29 @@ pub async fn RowStream::for_each(
   self : RowStream,
   f : async (Row) -> Unit,
 ) -> Unit {
+  self.for_each_inner(f) catch {
+    err => {
+      self.close() catch {
+        _ => ()
+      }
+      raise err
+    }
+  }
+  self.close()
+}
+
+///|
+/// Internal helper for for_each iteration loop
+async fn RowStream::for_each_inner(
+  self : RowStream,
+  f : async (Row) -> Unit,
+) -> Unit {
   while true {
     match self.next() {
       Some(row) => f(row)
       None => break
     }
   }
-  self.close()
 }
 
 ///|
@@ -72,6 +89,15 @@ pub async fn RowStream::close(self : RowStream) -> Unit {
     return
   }
   self.closed = true
+  if not(self.lock_held) {
+    self.client.conn.operation_guard.acquire()
+    self.lock_held = true
+  }
+  if self.client.closed {
+    self.client.conn.operation_guard.release()
+    self.lock_held = false
+    return
+  }
   // Always close the named statement; also close portal if not exhausted
   let msgs : Array[@protocol.FrontendMessage] = []
   if not(self.exhausted) {
@@ -79,8 +105,22 @@ pub async fn RowStream::close(self : RowStream) -> Unit {
   }
   msgs.push(@protocol.Close(@protocol.TARGET_STATEMENT, self.stmt_name))
   msgs.push(@protocol.Sync)
-  self.client.conn.send_all(msgs)
-  let _ = self.client.conn.receive_until_ready()
+  self.client.conn.send_all(msgs) catch {
+    err => {
+      self.client.conn.operation_guard.release()
+      self.lock_held = false
+      raise err
+    }
+  }
+  let _ = self.client.conn.receive_until_ready() catch {
+    err => {
+      self.client.conn.operation_guard.release()
+      self.lock_held = false
+      raise err
+    }
+  }
+  self.client.conn.operation_guard.release()
+  self.lock_held = false
   // Commit auto-transaction if we started one
   if self.auto_tx {
     let _ = self.client.execute("COMMIT")
@@ -90,44 +130,63 @@ pub async fn RowStream::close(self : RowStream) -> Unit {
 ///|
 /// Fetch the next batch of rows from the server
 async fn RowStream::fetch_batch(self : RowStream) -> Unit {
-  self.buffer.clear()
-  self.buffer_pos = 0
-  // Send Execute with batch_size limit + Flush
-  self.client.conn.send_all([
-    @protocol.Execute(self.portal_name, self.batch_size),
-    @protocol.Flush,
-  ])
-  // Read responses until we get PortalSuspended or CommandComplete
-  while true {
-    let messages = self.client.conn.receive()
-    for msg in messages {
-      match msg {
-        @protocol.DataRow(values) => {
-          let typed_values = convert_row_values(values, self.fields)
-          self.buffer.push(
-            Row::new(typed_values, self.fields, self.column_index),
-          )
+  guard self.lock_held else {
+    raise StreamError("Stream operation lock not held")
+  }
+  try {
+    self.buffer.clear()
+    self.buffer_pos = 0
+    // Send Execute with batch_size limit + Flush
+    self.client.conn.send_all([
+      @protocol.Execute(self.portal_name, self.batch_size),
+      @protocol.Flush,
+    ])
+    // Read responses until we get PortalSuspended or CommandComplete
+    while true {
+      let messages = self.client.conn.receive()
+      for msg in messages {
+        match msg {
+          @protocol.DataRow(values) => {
+            let typed_values = convert_row_values(values, self.fields)
+            self.buffer.push(
+              Row::new(typed_values, self.fields, self.column_index),
+            )
+          }
+          @protocol.PortalSuspended =>
+            // More rows available in next batch
+            return
+          @protocol.CommandComplete(_) => {
+            // All rows have been returned — need to read until ReadyForQuery
+            // by sending Sync
+            self.exhausted = true
+            self.client.conn.send(@protocol.Sync)
+            let rfq_msgs = self.client.conn.receive_until_ready()
+            check_error(rfq_msgs)
+            self.client.conn.operation_guard.release()
+            self.lock_held = false
+            return
+          }
+          @protocol.ErrorResponse(fields) => {
+            let info = ServerErrorInfo::from_fields(fields)
+            self.client.conn.send(@protocol.Sync)
+            let _ = self.client.conn.receive_until_ready()
+            raise ServerError(info)
+          }
+          @protocol.NotificationResponse(pid, channel, payload) =>
+            self.client.conn.enqueue_notification(
+              Notification::new(channel, payload, pid),
+            )
+          _ => ()
         }
-        @protocol.PortalSuspended =>
-          // More rows available in next batch
-          return
-        @protocol.CommandComplete(_) => {
-          // All rows have been returned — need to read until ReadyForQuery
-          // by sending Sync
-          self.exhausted = true
-          self.client.conn.send(@protocol.Sync)
-          let rfq_msgs = self.client.conn.receive_until_ready()
-          check_error(rfq_msgs)
-          return
-        }
-        @protocol.ErrorResponse(fields) =>
-          raise ServerError(ServerErrorInfo::from_fields(fields))
-        @protocol.NotificationResponse(pid, channel, payload) =>
-          self.client.conn.notification_queue.push(
-            Notification::new(channel, payload, pid),
-          )
-        _ => ()
       }
+    }
+  } catch {
+    err => {
+      if self.lock_held {
+        self.client.conn.operation_guard.release()
+        self.lock_held = false
+      }
+      raise err
     }
   }
 }
@@ -143,9 +202,6 @@ pub async fn Client::query_stream(
   batch_size? : Int = 100,
 ) -> RowStream {
   self.check_open()
-  self.stmt_counter += 1
-  let stmt_name = "__stream_" + self.stmt_counter.to_string()
-  let portal_name = "__portal_" + self.stmt_counter.to_string()
 
   // Auto-start transaction if not in one (portals don't survive outside tx)
   let auto_tx = not(self.in_transaction())
@@ -153,81 +209,135 @@ pub async fn Client::query_stream(
     let _ = self.execute("BEGIN")
   }
 
-  // Parse + Bind + Describe + Execute(portal, batch_size) + Flush
-  let param_bytes = serialize_params(params)
-  self.conn.send_all([
-    @protocol.Parse(stmt_name, sql, []),
-    @protocol.Bind(portal_name, stmt_name, [], param_bytes, []),
-    @protocol.Describe(@protocol.TARGET_PORTAL, portal_name),
-    @protocol.Execute(portal_name, batch_size),
-    @protocol.Flush,
-  ])
+  self.conn.operation_guard.acquire()
+  if self.closed {
+    self.conn.operation_guard.release()
+    raise ConnectionClosedError
+  }
+  self.stmt_counter += 1
+  let stmt_name = "__stream_" + self.stmt_counter.to_string()
+  let portal_name = "__portal_" + self.stmt_counter.to_string()
 
-  // Read responses: ParseComplete, BindComplete, RowDescription, then rows
-  let mut columns : Array[ColumnInfo] = []
-  let mut col_index : Map[String, Int] = {}
-  let rows : Array[Row] = []
-  let mut exhausted = false
+  try {
+    // Parse + Bind + Describe + Execute(portal, batch_size) + Flush
+    let param_bytes = serialize_params(params)
+    self.conn.send_all([
+      @protocol.Parse(stmt_name, sql, []),
+      @protocol.Bind(portal_name, stmt_name, [], param_bytes, []),
+      @protocol.Describe(@protocol.TARGET_PORTAL, portal_name),
+      @protocol.Execute(portal_name, batch_size),
+      @protocol.Flush,
+    ])
 
-  while true {
-    let messages = self.conn.receive()
-    let mut done = false
-    for msg in messages {
-      match msg {
-        @protocol.ParseComplete | @protocol.BindComplete => ()
-        @protocol.RowDescription(f) => {
-          columns = f.map(fn(fd) { column_info_from_field(fd) })
-          col_index = build_column_index(columns)
-        }
-        @protocol.NoData => columns = []
-        @protocol.DataRow(values) => {
-          let typed_values = convert_row_values(values, columns)
-          rows.push(Row::new(typed_values, columns, col_index))
-        }
-        @protocol.PortalSuspended =>
-          // First batch done, more rows available
-          done = true
-        @protocol.CommandComplete(_) => {
-          // All rows fit in first batch
-          exhausted = true
-          // Need to Sync to get ReadyForQuery
-          self.conn.send(@protocol.Sync)
-          let _ = self.conn.receive_until_ready()
-          done = true
-        }
-        @protocol.ErrorResponse(fields) => {
-          if auto_tx {
-            // Rollback the auto-transaction on error
-            // Send Sync first to get back to ReadyForQuery
+    // Read responses: ParseComplete, BindComplete, RowDescription, then rows
+    let mut columns : Array[ColumnInfo] = []
+    let mut col_index : Map[String, Int] = {}
+    let rows : Array[Row] = []
+    let mut exhausted = false
+
+    while true {
+      let messages = self.conn.receive()
+      let mut done = false
+      for msg in messages {
+        match msg {
+          @protocol.ParseComplete | @protocol.BindComplete => ()
+          @protocol.RowDescription(f) => {
+            columns = f.map(fn(fd) { column_info_from_field(fd) })
+            col_index = build_column_index(columns)
+          }
+          @protocol.NoData => columns = []
+          @protocol.DataRow(values) => {
+            let typed_values = convert_row_values(values, columns)
+            rows.push(Row::new(typed_values, columns, col_index))
+          }
+          @protocol.PortalSuspended =>
+            // First batch done, more rows available
+            done = true
+          @protocol.CommandComplete(_) => {
+            // All rows fit in first batch
+            exhausted = true
+            // Need to Sync to get ReadyForQuery
             self.conn.send(@protocol.Sync)
             let _ = self.conn.receive_until_ready()
-            let _ = self.execute("ROLLBACK")
+            done = true
           }
-          raise ServerError(ServerErrorInfo::from_fields(fields))
+          @protocol.ErrorResponse(fields) =>
+            raise ServerError(ServerErrorInfo::from_fields(fields))
+          @protocol.NotificationResponse(pid, channel, payload) =>
+            self.conn.enqueue_notification(
+              Notification::new(channel, payload, pid),
+            )
+          _ => ()
         }
-        @protocol.NotificationResponse(pid, channel, payload) =>
-          self.conn.notification_queue.push(
-            Notification::new(channel, payload, pid),
-          )
-        _ => ()
+      }
+      if done {
+        break
       }
     }
-    if done {
-      break
+
+    if exhausted {
+      self.conn.operation_guard.release()
+    }
+
+    let stream = {
+      client: self,
+      portal_name,
+      stmt_name,
+      batch_size,
+      fields: columns,
+      column_index: col_index,
+      buffer: rows,
+      buffer_pos: 0,
+      exhausted,
+      closed: false,
+      auto_tx,
+      lock_held: not(exhausted),
+    }
+    stream
+  } catch {
+    err => {
+      self.cleanup_failed_stream_setup(portal_name, stmt_name, auto_tx) catch {
+        _ => ()
+      }
+      self.conn.operation_guard.release()
+      raise err
     }
   }
+}
 
-  {
-    client: self,
-    portal_name,
-    stmt_name,
-    batch_size,
-    fields: columns,
-    column_index: col_index,
-    buffer: rows,
-    buffer_pos: 0,
-    exhausted,
-    closed: false,
-    auto_tx,
+///|
+/// Best-effort cleanup for query_stream setup failures while operation lock is held.
+async fn Client::cleanup_failed_stream_setup(
+  self : Client,
+  portal_name : String,
+  stmt_name : String,
+  auto_tx : Bool,
+) -> Unit {
+  if self.closed {
+    return
+  }
+  // First force protocol sync back to ReadyForQuery if backend is in failed
+  // extended-query state.
+  self.conn.send(@protocol.Sync) catch {
+    _ => ()
+  }
+  let _ = self.conn.receive_until_ready() catch { _ => [] }
+
+  // Then try to close portal/statement resources.
+  self.conn.send_all([
+    @protocol.Close(@protocol.TARGET_PORTAL, portal_name),
+    @protocol.Close(@protocol.TARGET_STATEMENT, stmt_name),
+    @protocol.Sync,
+  ]) catch {
+    _ => ()
+  }
+  let _ = self.conn.receive_until_ready() catch { _ => [] }
+
+  // Roll back auto-opened transaction if it was started.
+  if auto_tx {
+    self.conn.send(@protocol.Query("ROLLBACK")) catch {
+      _ => ()
+    }
+    let _ = self.conn.receive_until_ready() catch { _ => [] }
   }
 }

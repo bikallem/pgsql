@@ -103,3 +103,15 @@ test "BufferReader::bytes" {
   assert_eq(result[1], b'\x02')
   assert_eq(reader.remaining(), 2)
 }
+
+///|
+test "BufferReader::bytes rejects negative length" {
+  let reader = BufferReader::new(Bytes::from_array([b'\x01', b'\x02']))
+  let failed = try {
+    let _ = reader.bytes(-1)
+    false
+  } catch {
+    BufferUnderflow(_) => true
+  }
+  assert_true(failed)
+}

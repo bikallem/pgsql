@@ -27,6 +27,8 @@ async fn main {
     "postgres",
     host="localhost",
     port=5432,
+    // Local dev default for many installs without TLS configured.
+    ssl_mode=@pgsql.Disable,
   )
 
   let client = @pgsql.Client::connect(config) catch {

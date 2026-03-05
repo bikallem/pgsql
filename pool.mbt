@@ -38,24 +38,37 @@ pub async fn Pool::acquire(self : Pool) -> Client {
     self.acquire_timeout_ms,
     async fn() {
       self.semaphore.acquire()
-      // Try to get an idle connection
-      let idle_client : Client? = self.idle.try_get() catch { _ => None }
-      match idle_client {
-        Some(client) =>
-          // Verify the connection is still usable
-          if client.closed {
-            // Discard and create a new one
-            Client::connect(self.config)
-          } else {
-            client
-          }
-        _ =>
-          // No idle connections, create a new one
-          Client::connect(self.config)
+      self.acquire_after_permit() catch {
+        err => {
+          // Connect failure after permit acquisition must not leak capacity.
+          self.semaphore.release()
+          raise err
+        }
       }
     },
     error=PoolError("Acquire timeout"),
   )
+}
+
+///|
+/// Acquire path after a semaphore permit has already been acquired.
+/// Caller is responsible for releasing the permit on failure.
+async fn Pool::acquire_after_permit(self : Pool) -> Client {
+  // Try to get an idle connection
+  let idle_client : Client? = self.idle.try_get() catch { _ => None }
+  match idle_client {
+    Some(client) =>
+      // Verify the connection is still usable
+      if client.closed {
+        // Discard and create a new one
+        Client::connect(self.config)
+      } else {
+        client
+      }
+    _ =>
+      // No idle connections, create a new one
+      Client::connect(self.config)
+  }
 }
 
 ///|

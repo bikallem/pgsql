@@ -21,6 +21,8 @@ priv struct Connection {
   server_params : Map[String, String]
   /// Queue of received notifications
   notification_queue : Array[Notification]
+  /// Serialize protocol operations on this connection
+  operation_guard : @async.Semaphore
 }
 
 ///|
@@ -35,6 +37,7 @@ fn Connection::create(config : Config, transport : Transport) -> Connection {
     transaction_status: @protocol.Idle,
     server_params: {},
     notification_queue: [],
+    operation_guard: @async.Semaphore::new(1),
   }
 }
 
@@ -98,7 +101,7 @@ async fn Connection::receive_until_ready(
     for msg in messages {
       match msg {
         @protocol.NotificationResponse(pid, channel, payload) =>
-          self.notification_queue.push(Notification::new(channel, payload, pid))
+          self.enqueue_notification(Notification::new(channel, payload, pid))
         @protocol.ReadyForQuery(status) => {
           all_messages.push(msg)
           self.transaction_status = status
@@ -110,6 +113,47 @@ async fn Connection::receive_until_ready(
   } nobreak {
     all_messages
   }
+}
+
+///|
+/// Enqueue a notification in arrival order.
+fn Connection::enqueue_notification(
+  self : Connection,
+  notification : Notification,
+) -> Unit {
+  self.notification_queue.push(notification)
+}
+
+///|
+/// Pop the next queued notification in FIFO order.
+fn Connection::dequeue_notification(self : Connection) -> Notification? {
+  if self.notification_queue.length() == 0 {
+    return None
+  }
+  let first = self.notification_queue[0]
+  if self.notification_queue.length() == 1 {
+    self.notification_queue.clear()
+    return Some(first)
+  }
+  let remaining : Array[Notification] = Array::new(
+    capacity=self.notification_queue.length() - 1,
+  )
+  for i = 1; i < self.notification_queue.length(); i = i + 1 {
+    remaining.push(self.notification_queue[i])
+  }
+  self.notification_queue.clear()
+  for item in remaining {
+    self.notification_queue.push(item)
+  }
+  Some(first)
+}
+
+///|
+/// Return queued notifications in order and clear the queue.
+fn Connection::drain_notifications(self : Connection) -> Array[Notification] {
+  let result = self.notification_queue.copy()
+  self.notification_queue.clear()
+  result
 }
 
 ///|
@@ -163,6 +207,20 @@ async fn connect(config : Config) -> Connection {
   conn.startup()
 
   conn
+}
+
+///|
+/// Send a PostgreSQL CancelRequest on a separate TCP connection.
+/// This is intentionally independent of the main connection/socket.
+async fn cancel_request(
+  config : Config,
+  process_id : Int,
+  secret_key : Int,
+) -> Unit {
+  let addr = @socket.Addr::resolve(config.host, port=config.port)
+  let tcp = @socket.Tcp::connect(addr)
+  tcp.write(@protocol.encode(@protocol.CancelRequest(process_id, secret_key)))
+  tcp.close()
 }
 
 ///|

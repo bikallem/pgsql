@@ -9,6 +9,13 @@ test "scram_client_first: message format" {
 }
 
 ///|
+test "scram_client_first: username escaping" {
+  let (full, bare) = scram_client_first("a=b,c", "nonce")
+  inspect(full, content="n,,n=a=3Db=2Cc,r=nonce")
+  inspect(bare, content="n=a=3Db=2Cc,r=nonce")
+}
+
+///|
 test "scram_client_final: compute proof and server signature" {
   // Use RFC 5802 example values adapted for SHA-256
   let client_nonce = "rOprNGfwEbeRWgbNEkqO"
@@ -52,6 +59,52 @@ test "scram_verify_server: invalid signature raises error" {
 }
 
 ///|
+test "scram_verify_server: server error attribute raises error" {
+  let mut got_error = false
+  scram_verify_server("e=invalid-proof", Bytes::make(32, b'\x00')) catch {
+    ScramError(msg) => {
+      got_error = true
+      assert_true(msg.contains("Server SCRAM error"))
+    }
+  }
+  assert_true(got_error)
+}
+
+///|
+test "scram_client_final: malformed iteration rejected" {
+  let client_nonce = "abc123"
+  let (_, client_first_bare) = scram_client_first("user", client_nonce)
+  let server_first = "r=abc123xyz,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4x96"
+  let mut got_error = false
+  let _ = scram_client_final(
+    "pencil", client_first_bare, server_first, client_nonce,
+  ) catch {
+    ScramError(_) => {
+      got_error = true
+      ("", b"")
+    }
+  }
+  assert_true(got_error)
+}
+
+///|
+test "scram_client_final: oversized iteration rejected" {
+  let client_nonce = "abc123"
+  let (_, client_first_bare) = scram_client_first("user", client_nonce)
+  let server_first = "r=abc123xyz,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=1000001"
+  let mut got_error = false
+  let _ = scram_client_final(
+    "pencil", client_first_bare, server_first, client_nonce,
+  ) catch {
+    ScramError(_) => {
+      got_error = true
+      ("", b"")
+    }
+  }
+  assert_true(got_error)
+}
+
+///|
 test "split_string" {
   let parts = split_string("a,b,c", ',')
   assert_eq(parts.length(), 3)
@@ -61,8 +114,8 @@ test "split_string" {
 }
 
 ///|
-test "parse_int_string" {
-  assert_eq(parse_int_string("4096"), 4096)
-  assert_eq(parse_int_string("1"), 1)
-  assert_eq(parse_int_string("100000"), 100000)
+test "parse_scram_iteration_count" {
+  assert_eq(parse_scram_iteration_count("4096"), 4096)
+  assert_eq(parse_scram_iteration_count("1"), 1)
+  assert_eq(parse_scram_iteration_count("100000"), 100000)
 }

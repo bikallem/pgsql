@@ -14,6 +14,7 @@ Native-only. Requires `moonbitlang/async` for async I/O.
   - [COPY Protocol](#copy-protocol)
   - [LISTEN/NOTIFY](#listennotify)
   - [Error Handling](#error-handling)
+  - [Timeouts and Cancellation](#timeouts-and-cancellation)
 - [Development](#development)
 
 ## Install
@@ -47,6 +48,9 @@ async test "simple and parameterized queries" {
   client.close()
 }
 ```
+
+`Config::new` now defaults to `ssl_mode=Require` (encrypted transport).
+For local environments without TLS, pass `ssl_mode=Disable` explicitly.
 
 ### Value Types
 
@@ -238,6 +242,25 @@ async test "error handling" {
 
   client.close()
 }
+```
+
+### Timeouts and Cancellation
+
+Use `read_timeout` to bound socket reads, and `Client::cancel()` to send a
+PostgreSQL cancel request for the currently running operation.
+
+```mbt nocheck
+let config = Config::new(
+  "user",
+  "pass",
+  "dbname",
+  host="127.0.0.1",
+  read_timeout=5000, // 5s read timeout
+)
+let client = Client::connect(config)
+
+// from another task/coroutine while a long query is running:
+client.cancel()
 ```
 
 ## Development

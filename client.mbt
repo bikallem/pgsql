@@ -29,18 +29,35 @@ fn Client::check_open(self : Client) -> Unit raise ConnectionClosedError {
 }
 
 ///|
+/// Execute a protocol operation under the per-connection operation guard.
+/// Ensures only one in-flight operation can touch the socket/decoder for
+/// a client at a time.
+async fn[T] Client::with_operation(self : Client, f : async () -> T) -> T {
+  self.conn.operation_guard.acquire()
+  if self.closed {
+    self.conn.operation_guard.release()
+    raise ConnectionClosedError
+  }
+  let result = f() catch {
+    err => {
+      self.conn.operation_guard.release()
+      raise err
+    }
+  }
+  self.conn.operation_guard.release()
+  result
+}
+
+///|
 /// Execute a simple query (non-parameterized)
 /// Returns query results
 pub async fn Client::query(self : Client, sql : String) -> QueryResult {
-  self.check_open()
-  // Send Query message
-  self.conn.send(@protocol.Query(sql))
-
-  // Receive all messages until ReadyForQuery
-  let messages = self.conn.receive_until_ready()
-
-  check_error(messages)
-  build_query_result(messages)
+  self.with_operation(async fn() {
+    self.conn.send(@protocol.Query(sql))
+    let messages = self.conn.receive_until_ready()
+    check_error(messages)
+    build_query_result(messages)
+  })
 }
 
 ///|
@@ -85,16 +102,14 @@ pub async fn Client::execute_params(
 /// Use PreparedStatement::query/execute to run it with parameters,
 /// and PreparedStatement::close when done.
 pub async fn Client::prepare(self : Client, sql : String) -> PreparedStatement {
-  self.check_open()
-  self.stmt_counter += 1
-  let name = "__prep_" + self.stmt_counter.to_string()
-
-  // Parse the statement on the server
-  self.conn.send_all([@protocol.Parse(name, sql, []), @protocol.Sync])
-
-  let messages = self.conn.receive_until_ready()
-  check_error(messages)
-  { client: self, name, sql, closed: false }
+  self.with_operation(async fn() {
+    self.stmt_counter += 1
+    let name = "__prep_" + self.stmt_counter.to_string()
+    self.conn.send_all([@protocol.Parse(name, sql, []), @protocol.Sync])
+    let messages = self.conn.receive_until_ready()
+    check_error(messages)
+    { client: self, name, sql, closed: false }
+  })
 }
 
 ///|
@@ -134,8 +149,13 @@ pub fn Client::transaction_status(self : Client) -> TransactionStatus {
 ///|
 /// Close the client connection
 pub async fn Client::close(self : Client) -> Unit {
+  if self.closed {
+    return
+  }
   self.closed = true
+  self.conn.operation_guard.acquire()
   self.conn.close()
+  self.conn.operation_guard.release()
 }
 
 ///|
@@ -157,6 +177,14 @@ pub fn Client::secret_key(self : Client) -> Int {
 }
 
 ///|
+/// Request cancellation of the currently running operation.
+/// Sends a PostgreSQL CancelRequest on a separate TCP connection.
+pub async fn Client::cancel(self : Client) -> Unit {
+  self.check_open()
+  cancel_request(self.conn.config, self.conn.process_id, self.conn.secret_key)
+}
+
+///|
 /// Start listening on a notification channel
 pub async fn Client::listen(self : Client, channel : String) -> Unit {
   let _ = self.execute("LISTEN " + quote_identifier(channel))
@@ -171,37 +199,44 @@ pub async fn Client::unlisten(self : Client, channel : String) -> Unit {
 ///|
 /// Return any queued notifications and clear the queue
 pub fn Client::poll_notifications(self : Client) -> Array[Notification] {
-  let result = self.conn.notification_queue.copy()
-  self.conn.notification_queue.clear()
-  result
+  self.conn.drain_notifications()
 }
 
 ///|
 /// Wait until a notification arrives.
 /// First checks the queue, then loops on receive until one arrives.
 pub async fn Client::wait_for_notification(self : Client) -> Notification {
-  self.check_open()
-  // Check queue first
-  if self.conn.notification_queue.length() > 0 {
-    return self.conn.notification_queue.unsafe_pop()
-  }
-  // Loop on receive until a notification arrives
-  while true {
-    let messages = self.conn.receive()
-    for msg in messages {
-      match msg {
-        @protocol.NotificationResponse(pid, channel, payload) =>
-          return Notification::new(channel, payload, pid)
-        @protocol.ReadyForQuery(status) => self.conn.transaction_status = status
-        @protocol.ParameterStatus(name, value) =>
-          self.conn.server_params[name] = value
-        _ => ()
-      }
+  self.with_operation(async fn() {
+    // Check queue first
+    match self.conn.dequeue_notification() {
+      Some(notification) => return notification
+      None => ()
     }
-  } nobreak {
-    // Unreachable — loop runs until notification or error
-    Notification::new("", "", 0)
-  }
+    // Loop on receive until a notification arrives
+    while true {
+      let messages = self.conn.receive()
+      for msg in messages {
+        match msg {
+          @protocol.NotificationResponse(pid, channel, payload) =>
+            self.conn.enqueue_notification(
+              Notification::new(channel, payload, pid),
+            )
+          @protocol.ReadyForQuery(status) =>
+            self.conn.transaction_status = status
+          @protocol.ParameterStatus(name, value) =>
+            self.conn.server_params[name] = value
+          _ => ()
+        }
+      }
+      match self.conn.dequeue_notification() {
+        Some(notification) => return notification
+        None => ()
+      }
+    } nobreak {
+      // Unreachable — loop runs until notification or error
+      Notification::new("", "", 0)
+    }
+  })
 }
 
 // =============================================================================
@@ -220,20 +255,22 @@ async fn Client::bind_execute(
   params : Array[Value],
   prefix? : Array[@protocol.FrontendMessage] = [],
 ) -> Array[@protocol.BackendMessage] {
-  let param_bytes = serialize_params(params)
-  let msgs : Array[@protocol.FrontendMessage] = []
-  for msg in prefix {
-    msgs.push(msg)
-  }
-  msgs.push(@protocol.Bind("", stmt_name, [], param_bytes, []))
-  msgs.push(@protocol.Describe(@protocol.TARGET_PORTAL, ""))
-  msgs.push(@protocol.Execute("", 0))
-  msgs.push(@protocol.Sync)
-  self.conn.send_all(msgs)
+  self.with_operation(async fn() {
+    let param_bytes = serialize_params(params)
+    let msgs : Array[@protocol.FrontendMessage] = []
+    for msg in prefix {
+      msgs.push(msg)
+    }
+    msgs.push(@protocol.Bind("", stmt_name, [], param_bytes, []))
+    msgs.push(@protocol.Describe(@protocol.TARGET_PORTAL, ""))
+    msgs.push(@protocol.Execute("", 0))
+    msgs.push(@protocol.Sync)
+    self.conn.send_all(msgs)
 
-  let messages = self.conn.receive_until_ready()
-  check_error(messages)
-  messages
+    let messages = self.conn.receive_until_ready()
+    check_error(messages)
+    messages
+  })
 }
 
 // =============================================================================
