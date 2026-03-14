@@ -101,29 +101,37 @@ async fn[T] Client::run_transaction_callback(
 }
 
 ///|
+/// Run a callback while holding a semaphore, releasing on both success and error.
+async fn[T] with_semaphore(
+  sem : @async.Semaphore,
+  f : async () -> T,
+) -> T {
+  sem.acquire()
+  let result = f() catch {
+    err => {
+      sem.release()
+      raise err
+    }
+  }
+  sem.release()
+  result
+}
+
+///|
 /// Execute a protocol operation under the per-connection operation guard.
 /// Ensures only one in-flight operation can touch the socket/decoder for
 /// a client at a time.
 async fn[T] Client::with_operation(self : Client, f : async () -> T) -> T {
   self.check_not_in_user_callback()
   self.check_not_in_transaction_callback()
-  self.tx_guard.acquire()
-  self.conn.operation_guard.acquire()
-  if self.closed {
-    self.conn.operation_guard.release()
-    self.tx_guard.release()
-    raise ConnectionClosedError
-  }
-  let result = f() catch {
-    err => {
-      self.conn.operation_guard.release()
-      self.tx_guard.release()
-      raise err
-    }
-  }
-  self.conn.operation_guard.release()
-  self.tx_guard.release()
-  result
+  with_semaphore(self.tx_guard, async fn() {
+    with_semaphore(self.conn.operation_guard, async fn() {
+      if self.closed {
+        raise ConnectionClosedError
+      }
+      f()
+    })
+  })
 }
 
 ///|
@@ -135,19 +143,12 @@ async fn[T] Client::with_transaction_operation(
   f : async () -> T,
 ) -> T {
   self.check_not_in_user_callback()
-  self.conn.operation_guard.acquire()
-  if self.closed {
-    self.conn.operation_guard.release()
-    raise ConnectionClosedError
-  }
-  let result = f() catch {
-    err => {
-      self.conn.operation_guard.release()
-      raise err
+  with_semaphore(self.conn.operation_guard, async fn() {
+    if self.closed {
+      raise ConnectionClosedError
     }
-  }
-  self.conn.operation_guard.release()
-  result
+    f()
+  })
 }
 
 ///|
@@ -243,22 +244,13 @@ pub async fn Client::close(self : Client) -> Unit {
   }
   self.check_not_in_user_callback()
   self.check_not_in_transaction_callback()
-  self.tx_guard.acquire()
-  if self.closed {
-    self.tx_guard.release()
-    return
-  }
-  self.closed = true
-  self.conn.operation_guard.acquire()
-  self.conn.close() catch {
-    err => {
-      self.conn.operation_guard.release()
-      self.tx_guard.release()
-      raise err
+  with_semaphore(self.tx_guard, async fn() {
+    if self.closed {
+      return
     }
-  }
-  self.conn.operation_guard.release()
-  self.tx_guard.release()
+    self.closed = true
+    with_semaphore(self.conn.operation_guard, async fn() { self.conn.close() })
+  })
 }
 
 ///|
