@@ -190,17 +190,9 @@ fn encode_frontend_batch(msgs : Array[@protocol.FrontendMessage]) -> Bytes {
   if msgs.length() == 1 {
     return @protocol.encode(msgs[0])
   }
-  // Pre-encode and reserve exact output capacity to reduce allocation churn.
-  let encoded : Array[Bytes] = Array::new(capacity=msgs.length())
-  let mut total_len = 0
+  let buf : Array[Byte] = []
   for msg in msgs {
     let bytes = @protocol.encode(msg)
-    total_len += bytes.length()
-    encoded.push(bytes)
-  }
-
-  let buf : Array[Byte] = Array::new(capacity=total_len)
-  for bytes in encoded {
     for i = 0; i < bytes.length(); i = i + 1 {
       buf.push(bytes[i])
     }
