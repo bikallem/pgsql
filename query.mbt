@@ -89,9 +89,7 @@ pub fn QueryResult::iter(self : QueryResult) -> Iter[Row] {
 /// Compute once per result set and share across all rows.
 fn build_column_index(fields : Array[ColumnInfo]) -> Map[String, Int] {
   let index : Map[String, Int] = {}
-  for i = 0; i < fields.length(); i = i + 1 {
-    index[fields[i].name] = i
-  }
+  fields.eachi(fn(i, f) { index[f.name] = i })
   index
 }
 

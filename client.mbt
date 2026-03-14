@@ -374,14 +374,12 @@ async fn Client::bind_execute_unlocked(
   prefix? : Array[@protocol.FrontendMessage] = [],
 ) -> Array[@protocol.BackendMessage] {
   let param_bytes = serialize_params(params)
-  let msgs : Array[@protocol.FrontendMessage] = []
-  for msg in prefix {
-    msgs.push(msg)
-  }
-  msgs.push(@protocol.Bind("", stmt_name, [], param_bytes, []))
-  msgs.push(@protocol.Describe(@protocol.TARGET_PORTAL, ""))
-  msgs.push(@protocol.Execute("", 0))
-  msgs.push(@protocol.Sync)
+  let msgs = Array::from_iter(prefix.iter())
+  msgs.append([@protocol.Bind("", stmt_name, [], param_bytes, []),
+    @protocol.Describe(@protocol.TARGET_PORTAL, ""),
+    @protocol.Execute("", 0),
+    @protocol.Sync,
+  ])
   self.conn.send_all(msgs)
 
   let messages = self.conn.receive_until_ready()
@@ -475,29 +473,20 @@ fn convert_row_values(
   raw_values : Array[Bytes?],
   columns : Array[ColumnInfo],
 ) -> Array[Value] {
-  let result : Array[Value] = []
-
-  for i = 0; i < raw_values.length(); i = i + 1 {
+  raw_values.mapi(fn(i, raw) {
     let type_oid = if i < columns.length() {
       columns[i].type_oid
     } else {
       @protocol.OID_TEXT
     }
-    let proto_value = @protocol.parse_text_value(raw_values[i], type_oid)
-    result.push(value_from_protocol(proto_value))
-  }
-
-  result
+    value_from_protocol(@protocol.parse_text_value(raw, type_oid))
+  })
 }
 
 ///|
 /// Serialize parameter values for Bind message
 fn serialize_params(params : Array[Value]) -> Array[Bytes?] {
-  let result : Array[Bytes?] = []
-  for param in params {
-    result.push(@protocol.serialize_value(value_to_protocol(param)))
-  }
-  result
+  params.map(fn(p) { @protocol.serialize_value(value_to_protocol(p)) })
 }
 
 ///|
