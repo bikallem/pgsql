@@ -270,49 +270,27 @@ fn parse_float(text : String) -> Value {
 ///|
 /// Parse bytea value (hex format: \x...)
 fn parse_bytea(text : String) -> Value {
-  if text.length() >= 2 {
-    // Check for hex format: \xHEXHEX...
-    let bytes = @utf8.encode(text[:])
-    if bytes[0] == b'\\' && bytes[1] == b'x' {
-      // Extract hex part (skip first 2 characters)
-      let hex_str = substring_from(text, 2)
-      match hex_decode(hex_str) {
-        Some(decoded) => Bytes(decoded)
-        None => String(text)
-      }
-    } else {
-      // Escape format - simplified handling
-      Bytes(bytes)
+  let bytes = @utf8.encode(text[:])
+  if bytes.length() >= 2 && bytes[0] == b'\\' && bytes[1] == b'x' {
+    // Hex format: \xHEXHEX... — decode directly from bytes, skipping prefix
+    match hex_decode_bytes(bytes, start=2) {
+      Some(decoded) => Bytes(decoded)
+      None => String(text)
     }
   } else {
-    Bytes(@utf8.encode(text[:]))
+    Bytes(bytes)
   }
 }
 
 ///|
-/// Get substring starting from given index
-fn substring_from(s : String, start : Int) -> String {
-  let chars : Array[Char] = []
-  let mut idx = 0
-  for c in s {
-    if idx >= start {
-      chars.push(c)
-    }
-    idx += 1
-  }
-  String::from_array(chars)
-}
-
-///|
-/// Decode hex string to bytes
-fn hex_decode(hex : String) -> Bytes? {
-  let hex_bytes = @utf8.encode(hex[:])
-  if hex_bytes.length() % 2 != 0 {
+/// Decode hex bytes to binary, starting from the given offset
+fn hex_decode_bytes(hex_bytes : Bytes, start~ : Int = 0) -> Bytes? {
+  let len = hex_bytes.length() - start
+  if len % 2 != 0 {
     return None
   }
-
-  let result : Array[Byte] = []
-  for i = 0; i < hex_bytes.length(); i = i + 2 {
+  let result : Array[Byte] = Array::new(capacity=len / 2)
+  for i = start; i < hex_bytes.length(); i = i + 2 {
     let high = hex_digit_value(hex_bytes[i])
     let low = hex_digit_value(hex_bytes[i + 1])
     match (high, low) {
