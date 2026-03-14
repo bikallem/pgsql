@@ -223,11 +223,7 @@ pub async fn Client::rollback(self : Client) -> Unit {
 ///|
 /// Check if in a transaction
 pub fn Client::in_transaction(self : Client) -> Bool {
-  match self.conn.transaction_status {
-    @protocol.InTransaction => true
-    @protocol.Failed => true
-    _ => false
-  }
+  self.conn.transaction_status is (@protocol.InTransaction | @protocol.Failed)
 }
 
 ///|

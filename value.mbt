@@ -39,10 +39,7 @@ pub(all) enum Value {
 ///|
 /// Check if value is null
 pub fn Value::is_null(self : Value) -> Bool {
-  match self {
-    Null => true
-    _ => false
-  }
+  self is Null
 }
 
 ///|
