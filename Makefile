@@ -1,10 +1,15 @@
 .PHONY: build fmt test test-integration test-all pg-start pg-stop clean
 
+all: clean fmt build test-all info
+
 build:
 	moon build --target native	
 
 fmt:
 	moon fmt	
+
+info:
+	moon info
 
 test:
 	moon test --target native internal/protocol/
