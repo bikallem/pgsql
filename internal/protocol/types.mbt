@@ -153,35 +153,24 @@ pub fn parse_text_value(data : Bytes?, type_oid : UInt) -> Value {
 ///|
 /// Parse text value based on type OID
 fn parse_text_value_inner(text : String, type_oid : UInt) -> Value {
-  if type_oid == OID_BOOL {
-    parse_bool(text)
-  } else if type_oid == OID_INT2 || type_oid == OID_INT4 {
-    parse_int(text)
-  } else if type_oid == OID_INT8 {
-    parse_int64(text)
-  } else if type_oid == OID_FLOAT4 ||
-    type_oid == OID_FLOAT8 ||
-    type_oid == OID_NUMERIC {
-    parse_float(text)
-  } else if type_oid == OID_BYTEA {
-    parse_bytea(text)
-  } else if type_oid == OID_DATE {
-    Date(text)
-  } else if type_oid == OID_TIME || type_oid == OID_TIMETZ {
-    Time(text)
-  } else if type_oid == OID_TIMESTAMP {
-    Timestamp(text)
-  } else if type_oid == OID_TIMESTAMPTZ {
-    TimestampTz(text)
-  } else if type_oid == OID_INTERVAL {
-    Interval(text)
-  } else if type_oid == OID_JSON || type_oid == OID_JSONB {
-    Json(text)
-  } else if type_oid == OID_UUID {
-    Uuid(text)
-  } else {
-    // Default: treat as string
-    String(text)
+  // OID constants: BOOL=16, INT2=21, INT4=23, INT8=20,
+  // FLOAT4=700, FLOAT8=701, NUMERIC=1700, BYTEA=17,
+  // DATE=1082, TIME=1083, TIMETZ=1266, TIMESTAMP=1114,
+  // TIMESTAMPTZ=1184, INTERVAL=1186, JSON=114, JSONB=3802, UUID=2950
+  match type_oid {
+    16 => parse_bool(text)
+    21 | 23 => parse_int(text)
+    20 => parse_int64(text)
+    700 | 701 | 1700 => parse_float(text)
+    17 => parse_bytea(text)
+    1082 => Date(text)
+    1083 | 1266 => Time(text)
+    1114 => Timestamp(text)
+    1184 => TimestampTz(text)
+    1186 => Interval(text)
+    114 | 3802 => Json(text)
+    2950 => Uuid(text)
+    _ => String(text)
   }
 }
 
