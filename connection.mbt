@@ -420,12 +420,28 @@ async fn Connection::startup(self : Connection) -> Unit {
 }
 
 ///|
+/// FFI: fill buffer with OS-level cryptographically secure random bytes.
+/// Returns 0 on success, -1 on failure.
+#borrow(buf)
+extern "C" fn getrandom_ffi(buf : FixedArray[Byte], len : Int) -> Int = "pgsql_getrandom"
+
+///|
+/// Generate cryptographically secure random bytes using the OS CSPRNG.
+fn secure_random_bytes(len : Int) -> Bytes raise {
+  let buf = FixedArray::make(len, b'\x00')
+  guard getrandom_ffi(buf, len) == 0 else {
+    raise AuthError("getrandom failed")
+  }
+  buf.unsafe_reinterpret_as_bytes()
+}
+
+///|
 /// Generate a random nonce for SCRAM authentication.
-/// Uses OpenSSL CSPRNG via @tls.rand_bytes, base64-encoded.
+/// Uses OS CSPRNG (getrandom/SecRandomCopyBytes/BCryptGenRandom), base64-encoded.
 fn generate_nonce() -> String {
-  let random_bytes = @tls.rand_bytes(18) catch {
+  let random_bytes = secure_random_bytes(18) catch {
     _ => {
-      // Fallback: timestamp-seeded ChaCha8 if OpenSSL unavailable
+      // Fallback: timestamp-seeded ChaCha8 if OS CSPRNG unavailable
       let now = @async.now()
       let seed_bytes = Bytes::makei(32, fn(i) {
         ((now >> (i % 8 * 8)) & 0xFFL).to_byte()
