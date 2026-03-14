@@ -23,7 +23,7 @@ refs
 src/tests/.postgres
 .direnv
 
-# Dolt database files (added by bd init)
+# Beads issue tracker
+.beads/
 .dolt/
 *.db
-.beads/dolt-config.log
