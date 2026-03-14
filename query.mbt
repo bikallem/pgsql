@@ -133,98 +133,65 @@ pub fn Row::by_name(self : Row, name : String) -> Value? {
 ///|
 /// Value as String at index
 pub fn Row::string(self : Row, index : Int) -> String? {
-  match self.get(index) {
-    Some(v) => v.as_string()
-    None => None
-  }
+  self.get(index).bind(Value::as_string)
 }
 
 ///|
 /// Value as Int at index
 pub fn Row::int(self : Row, index : Int) -> Int? {
-  match self.get(index) {
-    Some(v) => v.as_int()
-    None => None
-  }
+  self.get(index).bind(Value::as_int)
 }
 
 ///|
 /// Value as Int64 at index
 pub fn Row::int64(self : Row, index : Int) -> Int64? {
-  match self.get(index) {
-    Some(v) => v.as_int64()
-    None => None
-  }
+  self.get(index).bind(Value::as_int64)
 }
 
 ///|
 /// Value as Double at index
 pub fn Row::float(self : Row, index : Int) -> Double? {
-  match self.get(index) {
-    Some(v) => v.as_float()
-    None => None
-  }
+  self.get(index).bind(Value::as_float)
 }
 
 ///|
 /// Value as Bool at index
 pub fn Row::bool(self : Row, index : Int) -> Bool? {
-  match self.get(index) {
-    Some(v) => v.as_bool()
-    None => None
-  }
+  self.get(index).bind(Value::as_bool)
 }
 
 ///|
 /// Check if value at index is null
 pub fn Row::is_null(self : Row, index : Int) -> Bool {
-  match self.get(index) {
-    Some(v) => v.is_null()
-    None => false
-  }
+  self.get(index).map(Value::is_null).unwrap_or(false)
 }
 
 ///|
 /// Value as Date string at index
 pub fn Row::date(self : Row, index : Int) -> String? {
-  match self.get(index) {
-    Some(v) => v.as_date()
-    None => None
-  }
+  self.get(index).bind(Value::as_date)
 }
 
 ///|
 /// Value as Time string at index
 pub fn Row::time(self : Row, index : Int) -> String? {
-  match self.get(index) {
-    Some(v) => v.as_time()
-    None => None
-  }
+  self.get(index).bind(Value::as_time)
 }
 
 ///|
 /// Value as Timestamp string at index
 pub fn Row::timestamp(self : Row, index : Int) -> String? {
-  match self.get(index) {
-    Some(v) => v.as_timestamp()
-    None => None
-  }
+  self.get(index).bind(Value::as_timestamp)
 }
 
 ///|
 /// Value as JSON string at index
 pub fn Row::json(self : Row, index : Int) -> String? {
-  match self.get(index) {
-    Some(v) => v.as_json()
-    None => None
-  }
+  self.get(index).bind(Value::as_json)
 }
 
 ///|
 /// Value as UUID string at index
 pub fn Row::uuid(self : Row, index : Int) -> String? {
-  match self.get(index) {
-    Some(v) => v.as_uuid()
-    None => None
-  }
+  self.get(index).bind(Value::as_uuid)
 }
