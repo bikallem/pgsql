@@ -39,7 +39,6 @@ test "parse_affected_rows zero rows" {
   inspect(parse_affected_rows("DELETE 0"), content="0")
 }
 
-
 ///|
 /// Helper to create a Row in tests (computes column_index automatically)
 fn test_row(values : Array[Value], cols : Array[ColumnInfo]) -> Row {
@@ -255,7 +254,6 @@ test "serialize_params mixed types" {
   inspect(result[1] is Some(_), content="true")
   inspect(result[3] is Some(_), content="true")
 }
-
 
 ///|
 test "build_column_index maps names to indices" {

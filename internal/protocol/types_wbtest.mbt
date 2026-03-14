@@ -534,4 +534,3 @@ test "serialize_value Uuid" {
     None => fail("Expected Some")
   }
 }
-

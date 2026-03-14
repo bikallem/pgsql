@@ -260,9 +260,7 @@ fn parse_float(text : String) -> Value {
   if text == "-inf" {
     return Float(-1.0 / 0.0)
   }
-  try {
-    Float(@strconv.parse_double(text[:]))
-  } catch {
+  Float(@strconv.parse_double(text[:])) catch {
     _ => String(text)
   }
 }
@@ -284,7 +282,7 @@ fn parse_bytea(text : String) -> Value {
 
 ///|
 /// Decode hex bytes to binary, starting from the given offset
-fn hex_decode_bytes(hex_bytes : Bytes, start~ : Int = 0) -> Bytes? {
+fn hex_decode_bytes(hex_bytes : Bytes, start? : Int = 0) -> Bytes? {
   let len = hex_bytes.length() - start
   if len % 2 != 0 {
     return None
@@ -357,4 +355,3 @@ fn bytea_to_hex(data : Bytes) -> Bytes {
   }
   Bytes::from_array(result)
 }
-

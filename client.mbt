@@ -102,10 +102,7 @@ async fn[T] Client::run_transaction_callback(
 
 ///|
 /// Run a callback while holding a semaphore, releasing on both success and error.
-async fn[T] with_semaphore(
-  sem : @async.Semaphore,
-  f : async () -> T,
-) -> T {
+async fn[T] with_semaphore(sem : @async.Semaphore, f : async () -> T) -> T {
   sem.acquire()
   let result = f() catch {
     err => {
@@ -375,7 +372,8 @@ async fn Client::bind_execute_unlocked(
 ) -> Array[@protocol.BackendMessage] {
   let param_bytes = serialize_params(params)
   let msgs = Array::from_iter(prefix.iter())
-  msgs.append([@protocol.Bind("", stmt_name, [], param_bytes, []),
+  msgs.append([
+    @protocol.Bind("", stmt_name, [], param_bytes, []),
     @protocol.Describe(@protocol.TARGET_PORTAL, ""),
     @protocol.Execute("", 0),
     @protocol.Sync,
