@@ -429,20 +429,19 @@ async fn Connection::startup(self : Connection) -> Unit {
 
 ///|
 /// Generate a random nonce for SCRAM authentication.
-/// Uses random bytes, base64-encoded.
-///
-/// SECURITY NOTE: The nonce is seeded from @async.now() (a timestamp),
-/// which is predictable. An attacker who knows the approximate connection
-/// time could narrow the nonce space. This should be replaced with
-/// OS-level CSPRNG (e.g. /dev/urandom) when MoonBit's async library
-/// exposes a secure random source.
+/// Uses OpenSSL CSPRNG via @tls.rand_bytes, base64-encoded.
 fn generate_nonce() -> String {
-  let now = @async.now()
-  let seed_bytes = Bytes::makei(32, fn(i) {
-    ((now >> (i % 8 * 8)) & 0xFFL).to_byte()
-  })
-  let rng = @random.Rand::chacha8(seed=seed_bytes)
-  let random_bytes = Bytes::makei(18, fn(_i) { rng.uint(limit=256).to_byte() })
+  let random_bytes = @tls.rand_bytes(18) catch {
+    _ => {
+      // Fallback: timestamp-seeded ChaCha8 if OpenSSL unavailable
+      let now = @async.now()
+      let seed_bytes = Bytes::makei(32, fn(i) {
+        ((now >> (i % 8 * 8)) & 0xFFL).to_byte()
+      })
+      let rng = @random.Rand::chacha8(seed=seed_bytes)
+      Bytes::makei(18, fn(_i) { rng.uint(limit=256).to_byte() })
+    }
+  }
   @base64.encode(random_bytes[:])
 }
 
