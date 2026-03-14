@@ -2,7 +2,7 @@
 /// Unit tests for BufferWriter and BufferReader
 test "BufferWriter::add_byte" {
   let writer = BufferWriter::new()
-  writer.add_byte(b'\x42') |> ignore
+  writer.add_byte(b'\x42')
   let result = writer.to_bytes()
   assert_eq(result.length(), 1)
   assert_eq(result[0], b'\x42')
@@ -11,7 +11,7 @@ test "BufferWriter::add_byte" {
 ///|
 test "BufferWriter::add_int16" {
   let writer = BufferWriter::new()
-  writer.add_int16(0x1234) |> ignore
+  writer.add_int16(0x1234)
   let result = writer.to_bytes()
   assert_eq(result.length(), 2)
   assert_eq(result[0], b'\x12')
@@ -21,7 +21,7 @@ test "BufferWriter::add_int16" {
 ///|
 test "BufferWriter::add_int16_negative" {
   let writer = BufferWriter::new()
-  writer.add_int16(-1) |> ignore
+  writer.add_int16(-1)
   let result = writer.to_bytes()
   assert_eq(result.length(), 2)
   assert_eq(result[0], b'\xFF')
@@ -31,7 +31,7 @@ test "BufferWriter::add_int16_negative" {
 ///|
 test "BufferWriter::add_int32" {
   let writer = BufferWriter::new()
-  writer.add_int32(0x12345678) |> ignore
+  writer.add_int32(0x12345678)
   let result = writer.to_bytes()
   assert_eq(result.length(), 4)
   assert_eq(result[0], b'\x12')
@@ -43,7 +43,7 @@ test "BufferWriter::add_int32" {
 ///|
 test "BufferWriter::add_cstring" {
   let writer = BufferWriter::new()
-  writer.add_cstring("hello") |> ignore
+  writer.add_cstring("hello")
   let result = writer.to_bytes()
   assert_eq(result.length(), 6) // 5 chars + null terminator
   assert_eq(result[5], b'\x00')
@@ -52,7 +52,7 @@ test "BufferWriter::add_cstring" {
 ///|
 test "BufferWriter::flush" {
   let writer = BufferWriter::new()
-  writer.add_cstring("Q") |> ignore
+  writer.add_cstring("Q")
   let result = writer.flush(b'X')
   // Should be: type(1) + length(4) + "Q\0"(2) = 7 bytes
   assert_eq(result.length(), 7)

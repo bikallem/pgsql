@@ -25,62 +25,42 @@ pub fn BufferWriter::length(self : BufferWriter) -> Int {
 
 ///|
 /// Add a single byte
-pub fn BufferWriter::add_byte(
-  self : BufferWriter,
-  value : Byte,
-) -> BufferWriter {
+pub fn BufferWriter::add_byte(self : BufferWriter, value : Byte) -> Unit {
   self.data.push(value)
-  self
 }
 
 ///|
 /// Add a 16-bit signed integer in big-endian format
-pub fn BufferWriter::add_int16(
-  self : BufferWriter,
-  value : Int,
-) -> BufferWriter {
+pub fn BufferWriter::add_int16(self : BufferWriter, value : Int) -> Unit {
   self.data.push(((value >> 8) & 0xFF).to_byte())
   self.data.push((value & 0xFF).to_byte())
-  self
 }
 
 ///|
 /// Add a 32-bit signed integer in big-endian format
-pub fn BufferWriter::add_int32(
-  self : BufferWriter,
-  value : Int,
-) -> BufferWriter {
+pub fn BufferWriter::add_int32(self : BufferWriter, value : Int) -> Unit {
   self.data.push(((value >> 24) & 0xFF).to_byte())
   self.data.push(((value >> 16) & 0xFF).to_byte())
   self.data.push(((value >> 8) & 0xFF).to_byte())
   self.data.push((value & 0xFF).to_byte())
-  self
 }
 
 ///|
 /// Add a null-terminated C string (UTF-8 encoded)
-pub fn BufferWriter::add_cstring(
-  self : BufferWriter,
-  value : String,
-) -> BufferWriter {
+pub fn BufferWriter::add_cstring(self : BufferWriter, value : String) -> Unit {
   let bytes = @utf8.encode(value[:])
   for i = 0; i < bytes.length(); i = i + 1 {
     self.data.push(bytes[i])
   }
   self.data.push(b'\x00') // null terminator
-  self
 }
 
 ///|
 /// Add raw bytes
-pub fn BufferWriter::add_bytes(
-  self : BufferWriter,
-  value : Bytes,
-) -> BufferWriter {
+pub fn BufferWriter::add_bytes(self : BufferWriter, value : Bytes) -> Unit {
   for i = 0; i < value.length(); i = i + 1 {
     self.data.push(value[i])
   }
-  self
 }
 
 ///|

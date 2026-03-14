@@ -41,16 +41,16 @@ fn encode_startup(params : Map[String, String]) -> Bytes {
   let writer = BufferWriter::new()
 
   // Protocol version 3.0
-  writer.add_int32(PROTOCOL_VERSION) |> ignore
+  writer.add_int32(PROTOCOL_VERSION)
 
   // Add parameters
   params.each(fn(key, value) {
-    writer.add_cstring(key) |> ignore
-    writer.add_cstring(value) |> ignore
+    writer.add_cstring(key)
+    writer.add_cstring(value)
   })
 
   // Null terminator for parameter list
-  writer.add_byte(b'\x00') |> ignore
+  writer.add_byte(b'\x00')
 
   writer.flush_startup()
 }
@@ -110,7 +110,7 @@ fn encode_cancel_request(process_id : Int, secret_key : Int) -> Bytes {
 /// Format: 'p' + length + password (cstring)
 fn encode_password(password : String) -> Bytes {
   let writer = BufferWriter::new()
-  writer.add_cstring(password) |> ignore
+  writer.add_cstring(password)
   writer.flush(CODE_PASSWORD)
 }
 
@@ -118,12 +118,12 @@ fn encode_password(password : String) -> Bytes {
 /// Encode SASLInitialResponse
 fn encode_sasl_initial_response(mechanism : String, data : Bytes) -> Bytes {
   let writer = BufferWriter::new()
-  writer.add_cstring(mechanism) |> ignore
+  writer.add_cstring(mechanism)
   if data.length() > 0 {
-    writer.add_int32(data.length()) |> ignore
-    writer.add_bytes(data) |> ignore
+    writer.add_int32(data.length())
+    writer.add_bytes(data)
   } else {
-    writer.add_int32(-1) |> ignore // no initial response
+    writer.add_int32(-1) // no initial response
   }
   writer.flush(CODE_PASSWORD)
 }
@@ -132,7 +132,7 @@ fn encode_sasl_initial_response(mechanism : String, data : Bytes) -> Bytes {
 /// Encode SASLResponse
 fn encode_sasl_response(data : Bytes) -> Bytes {
   let writer = BufferWriter::new()
-  writer.add_bytes(data) |> ignore
+  writer.add_bytes(data)
   writer.flush(CODE_PASSWORD)
 }
 
@@ -145,7 +145,7 @@ fn encode_sasl_response(data : Bytes) -> Bytes {
 /// Format: 'Q' + length + query (cstring)
 fn encode_query(sql : String) -> Bytes {
   let writer = BufferWriter::new()
-  writer.add_cstring(sql) |> ignore
+  writer.add_cstring(sql)
   writer.flush(CODE_QUERY)
 }
 
@@ -162,11 +162,11 @@ fn encode_parse(
   type_oids : Array[UInt],
 ) -> Bytes {
   let writer = BufferWriter::new()
-  writer.add_cstring(name) |> ignore
-  writer.add_cstring(query) |> ignore
-  writer.add_int16(type_oids.length()) |> ignore
+  writer.add_cstring(name)
+  writer.add_cstring(query)
+  writer.add_int16(type_oids.length())
   for oid in type_oids {
-    writer.add_int32(oid.reinterpret_as_int()) |> ignore
+    writer.add_int32(oid.reinterpret_as_int())
   }
   writer.flush(CODE_PARSE)
 }
@@ -187,31 +187,31 @@ fn encode_bind(
   let writer = BufferWriter::new()
 
   // Portal and statement names
-  writer.add_cstring(portal) |> ignore
-  writer.add_cstring(statement) |> ignore
+  writer.add_cstring(portal)
+  writer.add_cstring(statement)
 
   // Parameter format codes
-  writer.add_int16(param_formats.length()) |> ignore
+  writer.add_int16(param_formats.length())
   for fmt in param_formats {
-    writer.add_int16(format_code_to_int(fmt)) |> ignore
+    writer.add_int16(format_code_to_int(fmt))
   }
 
   // Parameter values
-  writer.add_int16(params.length()) |> ignore
+  writer.add_int16(params.length())
   for param in params {
     match param {
-      None => writer.add_int32(-1) |> ignore // NULL
+      None => writer.add_int32(-1) // NULL
       Some(data) => {
-        writer.add_int32(data.length()) |> ignore
-        writer.add_bytes(data) |> ignore
+        writer.add_int32(data.length())
+        writer.add_bytes(data)
       }
     }
   }
 
   // Result format codes
-  writer.add_int16(result_formats.length()) |> ignore
+  writer.add_int16(result_formats.length())
   for fmt in result_formats {
-    writer.add_int16(format_code_to_int(fmt)) |> ignore
+    writer.add_int16(format_code_to_int(fmt))
   }
 
   writer.flush(CODE_BIND)
@@ -222,8 +222,8 @@ fn encode_bind(
 /// Format: 'D' + length + type ('S' or 'P') + name (cstring)
 fn encode_describe(kind : Byte, name : String) -> Bytes {
   let writer = BufferWriter::new()
-  writer.add_byte(kind) |> ignore
-  writer.add_cstring(name) |> ignore
+  writer.add_byte(kind)
+  writer.add_cstring(name)
   writer.flush(CODE_DESCRIBE)
 }
 
@@ -232,8 +232,8 @@ fn encode_describe(kind : Byte, name : String) -> Bytes {
 /// Format: 'E' + length + portal (cstring) + max_rows (int32)
 fn encode_execute(portal : String, max_rows : Int) -> Bytes {
   let writer = BufferWriter::new()
-  writer.add_cstring(portal) |> ignore
-  writer.add_int32(max_rows) |> ignore
+  writer.add_cstring(portal)
+  writer.add_int32(max_rows)
   writer.flush(CODE_EXECUTE)
 }
 
@@ -242,8 +242,8 @@ fn encode_execute(portal : String, max_rows : Int) -> Bytes {
 /// Format: 'C' + length + type ('S' or 'P') + name (cstring)
 fn encode_close(kind : Byte, name : String) -> Bytes {
   let writer = BufferWriter::new()
-  writer.add_byte(kind) |> ignore
-  writer.add_cstring(name) |> ignore
+  writer.add_byte(kind)
+  writer.add_cstring(name)
   writer.flush(CODE_CLOSE)
 }
 
@@ -315,7 +315,7 @@ fn encode_terminate() -> Bytes {
 /// Format: 'd' + length + data
 fn encode_copy_data(data : Bytes) -> Bytes {
   let writer = BufferWriter::new()
-  writer.add_bytes(data) |> ignore
+  writer.add_bytes(data)
   writer.flush(CODE_COPY_DATA)
 }
 
@@ -331,7 +331,7 @@ fn encode_copy_done() -> Bytes {
 /// Format: 'f' + length + message (cstring)
 fn encode_copy_fail(message : String) -> Bytes {
   let writer = BufferWriter::new()
-  writer.add_cstring(message) |> ignore
+  writer.add_cstring(message)
   writer.flush(CODE_COPY_FAIL)
 }
 
