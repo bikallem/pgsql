@@ -13,6 +13,6 @@ import {
 } for "test"
 
 options(
-  "supported-targets": [ "native" ],
+  "supported-targets": "native",
   "native-stub": [ "getrandom_stub.c" ],
 )

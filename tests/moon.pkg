@@ -5,5 +5,5 @@ import {
 } for "test"
 
 options(
-  "supported-targets": [ "native" ],
+  "supported-targets": "native",
 )
