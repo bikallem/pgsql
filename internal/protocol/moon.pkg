@@ -2,4 +2,5 @@ import {
   "moonbitlang/x/crypto" @crypto,
   "moonbitlang/core/encoding/base64" @base64,
   "moonbitlang/core/encoding/utf8" @utf8,
+  "moonbitlang/core/strconv" @strconv,
 }

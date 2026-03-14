@@ -261,78 +261,21 @@ fn parse_int64(text : String) -> Value {
 ///|
 /// Parse floating point value
 fn parse_float(text : String) -> Value {
-  // Handle special float values
-  if text == "NaN" || text == "nan" {
+  // Handle PostgreSQL-specific special values not in @strconv
+  if text == "nan" {
     return Float(0.0 / 0.0)
   }
-  if text == "Infinity" || text == "inf" {
+  if text == "inf" {
     return Float(1.0 / 0.0)
   }
-  if text == "-Infinity" || text == "-inf" {
+  if text == "-inf" {
     return Float(-1.0 / 0.0)
   }
-  // Simple float parsing: integer part + optional decimal
-  let mut int_part : Double = 0.0
-  let mut frac_part : Double = 0.0
-  let mut frac_div : Double = 1.0
-  let mut negative = false
-  let mut in_fraction = false
-  let mut started = false
-  let mut in_exponent = false
-  let mut exp_value = 0
-  let mut exp_negative = false
-
-  for c in text {
-    if c == '-' && not(started) && not(in_exponent) {
-      negative = true
-      started = true
-    } else if c == '-' && in_exponent {
-      exp_negative = true
-    } else if c == '+' && not(started) {
-      started = true
-    } else if c == '+' && in_exponent {
-      // skip
-      ()
-    } else if c == '.' && not(in_fraction) && not(in_exponent) {
-      in_fraction = true
-      started = true
-    } else if (c == 'e' || c == 'E') && not(in_exponent) {
-      in_exponent = true
-    } else if c >= '0' && c <= '9' {
-      if in_exponent {
-        exp_value = exp_value * 10 + (c.to_int() - '0'.to_int())
-      } else if in_fraction {
-        frac_div = frac_div * 10.0
-        frac_part = frac_part +
-          (c.to_int() - '0'.to_int()).to_double() / frac_div
-      } else {
-        int_part = int_part * 10.0 + (c.to_int() - '0'.to_int()).to_double()
-      }
-      started = true
-    } else {
-      return String(text) // invalid character
-    }
+  try {
+    Float(@strconv.parse_double(text[:]))
+  } catch {
+    _ => String(text)
   }
-  if not(started) {
-    return String(text)
-  }
-  let mut result = int_part + frac_part
-  if negative {
-    result = -result
-  }
-  // Apply exponent
-  if in_exponent {
-    let mut exp_mult : Double = 1.0
-    for i = 0; i < exp_value; i = i + 1 {
-      exp_mult = exp_mult * 10.0
-    }
-    if exp_negative {
-      result = result / exp_mult
-    } else {
-      result = result * exp_mult
-    }
-  }
-  Float(result)
 }
 
 ///|
