@@ -6,11 +6,7 @@
 ///|
 /// Compute MD5 password hash for PostgreSQL authentication
 /// Returns the string to send in PasswordMessage
-fn md5_password(
-  password : String,
-  username : String,
-  salt : Bytes,
-) -> String {
+fn md5_password(password : String, username : String, salt : Bytes) -> String {
   // Step 1: md5(password + username)
   let inner_input = password + username
   let inner_hash = md5(@utf8.encode(inner_input[:]))

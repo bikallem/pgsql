@@ -123,10 +123,7 @@ fn Connection::create(config : Config, transport : Transport) -> Connection {
 
 ///|
 /// Send a protocol message
-async fn Connection::send(
-  self : Connection,
-  msg : FrontendMessage,
-) -> Unit {
+async fn Connection::send(self : Connection, msg : FrontendMessage) -> Unit {
   let bytes = encode(msg)
   self.transport.write(bytes)
 }
@@ -163,9 +160,7 @@ fn encode_frontend_batch(msgs : Array[FrontendMessage]) -> Bytes {
 /// Receive messages from server.
 /// If a read_timeout is configured, the read will fail with
 /// ConnectionClosedError after the timeout expires.
-async fn Connection::receive(
-  self : Connection,
-) -> Array[BackendMessage] {
+async fn Connection::receive(self : Connection) -> Array[BackendMessage] {
   let data = if self.config.read_timeout > 0 {
     @async.with_timeout(
       self.config.read_timeout,
@@ -207,9 +202,7 @@ async fn Connection::receive_until_ready(
 
 ///|
 /// Raise ServerError if messages contain an error
-fn check_error(
-  messages : Array[BackendMessage],
-) -> Unit raise ServerError {
+fn check_error(messages : Array[BackendMessage]) -> Unit raise ServerError {
   for msg in messages {
     match server_error_from_message(msg) {
       Some(info) => raise ServerError(info)
@@ -220,12 +213,9 @@ fn check_error(
 
 ///|
 /// Parse ErrorResponse into structured server error info.
-fn server_error_from_message(
-  msg : BackendMessage,
-) -> ServerErrorInfo? {
+fn server_error_from_message(msg : BackendMessage) -> ServerErrorInfo? {
   match msg {
-    ErrorResponse(fields) =>
-      Some(ServerErrorInfo::from_fields(fields))
+    ErrorResponse(fields) => Some(ServerErrorInfo::from_fields(fields))
     _ => None
   }
 }
@@ -406,11 +396,7 @@ async fn Connection::authenticate(self : Connection) -> Unit {
           self.send(PasswordMessage(self.config.password))
         AuthenticationMD5Password(salt) => {
           // Compute MD5 hash
-          let hash = md5_password(
-            self.config.password,
-            self.config.user,
-            salt,
-          )
+          let hash = md5_password(self.config.password, self.config.user, salt)
           self.send(PasswordMessage(hash))
         }
         AuthenticationSASL(mechanisms) => {
@@ -426,10 +412,7 @@ async fn Connection::authenticate(self : Connection) -> Unit {
           scram_nonce = nonce
           scram_client_first_bare = client_first_bare
           self.send(
-            SASLInitialResponse(
-              "SCRAM-SHA-256",
-              @utf8.encode(client_first[:]),
-            ),
+            SASLInitialResponse("SCRAM-SHA-256", @utf8.encode(client_first[:])),
           )
         }
         AuthenticationSASLContinue(data) => {

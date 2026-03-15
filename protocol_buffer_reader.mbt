@@ -98,9 +98,7 @@ fn BufferReader::uint32(self : BufferReader) -> UInt raise BufferUnderflow {
 
 ///|
 /// Read a null-terminated C string (ASCII)
-fn BufferReader::cstring(
-  self : BufferReader,
-) -> String raise BufferUnderflow {
+fn BufferReader::cstring(self : BufferReader) -> String raise BufferUnderflow {
   let start = self.offset
   // Find the null terminator
   while self.offset < self.data.length() && self.data[self.offset] != b'\x00' {

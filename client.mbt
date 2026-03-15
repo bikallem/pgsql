@@ -165,9 +165,7 @@ pub async fn Client::query_params(
   params : Array[Value],
 ) -> QueryResult {
   // Parse + bind-execute in a single batch
-  let messages = self.bind_execute("", params, prefix=[
-    Parse("", sql, []),
-  ])
+  let messages = self.bind_execute("", params, prefix=[Parse("", sql, [])])
   build_query_result(messages)
 }
 
@@ -275,7 +273,9 @@ pub async fn Client::wait_for_notification(self : Client) -> Notification {
       let messages = self.conn.receive()
       for msg in messages {
         raise_if_server_error_message(msg)
-        ignore((self.conn.dispatch_backend_message(msg) : BackendDispatchResult))
+        ignore(
+          (self.conn.dispatch_backend_message(msg) : BackendDispatchResult),
+        )
       }
       match self.conn.notification_queue.dequeue() {
         Some(notification) => return notification
@@ -400,9 +400,7 @@ fn quote_identifier(name : String) -> String {
 
 ///|
 /// Build QueryResult from backend messages
-fn build_query_result(
-  messages : Array[BackendMessage],
-) -> QueryResult {
+fn build_query_result(messages : Array[BackendMessage]) -> QueryResult {
   let mut columns : Array[ColumnInfo] = []
   let mut col_index : Map[String, Int] = {}
   let rows : Array[Row] = []

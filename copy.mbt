@@ -78,12 +78,10 @@ pub async fn Client::copy_out(
             if handler_error is None {
               self.run_user_callback(async fn() { handler(data) }) catch {
                 err =>
-                  handler_error = Some(
-                    CopyCallbackFailure::{
-                      stage: "COPY OUT handler",
-                      message: err.to_string(),
-                    },
-                  )
+                  handler_error = Some(CopyCallbackFailure::{
+                    stage: "COPY OUT handler",
+                    message: err.to_string(),
+                  })
               }
             }
           CopyDone => ()
@@ -165,9 +163,10 @@ pub async fn Client::copy_in(
         self.conn.send(CopyFail(err.to_string()))
         ignore((self.conn.receive_until_ready() : Array[BackendMessage]))
         self.conn.copy_in_active = false
-        raise CopyCallbackError(
-          CopyCallbackFailure::{ stage: "COPY IN writer", message: err.to_string() },
-        )
+        raise CopyCallbackError(CopyCallbackFailure::{
+          stage: "COPY IN writer",
+          message: err.to_string(),
+        })
       }
     }
 
@@ -185,8 +184,7 @@ pub async fn Client::copy_in(
       let mut copied_rows = 0
       for msg in messages {
         match msg {
-          CommandComplete(tag) =>
-            copied_rows = parse_affected_rows(tag)
+          CommandComplete(tag) => copied_rows = parse_affected_rows(tag)
           _ => ()
         }
       }

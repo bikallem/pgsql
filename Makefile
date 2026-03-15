@@ -3,16 +3,16 @@
 all: clean fmt build test-all info
 
 build:
-	moon build --target native	
+	moon build --target native
 
 fmt:
-	moon fmt	
+	moon fmt
 
 info:
 	moon info
 
 test:
-	moon test --target native internal/protocol/
+	moon test --target native -p bikallem/pgsql
 
 test-integration: pg-start
 	moon test --target native tests/ ; status=$$? ; \

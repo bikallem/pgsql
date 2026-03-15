@@ -97,9 +97,7 @@ pub async fn Transaction::query_params(
 ) -> QueryResult {
   self.check_active()
   let messages = self.client.with_transaction_operation(async fn() {
-    self.client.bind_execute_unlocked("", params, prefix=[
-      Parse("", sql, []),
-    ])
+    self.client.bind_execute_unlocked("", params, prefix=[Parse("", sql, [])])
   })
   build_query_result(messages)
 }
@@ -128,9 +126,12 @@ pub async fn Transaction::execute_params(
 /// Explicitly commit the transaction
 pub async fn Transaction::commit(self : Transaction) -> Unit {
   self.check_active()
-  ignore((self.client.with_transaction_operation(async fn() {
-    self.client.query_unlocked("COMMIT")
-  }) : QueryResult))
+  ignore(
+    (
+      self.client.with_transaction_operation(async fn() {
+        self.client.query_unlocked("COMMIT")
+      }) : QueryResult),
+  )
   self.active = false
 }
 
@@ -138,9 +139,12 @@ pub async fn Transaction::commit(self : Transaction) -> Unit {
 /// Explicitly rollback the transaction
 pub async fn Transaction::rollback(self : Transaction) -> Unit {
   self.check_active()
-  ignore((self.client.with_transaction_operation(async fn() {
-    self.client.query_unlocked("ROLLBACK")
-  }) : QueryResult))
+  ignore(
+    (
+      self.client.with_transaction_operation(async fn() {
+        self.client.query_unlocked("ROLLBACK")
+      }) : QueryResult),
+  )
   self.active = false
 }
 
@@ -178,7 +182,9 @@ pub async fn Transaction::rollback_to(
   name : String,
 ) -> Unit {
   self.check_active()
-  ignore((self.execute("ROLLBACK TO SAVEPOINT " + quote_identifier(name)) : Int))
+  ignore(
+    (self.execute("ROLLBACK TO SAVEPOINT " + quote_identifier(name)) : Int),
+  )
 }
 
 ///|

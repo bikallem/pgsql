@@ -71,10 +71,7 @@ pub async fn PreparedStatement::close(self : PreparedStatement) -> Unit {
     return
   }
   let close_stmt = async fn() {
-    self.client.conn.send_all([
-      Close(TARGET_STATEMENT, self.name),
-      Sync,
-    ])
+    self.client.conn.send_all([Close(TARGET_STATEMENT, self.name), Sync])
     let messages = self.client.conn.receive_until_ready()
     check_error(messages)
   }

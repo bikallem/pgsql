@@ -757,24 +757,23 @@ test "decode_row_description_multiple_columns" {
   // field 2: "name\0"(5) + 18 = 23 bytes
   // payload: field_count(2) + 21 + 23 = 46 bytes; length = 46 + 4 = 50 = 0x32
   let data = Bytes::from_array([
-    b'T', b'\x00', b'\x00', b'\x00', b'\x32',
-    b'\x00', b'\x02', // field_count = 2
+    b'T', b'\x00', b'\x00', b'\x00', b'\x32', b'\x00', b'\x02', // field_count = 2
     // Column 1: "id"
-    b'i', b'd', b'\x00', // name
-    b'\x00', b'\x00', b'\x03', b'\xE8', // table_oid = 1000
-    b'\x00', b'\x01', // column_id = 1
-    b'\x00', b'\x00', b'\x00', b'\x17', // type_oid = 23 (int4)
-    b'\x00', b'\x04', // type_size = 4
-    b'\xFF', b'\xFF', b'\xFF', b'\xFF', // type_modifier = -1
-    b'\x00', b'\x00', // format = text
+     b'i', b'd', b'\x00', // name
+     b'\x00', b'\x00', b'\x03', b'\xE8', // table_oid = 1000
+     b'\x00', b'\x01', // column_id = 1
+     b'\x00', b'\x00', b'\x00', b'\x17', // type_oid = 23 (int4)
+     b'\x00', b'\x04', // type_size = 4
+     b'\xFF', b'\xFF', b'\xFF', b'\xFF', // type_modifier = -1
+     b'\x00', b'\x00', // format = text
     // Column 2: "name"
-    b'n', b'a', b'm', b'e', b'\x00', // name
-    b'\x00', b'\x00', b'\x03', b'\xE8', // table_oid = 1000
-    b'\x00', b'\x02', // column_id = 2
-    b'\x00', b'\x00', b'\x00', b'\x19', // type_oid = 25 (text)
-    b'\xFF', b'\xFF', // type_size = -1
-    b'\xFF', b'\xFF', b'\xFF', b'\xFF', // type_modifier = -1
-    b'\x00', b'\x01', // format = binary
+     b'n', b'a', b'm', b'e', b'\x00', // name
+     b'\x00', b'\x00', b'\x03', b'\xE8', // table_oid = 1000
+     b'\x00', b'\x02', // column_id = 2
+     b'\x00', b'\x00', b'\x00', b'\x19', // type_oid = 25 (text)
+     b'\xFF', b'\xFF', // type_size = -1
+     b'\xFF', b'\xFF', b'\xFF', b'\xFF', // type_modifier = -1
+     b'\x00', b'\x01', // format = binary
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -804,11 +803,10 @@ test "decode_data_row_all_nulls" {
   // DataRow with 3 columns, all NULL (-1 length each)
   // payload: col_count(2) + 3 * int32(4) = 14; length = 14 + 4 = 18 = 0x12
   let data = Bytes::from_array([
-    b'D', b'\x00', b'\x00', b'\x00', b'\x12',
-    b'\x00', b'\x03', // 3 columns
-    b'\xFF', b'\xFF', b'\xFF', b'\xFF', // NULL
-    b'\xFF', b'\xFF', b'\xFF', b'\xFF', // NULL
-    b'\xFF', b'\xFF', b'\xFF', b'\xFF', // NULL
+    b'D', b'\x00', b'\x00', b'\x00', b'\x12', b'\x00', b'\x03', // 3 columns
+     b'\xFF', b'\xFF', b'\xFF', b'\xFF', // NULL
+     b'\xFF', b'\xFF', b'\xFF', b'\xFF', // NULL
+     b'\xFF', b'\xFF', b'\xFF', b'\xFF', // NULL
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -833,18 +831,17 @@ test "decode_data_row_many_columns" {
   //   len(4)+2 + len(4) + len(4)+1 + len(4)+0 + len(4)+4 = 2+6+4+5+4+8 = 29
   // length = 29 + 4 = 33 = 0x21
   let data = Bytes::from_array([
-    b'D', b'\x00', b'\x00', b'\x00', b'\x21',
-    b'\x00', b'\x05', // 5 columns
+    b'D', b'\x00', b'\x00', b'\x00', b'\x21', b'\x00', b'\x05', // 5 columns
     // col 0: "AB" (length 2)
-    b'\x00', b'\x00', b'\x00', b'\x02', b'A', b'B',
+     b'\x00', b'\x00', b'\x00', b'\x02', b'A', b'B',
     // col 1: NULL
-    b'\xFF', b'\xFF', b'\xFF', b'\xFF',
+     b'\xFF', b'\xFF', b'\xFF', b'\xFF',
     // col 2: "X" (length 1)
-    b'\x00', b'\x00', b'\x00', b'\x01', b'X',
+     b'\x00', b'\x00', b'\x00', b'\x01', b'X',
     // col 3: "" (length 0)
-    b'\x00', b'\x00', b'\x00', b'\x00',
+     b'\x00', b'\x00', b'\x00', b'\x00',
     // col 4: 4 binary bytes
-    b'\x00', b'\x00', b'\x00', b'\x04', b'\x01', b'\x02', b'\x03', b'\x04',
+     b'\x00', b'\x00', b'\x00', b'\x04', b'\x01', b'\x02', b'\x03', b'\x04',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -875,8 +872,8 @@ test "decode_data_row_many_columns" {
 test "decode_command_complete_insert" {
   // "INSERT 0 3\0" = 11 bytes; length = 11 + 4 = 15 = 0x0F
   let data = Bytes::from_array([
-    b'C', b'\x00', b'\x00', b'\x00', b'\x0F',
-    b'I', b'N', b'S', b'E', b'R', b'T', b' ', b'0', b' ', b'3', b'\x00',
+    b'C', b'\x00', b'\x00', b'\x00', b'\x0F', b'I', b'N', b'S', b'E', b'R', b'T',
+    b' ', b'0', b' ', b'3', b'\x00',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -890,8 +887,8 @@ test "decode_command_complete_insert" {
 test "decode_command_complete_update" {
   // "UPDATE 5\0" = 9 bytes; length = 9 + 4 = 13 = 0x0D
   let data = Bytes::from_array([
-    b'C', b'\x00', b'\x00', b'\x00', b'\x0D',
-    b'U', b'P', b'D', b'A', b'T', b'E', b' ', b'5', b'\x00',
+    b'C', b'\x00', b'\x00', b'\x00', b'\x0D', b'U', b'P', b'D', b'A', b'T', b'E',
+    b' ', b'5', b'\x00',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -905,8 +902,8 @@ test "decode_command_complete_update" {
 test "decode_command_complete_delete" {
   // "DELETE 0\0" = 9 bytes; length = 9 + 4 = 13 = 0x0D
   let data = Bytes::from_array([
-    b'C', b'\x00', b'\x00', b'\x00', b'\x0D',
-    b'D', b'E', b'L', b'E', b'T', b'E', b' ', b'0', b'\x00',
+    b'C', b'\x00', b'\x00', b'\x00', b'\x0D', b'D', b'E', b'L', b'E', b'T', b'E',
+    b' ', b'0', b'\x00',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -920,9 +917,8 @@ test "decode_command_complete_delete" {
 test "decode_command_complete_create_table" {
   // "CREATE TABLE\0" = 13 bytes; length = 13 + 4 = 17 = 0x11
   let data = Bytes::from_array([
-    b'C', b'\x00', b'\x00', b'\x00', b'\x11',
-    b'C', b'R', b'E', b'A', b'T', b'E', b' ', b'T', b'A', b'B', b'L', b'E',
-    b'\x00',
+    b'C', b'\x00', b'\x00', b'\x00', b'\x11', b'C', b'R', b'E', b'A', b'T', b'E',
+    b' ', b'T', b'A', b'B', b'L', b'E', b'\x00',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -936,8 +932,8 @@ test "decode_command_complete_create_table" {
 test "decode_command_complete_move" {
   // "MOVE 10\0" = 8 bytes; length = 8 + 4 = 12 = 0x0C
   let data = Bytes::from_array([
-    b'C', b'\x00', b'\x00', b'\x00', b'\x0C',
-    b'M', b'O', b'V', b'E', b' ', b'1', b'0', b'\x00',
+    b'C', b'\x00', b'\x00', b'\x00', b'\x0C', b'M', b'O', b'V', b'E', b' ', b'1',
+    b'0', b'\x00',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -964,25 +960,25 @@ test "decode_error_response_all_field_types" {
   let data = Bytes::from_array([
     b'E', b'\x00', b'\x00', b'\x00', b'\x49',
     // S=ERROR
-    b'S', b'E', b'R', b'R', b'O', b'R', b'\x00',
+     b'S', b'E', b'R', b'R', b'O', b'R', b'\x00',
     // V=ERROR
-    b'V', b'E', b'R', b'R', b'O', b'R', b'\x00',
+     b'V', b'E', b'R', b'R', b'O', b'R', b'\x00',
     // C=23505
-    b'C', b'2', b'3', b'5', b'0', b'5', b'\x00',
+     b'C', b'2', b'3', b'5', b'0', b'5', b'\x00',
     // M=dup key
-    b'M', b'd', b'u', b'p', b' ', b'k', b'e', b'y', b'\x00',
+     b'M', b'd', b'u', b'p', b' ', b'k', b'e', b'y', b'\x00',
     // D=detail
-    b'D', b'd', b'e', b't', b'a', b'i', b'l', b'\x00',
+     b'D', b'd', b'e', b't', b'a', b'i', b'l', b'\x00',
     // H=hint
-    b'H', b'h', b'i', b'n', b't', b'\x00',
+     b'H', b'h', b'i', b'n', b't', b'\x00',
     // t=users
-    b't', b'u', b's', b'e', b'r', b's', b'\x00',
+     b't', b'u', b's', b'e', b'r', b's', b'\x00',
     // c=email
-    b'c', b'e', b'm', b'a', b'i', b'l', b'\x00',
+     b'c', b'e', b'm', b'a', b'i', b'l', b'\x00',
     // n=uq_email
-    b'n', b'u', b'q', b'_', b'e', b'm', b'a', b'i', b'l', b'\x00',
+     b'n', b'u', b'q', b'_', b'e', b'm', b'a', b'i', b'l', b'\x00',
     // terminator
-    b'\x00',
+     b'\x00',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -1053,12 +1049,11 @@ test "decode_copy_out_response_binary_multiple_columns" {
   // CopyOutResponse: binary overall, 3 columns: binary, text, binary
   // payload: format(1) + count(2) + 3*int16(6) = 9; length = 9 + 4 = 13 = 0x0D
   let data = Bytes::from_array([
-    b'H', b'\x00', b'\x00', b'\x00', b'\x0D',
-    b'\x01', // binary overall format
-    b'\x00', b'\x03', // 3 columns
-    b'\x00', b'\x01', // column 1: binary
-    b'\x00', b'\x00', // column 2: text
-    b'\x00', b'\x01', // column 3: binary
+    b'H', b'\x00', b'\x00', b'\x00', b'\x0D', b'\x01', // binary overall format
+     b'\x00', b'\x03', // 3 columns
+     b'\x00', b'\x01', // column 1: binary
+     b'\x00', b'\x00', // column 2: text
+     b'\x00', b'\x01', // column 3: binary
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)
@@ -1081,16 +1076,15 @@ test "decode_authentication_sasl_multiple_mechanisms" {
   // type(4) + "SCRAM-SHA-256\0"(14) + "SCRAM-SHA-256-PLUS\0"(19) + "\0"(1) = 38
   // length = 38 + 4 = 42 = 0x2A
   let data = Bytes::from_array([
-    b'R', b'\x00', b'\x00', b'\x00', b'\x2A',
-    b'\x00', b'\x00', b'\x00', b'\x0A', // auth type = 10 (SASL)
+    b'R', b'\x00', b'\x00', b'\x00', b'\x2A', b'\x00', b'\x00', b'\x00', b'\x0A', // auth type = 10 (SASL)
     // "SCRAM-SHA-256\0"
-    b'S', b'C', b'R', b'A', b'M', b'-', b'S', b'H', b'A', b'-', b'2', b'5',
-    b'6', b'\x00',
-    // "SCRAM-SHA-256-PLUS\0"
-    b'S', b'C', b'R', b'A', b'M', b'-', b'S', b'H', b'A', b'-', b'2', b'5',
-    b'6', b'-', b'P', b'L', b'U', b'S', b'\x00',
-    // terminator
+     b'S', b'C', b'R', b'A', b'M', b'-', b'S', b'H', b'A', b'-', b'2', b'5', b'6',
     b'\x00',
+    // "SCRAM-SHA-256-PLUS\0"
+     b'S', b'C', b'R', b'A', b'M', b'-', b'S', b'H', b'A', b'-', b'2', b'5', b'6',
+    b'-', b'P', b'L', b'U', b'S', b'\x00',
+    // terminator
+     b'\x00',
   ])
   let decoder = Decoder::new()
   let messages = decoder.parse(data)

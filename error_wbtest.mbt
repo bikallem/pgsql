@@ -43,7 +43,8 @@ test "Show for CopyError" {
 ///|
 test "Show for CopyCallbackError" {
   let failure = CopyCallbackFailure::{
-    stage: "COPY IN writer", message: "ClientUsageError: boom",
+    stage: "COPY IN writer",
+    message: "ClientUsageError: boom",
   }
   let err = CopyCallbackError(failure)
   inspect(
@@ -55,7 +56,8 @@ test "Show for CopyCallbackError" {
 ///|
 test "CopyCallbackFailure field access" {
   let failure = CopyCallbackFailure::{
-    stage: "COPY OUT handler", message: "handler failure",
+    stage: "COPY OUT handler",
+    message: "handler failure",
   }
   assert_eq(failure.stage, "COPY OUT handler")
   assert_eq(failure.message, "handler failure")

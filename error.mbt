@@ -90,9 +90,9 @@ pub struct ServerErrorInfo {
 fn ServerErrorInfo::from_fields(
   fields : Map[String, String],
 ) -> ServerErrorInfo {
-  let severity = fields.get(FIELD_SEVERITY).unwrap_or_else(fn() {
-    fields.get(FIELD_SEVERITY_NL).unwrap_or("ERROR")
-  })
+  let severity = fields
+    .get(FIELD_SEVERITY)
+    .unwrap_or_else(fn() { fields.get(FIELD_SEVERITY_NL).unwrap_or("ERROR") })
   {
     severity,
     code: fields.get(FIELD_CODE).unwrap_or(""),

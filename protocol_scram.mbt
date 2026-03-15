@@ -17,10 +17,7 @@ const MAX_SCRAM_ITERATIONS : Int = 1000000
 /// Build the client-first message for SCRAM-SHA-256.
 /// Returns (full_message, bare_message).
 /// The bare_message is needed later for computing the auth message.
-fn scram_client_first(
-  username : String,
-  nonce : String,
-) -> (String, String) {
+fn scram_client_first(username : String, nonce : String) -> (String, String) {
   // gs2-header = "n,,"  (no channel binding, no authzid)
   // client-first-message-bare = "n=" + saslname(username) + ",r=" + nonce
   let bare = "n=" + escape_scram_username(username) + ",r=" + nonce

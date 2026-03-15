@@ -256,7 +256,6 @@ const FIELD_CONSTRAINT : String = "n"
 // Common Types
 // =============================================================================
 
-
 ///|
 /// Format code for data transmission
 priv enum FormatCode {

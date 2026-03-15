@@ -116,15 +116,21 @@ async fn cmd_add(client : @pgsql.Client, args : Array[String]) -> Unit {
   let email = args[3]
   if args.length() >= 5 {
     let phone = args[4]
-    ignore((client.execute_params(
-      "INSERT INTO contacts (name, email, phone) VALUES ($1, $2, $3)",
-      [@pgsql.String(name), @pgsql.String(email), @pgsql.String(phone)],
-    ) : Int))
+    ignore(
+      (
+        client.execute_params(
+          "INSERT INTO contacts (name, email, phone) VALUES ($1, $2, $3)",
+          [@pgsql.String(name), @pgsql.String(email), @pgsql.String(phone)],
+        ) : Int),
+    )
   } else {
-    ignore((client.execute_params(
-      "INSERT INTO contacts (name, email) VALUES ($1, $2)",
-      [@pgsql.String(name), @pgsql.String(email)],
-    ) : Int))
+    ignore(
+      (
+        client.execute_params(
+          "INSERT INTO contacts (name, email) VALUES ($1, $2)",
+          [@pgsql.String(name), @pgsql.String(email)],
+        ) : Int),
+    )
   }
   println("Contact added: \{name} <\{email}>")
 }

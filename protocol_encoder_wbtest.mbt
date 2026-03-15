@@ -200,7 +200,9 @@ test "encode_copy_fail" {
 
 ///|
 test "encode_parse_multiple_oids_wire_format" {
-  let bytes = encode(Parse("stmt", "SELECT $1, $2, $3", [OID_INT4, OID_TEXT, OID_BOOL]))
+  let bytes = encode(
+    Parse("stmt", "SELECT $1, $2, $3", [OID_INT4, OID_TEXT, OID_BOOL]),
+  )
   // Type code 'P'
   inspect(bytes[0], content="b'\\x50'")
   // Skip past: type(1) + length(4)
@@ -244,9 +246,7 @@ test "encode_bind_mixed_null_and_non_null_wire_format" {
   let val1 = Bytes::from_array([b'A', b'B'])
   let val3 = Bytes::from_array([b'\x01'])
   let params : Array[Bytes?] = [Some(val1), None, Some(val3)]
-  let bytes = encode(
-    Bind("p1", "s1", [Text, Text, Binary], params, [Binary]),
-  )
+  let bytes = encode(Bind("p1", "s1", [Text, Text, Binary], params, [Binary]))
   // Type code 'B'
   inspect(bytes[0], content="b'\\x42'")
   // Portal "p1\0" starts at byte 5

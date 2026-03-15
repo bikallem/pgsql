@@ -76,14 +76,17 @@ test "scram_client_final: malformed iteration rejected" {
   let (_, client_first_bare) = scram_client_first("user", client_nonce)
   let server_first = "r=abc123xyz,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4x96"
   let mut got_error = false
-  ignore((scram_client_final(
-    "pencil", client_first_bare, server_first, client_nonce,
-  ) catch {
-    ScramError(_) => {
-      got_error = true
-      ("", b"")
-    }
-  } : (String, Bytes)))
+  ignore(
+    (
+      scram_client_final(
+        "pencil", client_first_bare, server_first, client_nonce,
+      ) catch {
+        ScramError(_) => {
+          got_error = true
+          ("", b"")
+        }
+      } : (String, Bytes)),
+  )
   assert_true(got_error)
 }
 
@@ -93,14 +96,17 @@ test "scram_client_final: oversized iteration rejected" {
   let (_, client_first_bare) = scram_client_first("user", client_nonce)
   let server_first = "r=abc123xyz,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=1000001"
   let mut got_error = false
-  ignore((scram_client_final(
-    "pencil", client_first_bare, server_first, client_nonce,
-  ) catch {
-    ScramError(_) => {
-      got_error = true
-      ("", b"")
-    }
-  } : (String, Bytes)))
+  ignore(
+    (
+      scram_client_final(
+        "pencil", client_first_bare, server_first, client_nonce,
+      ) catch {
+        ScramError(_) => {
+          got_error = true
+          ("", b"")
+        }
+      } : (String, Bytes)),
+  )
   assert_true(got_error)
 }
 
@@ -162,15 +168,18 @@ test "scram_client_final: server nonce not prefixed by client nonce raises error
   // Server nonce does NOT start with client_nonce
   let server_first = "r=WRONG_NONCExyz,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096"
   let mut got_error = false
-  ignore((scram_client_final(
-    "pencil", client_first_bare, server_first, client_nonce,
-  ) catch {
-    ScramError(msg) => {
-      got_error = true
-      assert_true(msg.contains("client nonce"))
-      ("", b"")
-    }
-  } : (String, Bytes)))
+  ignore(
+    (
+      scram_client_final(
+        "pencil", client_first_bare, server_first, client_nonce,
+      ) catch {
+        ScramError(msg) => {
+          got_error = true
+          assert_true(msg.contains("client nonce"))
+          ("", b"")
+        }
+      } : (String, Bytes)),
+  )
   assert_true(got_error)
 }
 
@@ -181,15 +190,18 @@ test "scram_client_final: invalid base64 salt raises error" {
   // "!!!" is not valid base64
   let server_first = "r=abc123xyz,s=!!!invalid!!!,i=4096"
   let mut got_error = false
-  ignore((scram_client_final(
-    "pencil", client_first_bare, server_first, client_nonce,
-  ) catch {
-    ScramError(msg) => {
-      got_error = true
-      assert_true(msg.contains("base64") || msg.contains("salt"))
-      ("", b"")
-    }
-  } : (String, Bytes)))
+  ignore(
+    (
+      scram_client_final(
+        "pencil", client_first_bare, server_first, client_nonce,
+      ) catch {
+        ScramError(msg) => {
+          got_error = true
+          assert_true(msg.contains("base64") || msg.contains("salt"))
+          ("", b"")
+        }
+      } : (String, Bytes)),
+  )
   assert_true(got_error)
 }
 
@@ -202,9 +214,12 @@ test "scram_client_final: iteration count at MAX_SCRAM_ITERATIONS succeeds" {
   // We just verify it doesn't error; we don't run all iterations,
   // but the parse step should accept 1000000
   let result = try {
-    ignore((scram_client_final(
-      "pencil", client_first_bare, server_first, client_nonce,
-    ) : (String, Bytes)))
+    ignore(
+      (
+        scram_client_final(
+          "pencil", client_first_bare, server_first, client_nonce,
+        ) : (String, Bytes)),
+    )
     true
   } catch {
     ScramError(_) => false

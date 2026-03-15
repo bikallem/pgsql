@@ -140,10 +140,7 @@ test "NotificationQueue compact preserves ordering" {
 
 ///|
 test "encode_frontend_batch matches concatenated protocol encoding" {
-  let msgs : Array[FrontendMessage] = [
-    Query("SELECT 1"),
-    Sync,
-  ]
+  let msgs : Array[FrontendMessage] = [Query("SELECT 1"), Sync]
   let batch = encode_frontend_batch(msgs)
 
   let expected : Array[Byte] = []
