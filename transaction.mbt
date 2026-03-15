@@ -27,7 +27,7 @@ pub async fn[T] Client::transaction(
   }
 
   self.with_transaction_operation(async fn() {
-    let _ = self.query_unlocked("BEGIN")
+    ignore((self.query_unlocked("BEGIN") : QueryResult))
   }) catch {
     err => {
       self.tx_guard.release()
@@ -41,7 +41,7 @@ pub async fn[T] Client::transaction(
     e => {
       if tx.active {
         self.with_transaction_operation(async fn() {
-          let _ = self.query_unlocked("ROLLBACK")
+          ignore((self.query_unlocked("ROLLBACK") : QueryResult))
         }) catch {
           _ => ()
         }
@@ -54,7 +54,7 @@ pub async fn[T] Client::transaction(
 
   if tx.active {
     self.with_transaction_operation(async fn() {
-      let _ = self.query_unlocked("COMMIT")
+      ignore((self.query_unlocked("COMMIT") : QueryResult))
     }) catch {
       err => {
         self.tx_guard.release()
@@ -128,9 +128,9 @@ pub async fn Transaction::execute_params(
 /// Explicitly commit the transaction
 pub async fn Transaction::commit(self : Transaction) -> Unit {
   self.check_active()
-  let _ = self.client.with_transaction_operation(async fn() {
+  ignore((self.client.with_transaction_operation(async fn() {
     self.client.query_unlocked("COMMIT")
-  })
+  }) : QueryResult))
   self.active = false
 }
 
@@ -138,9 +138,9 @@ pub async fn Transaction::commit(self : Transaction) -> Unit {
 /// Explicitly rollback the transaction
 pub async fn Transaction::rollback(self : Transaction) -> Unit {
   self.check_active()
-  let _ = self.client.with_transaction_operation(async fn() {
+  ignore((self.client.with_transaction_operation(async fn() {
     self.client.query_unlocked("ROLLBACK")
-  })
+  }) : QueryResult))
   self.active = false
 }
 
@@ -168,7 +168,7 @@ pub async fn Transaction::prepare(
 /// Create a savepoint within the transaction
 pub async fn Transaction::savepoint(self : Transaction, name : String) -> Unit {
   self.check_active()
-  let _ = self.execute("SAVEPOINT " + quote_identifier(name))
+  ignore((self.execute("SAVEPOINT " + quote_identifier(name)) : Int))
 }
 
 ///|
@@ -178,12 +178,12 @@ pub async fn Transaction::rollback_to(
   name : String,
 ) -> Unit {
   self.check_active()
-  let _ = self.execute("ROLLBACK TO SAVEPOINT " + quote_identifier(name))
+  ignore((self.execute("ROLLBACK TO SAVEPOINT " + quote_identifier(name)) : Int))
 }
 
 ///|
 /// Release a savepoint
 pub async fn Transaction::release(self : Transaction, name : String) -> Unit {
   self.check_active()
-  let _ = self.execute("RELEASE SAVEPOINT " + quote_identifier(name))
+  ignore((self.execute("RELEASE SAVEPOINT " + quote_identifier(name)) : Int))
 }

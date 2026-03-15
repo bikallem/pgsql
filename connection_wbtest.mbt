@@ -105,7 +105,7 @@ test "NotificationQueue drain with nonzero head returns remaining" {
   queue.enqueue(Notification::new("b", "2", 2))
   queue.enqueue(Notification::new("c", "3", 3))
   // Consume first item, advancing head
-  let _ = queue.dequeue()
+  ignore((queue.dequeue() : Notification?))
   let result = queue.drain()
   assert_eq(result.length(), 2)
   assert_eq(result[0].channel(), "b")

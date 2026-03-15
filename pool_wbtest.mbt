@@ -14,7 +14,7 @@ async test "Pool::acquire releases permit when connect fails" {
 
   // First acquire is expected to fail because no server is listening.
   let first_failed = try {
-    let _ = pool.acquire()
+    ignore((pool.acquire() : Client))
     false
   } catch {
     _ => true
@@ -25,7 +25,7 @@ async test "Pool::acquire releases permit when connect fails" {
   // the underlying connect failure.
   let mut second_error = ""
   let second_failed = try {
-    let _ = pool.acquire()
+    ignore((pool.acquire() : Client))
     false
   } catch {
     err => {
@@ -57,7 +57,7 @@ async test "Pool::acquire fails with PoolError when pool closes while waiting" {
   let err_msg = @async.with_task_group(async fn(group) {
     let waiter = group.spawn(async fn() {
       try {
-        let _ = pool.acquire()
+        ignore((pool.acquire() : Client))
         "acquired"
       } catch {
         err => err.to_string()
@@ -128,7 +128,7 @@ async test "Pool::close wakes all blocked acquires" {
   let (err1, err2) = @async.with_task_group(async fn(group) {
     let waiter1 = group.spawn(async fn() {
       try {
-        let _ = pool.acquire()
+        ignore((pool.acquire() : Client))
         "acquired"
       } catch {
         err => err.to_string()
@@ -136,7 +136,7 @@ async test "Pool::close wakes all blocked acquires" {
     })
     let waiter2 = group.spawn(async fn() {
       try {
-        let _ = pool.acquire()
+        ignore((pool.acquire() : Client))
         "acquired"
       } catch {
         err => err.to_string()

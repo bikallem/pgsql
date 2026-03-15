@@ -79,7 +79,7 @@ fn print_usage() -> Unit {
 ///|
 async fn cmd_setup(client : @pgsql.Client) -> Unit {
   let sql = "CREATE TABLE IF NOT EXISTS contacts (id SERIAL PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, phone TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
-  let _ = client.execute(sql)
+  ignore((client.execute(sql) : Int))
   println("Contacts table created.")
 }
 
@@ -116,15 +116,15 @@ async fn cmd_add(client : @pgsql.Client, args : Array[String]) -> Unit {
   let email = args[3]
   if args.length() >= 5 {
     let phone = args[4]
-    let _ = client.execute_params(
+    ignore((client.execute_params(
       "INSERT INTO contacts (name, email, phone) VALUES ($1, $2, $3)",
       [@pgsql.String(name), @pgsql.String(email), @pgsql.String(phone)],
-    )
+    ) : Int))
   } else {
-    let _ = client.execute_params(
+    ignore((client.execute_params(
       "INSERT INTO contacts (name, email) VALUES ($1, $2)",
       [@pgsql.String(name), @pgsql.String(email)],
-    )
+    ) : Int))
   }
   println("Contact added: \{name} <\{email}>")
 }

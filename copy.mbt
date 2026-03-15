@@ -167,7 +167,7 @@ pub async fn Client::copy_in(
       err => {
         // On error, send CopyFail and wait for ReadyForQuery
         self.conn.send(@protocol.CopyFail(err.to_string()))
-        let _ = self.conn.receive_until_ready()
+        ignore((self.conn.receive_until_ready() : Array[@protocol.BackendMessage]))
         self.conn.copy_in_active = false
         raise CopyCallbackError(
           CopyCallbackFailure::new("COPY IN writer", err.to_string()),

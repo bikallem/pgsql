@@ -32,22 +32,22 @@ async test "full CRUD lifecycle" {
   let client = @pgsql.Client::connect(get_config())
 
   // Create table
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_crud (id SERIAL PRIMARY KEY, name TEXT NOT NULL, value INT)",
-  )
+  ) : Int))
 
   // Clean up from previous runs
-  let _ = client.execute("DELETE FROM test_crud")
+  ignore((client.execute("DELETE FROM test_crud") : Int))
 
   // Insert
-  let _ = client.execute_params(
+  ignore((client.execute_params(
     "INSERT INTO test_crud (name, value) VALUES ($1, $2)",
     [@pgsql.String("Alice"), @pgsql.Int(42)],
-  )
-  let _ = client.execute_params(
+  ) : Int))
+  ignore((client.execute_params(
     "INSERT INTO test_crud (name, value) VALUES ($1, $2)",
     [@pgsql.String("Bob"), @pgsql.Int(99)],
-  )
+  ) : Int))
 
   // Select
   let result = client.query(
@@ -83,22 +83,22 @@ async test "full CRUD lifecycle" {
   assert_eq(result3.row(0).unwrap().int64(0), Some(1L))
 
   // Drop table
-  let _ = client.execute("DROP TABLE test_crud")
+  ignore((client.execute("DROP TABLE test_crud") : Int))
   client.close()
 }
 
 ///|
 async test "transaction commit" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_tx (id SERIAL PRIMARY KEY, val TEXT)",
-  )
-  let _ = client.execute("DELETE FROM test_tx")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_tx") : Int))
 
   client.transaction(async fn(tx) {
-    let _ = tx.execute_params("INSERT INTO test_tx (val) VALUES ($1)", [
+    ignore((tx.execute_params("INSERT INTO test_tx (val) VALUES ($1)", [
       @pgsql.String("committed"),
-    ])
+    ]) : Int))
     ()
   })
 
@@ -106,32 +106,32 @@ async test "transaction commit" {
   assert_eq(result.row_count(), 1)
   assert_eq(result.row(0).unwrap().string(0), Some("committed"))
 
-  let _ = client.execute("DROP TABLE test_tx")
+  ignore((client.execute("DROP TABLE test_tx") : Int))
   client.close()
 }
 
 ///|
 async test "transaction rollback on error" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_tx_rb (id SERIAL PRIMARY KEY, val TEXT NOT NULL)",
-  )
-  let _ = client.execute("DELETE FROM test_tx_rb")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_tx_rb") : Int))
 
   // Insert a valid row first
-  let _ = client.execute_params("INSERT INTO test_tx_rb (val) VALUES ($1)", [
+  ignore((client.execute_params("INSERT INTO test_tx_rb (val) VALUES ($1)", [
     @pgsql.String("before"),
-  ])
+  ]) : Int))
 
   // This transaction should fail and rollback
   client.transaction(async fn(tx) {
-    let _ = tx.execute_params("INSERT INTO test_tx_rb (val) VALUES ($1)", [
+    ignore((tx.execute_params("INSERT INTO test_tx_rb (val) VALUES ($1)", [
       @pgsql.String("inside"),
-    ])
+    ]) : Int))
     // This will fail: NULL for NOT NULL column
-    let _ = tx.execute_params("INSERT INTO test_tx_rb (val) VALUES ($1)", [
+    ignore((tx.execute_params("INSERT INTO test_tx_rb (val) VALUES ($1)", [
       @pgsql.Null,
-    ])
+    ]) : Int))
     ()
   }) catch {
     _ => () // Expected error
@@ -142,7 +142,7 @@ async test "transaction rollback on error" {
   assert_eq(result.row_count(), 1)
   assert_eq(result.row(0).unwrap().string(0), Some("before"))
 
-  let _ = client.execute("DROP TABLE test_tx_rb")
+  ignore((client.execute("DROP TABLE test_tx_rb") : Int))
   client.close()
 }
 
@@ -153,7 +153,7 @@ async test "transaction callback: direct client query fails fast" {
 
   let mut saw_usage_error = false
   let failed = try {
-    client.transaction(async fn(_tx) { let _ = client.query("SELECT 1") })
+    client.transaction(async fn(_tx) { ignore((client.query("SELECT 1") : @pgsql.QueryResult)) })
     false
   } catch {
     @pgsql.ClientUsageError(msg) => {
@@ -176,18 +176,18 @@ async test "transaction callback: direct client query fails fast" {
 /// the connection lease.
 async test "transaction callback: concurrent client query fails fast" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_tx_exclusive (id INT)",
-  )
-  let _ = client.execute("DELETE FROM test_tx_exclusive")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_tx_exclusive") : Int))
 
   let concurrent_rejected = @async.with_task_group(async fn(group) {
     let tx_task = group.spawn(async fn() {
       client.transaction(async fn(tx) {
-        let _ = tx.execute("INSERT INTO test_tx_exclusive VALUES (1)")
+        ignore((tx.execute("INSERT INTO test_tx_exclusive VALUES (1)") : Int))
         // Keep callback active while concurrent operation attempts access.
         @async.sleep(150)
-        let _ = tx.execute("INSERT INTO test_tx_exclusive VALUES (2)")
+        ignore((tx.execute("INSERT INTO test_tx_exclusive VALUES (2)") : Int))
       })
     })
 
@@ -195,7 +195,7 @@ async test "transaction callback: concurrent client query fails fast" {
     @async.sleep(50)
     let concurrent_task = group.spawn(async fn() {
       try {
-        let _ = client.query("SELECT COUNT(*) FROM test_tx_exclusive")
+        ignore((client.query("SELECT COUNT(*) FROM test_tx_exclusive") : @pgsql.QueryResult))
         false
       } catch {
         @pgsql.ClientUsageError(msg) => msg.contains("transaction callback")
@@ -213,19 +213,19 @@ async test "transaction callback: concurrent client query fails fast" {
   let final_count = client.query("SELECT COUNT(*) FROM test_tx_exclusive")
   assert_eq(final_count.row(0).unwrap().int64(0), Some(2L))
 
-  let _ = client.execute("DROP TABLE test_tx_exclusive")
+  ignore((client.execute("DROP TABLE test_tx_exclusive") : Int))
   client.close()
 }
 
 ///|
 async test "parameterized queries with all Value types" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_types (b BOOL, i INT, bi BIGINT, f FLOAT8, t TEXT, n TEXT)",
-  )
-  let _ = client.execute("DELETE FROM test_types")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_types") : Int))
 
-  let _ = client.execute_params(
+  ignore((client.execute_params(
     "INSERT INTO test_types (b, i, bi, f, t, n) VALUES ($1, $2, $3, $4, $5, $6)",
     [
       @pgsql.Bool(true),
@@ -235,7 +235,7 @@ async test "parameterized queries with all Value types" {
       @pgsql.String("hello"),
       @pgsql.Null,
     ],
-  )
+  ) : Int))
 
   let result = client.query("SELECT b, i, bi, f, t, n FROM test_types")
   let row = result.row(0).unwrap()
@@ -250,17 +250,17 @@ async test "parameterized queries with all Value types" {
   assert_eq(row.string(4), Some("hello"))
   assert_true(row.is_null(5))
 
-  let _ = client.execute("DROP TABLE test_types")
+  ignore((client.execute("DROP TABLE test_types") : Int))
   client.close()
 }
 
 ///|
 async test "UTF-8 text round-trip via parameters and row decoding" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_utf8 (id INT PRIMARY KEY, val TEXT)",
-  )
-  let _ = client.execute("DELETE FROM test_utf8")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_utf8") : Int))
 
   let text = @utf8.decode_lossy(
     Bytes::from_array([
@@ -270,15 +270,15 @@ async test "UTF-8 text round-trip via parameters and row decoding" {
       b'\xE3', b'\x81', b'\xAF',
     ])[:],
   )
-  let _ = client.execute_params(
+  ignore((client.execute_params(
     "INSERT INTO test_utf8 (id, val) VALUES ($1, $2)",
     [@pgsql.Int(1), @pgsql.String(text)],
-  )
+  ) : Int))
 
   let result = client.query("SELECT val FROM test_utf8 WHERE id = 1")
   assert_eq(result.row(0).unwrap().string(0), Some(text))
 
-  let _ = client.execute("DROP TABLE test_utf8")
+  ignore((client.execute("DROP TABLE test_utf8") : Int))
   client.close()
 }
 
@@ -287,7 +287,7 @@ async test "error handling: invalid SQL" {
   let client = @pgsql.Client::connect(get_config())
   let mut got_error = false
   try {
-    let _ = client.query("SELCT invalid syntax")
+    ignore((client.query("SELCT invalid syntax") : @pgsql.QueryResult))
   } catch {
     _ => got_error = true
   }
@@ -301,10 +301,10 @@ async test "error handling: invalid SQL" {
 ///|
 async test "prepared statement: insert and select" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_prep (id SERIAL PRIMARY KEY, name TEXT NOT NULL, value INT)",
-  )
-  let _ = client.execute("DELETE FROM test_prep")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_prep") : Int))
 
   // Prepare insert statement
   let insert_stmt = client.prepare(
@@ -312,9 +312,9 @@ async test "prepared statement: insert and select" {
   )
 
   // Execute 3 times with different params
-  let _ = insert_stmt.execute([@pgsql.String("Alice"), @pgsql.Int(10)])
-  let _ = insert_stmt.execute([@pgsql.String("Bob"), @pgsql.Int(20)])
-  let _ = insert_stmt.execute([@pgsql.String("Carol"), @pgsql.Int(30)])
+  ignore((insert_stmt.execute([@pgsql.String("Alice"), @pgsql.Int(10)]) : Int))
+  ignore((insert_stmt.execute([@pgsql.String("Bob"), @pgsql.Int(20)]) : Int))
+  ignore((insert_stmt.execute([@pgsql.String("Carol"), @pgsql.Int(30)]) : Int))
   insert_stmt.close()
 
   // Prepare select statement
@@ -327,7 +327,7 @@ async test "prepared statement: insert and select" {
   assert_eq(result.row(1).unwrap().string(0), Some("Carol"))
   select_stmt.close()
 
-  let _ = client.execute("DROP TABLE test_prep")
+  ignore((client.execute("DROP TABLE test_prep") : Int))
   client.close()
 }
 
@@ -353,7 +353,7 @@ async test "prepared statement: use after close raises error" {
 
   let mut got_error = false
   try {
-    let _ = stmt.query([@pgsql.Int(1)])
+    ignore((stmt.query([@pgsql.Int(1)]) : @pgsql.QueryResult))
   } catch {
     @pgsql.PreparedStmtError(_) => got_error = true
     _ => ()
@@ -366,15 +366,15 @@ async test "prepared statement: use after close raises error" {
 ///|
 async test "prepared statement: inside transaction" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_prep_tx (id SERIAL PRIMARY KEY, val TEXT)",
-  )
-  let _ = client.execute("DELETE FROM test_prep_tx")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_prep_tx") : Int))
 
   client.transaction(async fn(tx) {
     let stmt = tx.prepare("INSERT INTO test_prep_tx (val) VALUES ($1)")
-    let _ = stmt.execute([@pgsql.String("tx_row1")])
-    let _ = stmt.execute([@pgsql.String("tx_row2")])
+    ignore((stmt.execute([@pgsql.String("tx_row1")]) : Int))
+    ignore((stmt.execute([@pgsql.String("tx_row2")]) : Int))
     stmt.close()
   })
 
@@ -383,58 +383,58 @@ async test "prepared statement: inside transaction" {
   assert_eq(result.row(0).unwrap().string(0), Some("tx_row1"))
   assert_eq(result.row(1).unwrap().string(0), Some("tx_row2"))
 
-  let _ = client.execute("DROP TABLE test_prep_tx")
+  ignore((client.execute("DROP TABLE test_prep_tx") : Int))
   client.close()
 }
 
 ///|
 async test "unnamed statement regression: many parameterized queries" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_unnamed (id SERIAL PRIMARY KEY, val INT)",
-  )
-  let _ = client.execute("DELETE FROM test_unnamed")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_unnamed") : Int))
 
   // Run 100 parameterized queries in a loop — verifies unnamed statement
   // does not leak server resources
   for i = 0; i < 100; i = i + 1 {
-    let _ = client.execute_params(
+    ignore((client.execute_params(
       "INSERT INTO test_unnamed (val) VALUES ($1)",
       [@pgsql.Int(i)],
-    )
+    ) : Int))
   }
 
   let result = client.query("SELECT COUNT(*) FROM test_unnamed")
   assert_eq(result.row(0).unwrap().int64(0), Some(100L))
 
-  let _ = client.execute("DROP TABLE test_unnamed")
+  ignore((client.execute("DROP TABLE test_unnamed") : Int))
   client.close()
 }
 
 ///|
 async test "savepoint: commit through savepoint" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_sp (id SERIAL PRIMARY KEY, val TEXT)",
-  )
-  let _ = client.execute("DELETE FROM test_sp")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_sp") : Int))
 
   client.transaction(async fn(tx) {
-    let _ = tx.execute_params("INSERT INTO test_sp (val) VALUES ($1)", [
+    ignore((tx.execute_params("INSERT INTO test_sp (val) VALUES ($1)", [
       @pgsql.String("before_sp"),
-    ])
+    ]) : Int))
 
     tx.savepoint("sp1")
-    let _ = tx.execute_params("INSERT INTO test_sp (val) VALUES ($1)", [
+    ignore((tx.execute_params("INSERT INTO test_sp (val) VALUES ($1)", [
       @pgsql.String("in_sp"),
-    ])
+    ]) : Int))
 
     // Rollback to savepoint — "in_sp" row is undone
     tx.rollback_to("sp1")
 
-    let _ = tx.execute_params("INSERT INTO test_sp (val) VALUES ($1)", [
+    ignore((tx.execute_params("INSERT INTO test_sp (val) VALUES ($1)", [
       @pgsql.String("after_rollback"),
-    ])
+    ]) : Int))
 
     tx.release("sp1")
   })
@@ -444,7 +444,7 @@ async test "savepoint: commit through savepoint" {
   assert_eq(result.row(0).unwrap().string(0), Some("before_sp"))
   assert_eq(result.row(1).unwrap().string(0), Some("after_rollback"))
 
-  let _ = client.execute("DROP TABLE test_sp")
+  ignore((client.execute("DROP TABLE test_sp") : Int))
   client.close()
 }
 
@@ -459,7 +459,7 @@ async test "transaction: TxError on inactive transaction" {
     // Now operations on the inactive transaction should raise TxError
     let mut got_error = false
     try {
-      let _ = tx.execute("SELECT 1")
+      ignore((tx.execute("SELECT 1") : Int))
     } catch {
       @pgsql.TxError(_) => got_error = true
       _ => ()
@@ -482,7 +482,7 @@ async test "client: query after close raises error" {
   // Operations on a closed client should raise an error
   let mut got_error = false
   try {
-    let _ = client.query("SELECT 1")
+    ignore((client.query("SELECT 1") : @pgsql.QueryResult))
   } catch {
     _ => got_error = true
   }
@@ -492,29 +492,29 @@ async test "client: query after close raises error" {
 ///|
 async test "error handling: constraint violation" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_constraint (id INT PRIMARY KEY)",
-  )
-  let _ = client.execute("DELETE FROM test_constraint")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_constraint") : Int))
 
-  let _ = client.execute_params(
+  ignore((client.execute_params(
     "INSERT INTO test_constraint (id) VALUES ($1)",
     [@pgsql.Int(1)],
-  )
+  ) : Int))
 
   // Duplicate key violation
   let mut got_error = false
   try {
-    let _ = client.execute_params(
+    ignore((client.execute_params(
       "INSERT INTO test_constraint (id) VALUES ($1)",
       [@pgsql.Int(1)],
-    )
+    ) : Int))
   } catch {
     _ => got_error = true
   }
   assert_true(got_error)
 
-  let _ = client.execute("DROP TABLE test_constraint")
+  ignore((client.execute("DROP TABLE test_constraint") : Int))
   client.close()
 }
 
@@ -530,7 +530,7 @@ async test "auth error: wrong password" {
   )
   let mut got_auth_error = false
   try {
-    let _ = @pgsql.Client::connect(bad_config)
+    ignore((@pgsql.Client::connect(bad_config) : @pgsql.Client))
   } catch {
     @pgsql.AuthError(_) => got_auth_error = true
     _ => ()
@@ -591,13 +591,13 @@ async test "date, time, timestamp, json, uuid types" {
 ///|
 async test "COPY OUT: export rows" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_copy_out (id INT, name TEXT)",
-  )
-  let _ = client.execute("DELETE FROM test_copy_out")
-  let _ = client.execute(
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_copy_out") : Int))
+  ignore((client.execute(
     "INSERT INTO test_copy_out VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Carol')",
-  )
+  ) : Int))
 
   let chunks : Array[String] = []
   let rows = client.copy_out("COPY test_copy_out TO STDOUT", fn(data : Bytes) {
@@ -613,17 +613,17 @@ async test "COPY OUT: export rows" {
   assert_true(all_data.contains("Alice"))
   assert_true(all_data.contains("Bob"))
 
-  let _ = client.execute("DROP TABLE test_copy_out")
+  ignore((client.execute("DROP TABLE test_copy_out") : Int))
   client.close()
 }
 
 ///|
 async test "COPY IN: import rows" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_copy_in (id INT, name TEXT)",
-  )
-  let _ = client.execute("DELETE FROM test_copy_in")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_copy_in") : Int))
 
   let rows = client.copy_in("COPY test_copy_in FROM STDIN", async fn(w) {
     w.write_row(["1", "Alice"])
@@ -638,17 +638,17 @@ async test "COPY IN: import rows" {
   assert_eq(result.row(1).unwrap().string(1), Some("Bob"))
   assert_eq(result.row(2).unwrap().string(1), Some("Carol"))
 
-  let _ = client.execute("DROP TABLE test_copy_in")
+  ignore((client.execute("DROP TABLE test_copy_in") : Int))
   client.close()
 }
 
 ///|
 async test "COPY IN: write_row escapes COPY text special characters" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_copy_escape (a TEXT, b TEXT, c TEXT, d TEXT, e TEXT)",
-  )
-  let _ = client.execute("DELETE FROM test_copy_escape")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_copy_escape") : Int))
 
   let rows = client.copy_in("COPY test_copy_escape FROM STDIN", async fn(w) {
     w.write_row(["tab\tvalue", "line1\nline2", "car\rret", "slash\\\\x", "\\N"])
@@ -663,17 +663,17 @@ async test "COPY IN: write_row escapes COPY text special characters" {
   assert_eq(row.string(3), Some("slash\\\\x"))
   assert_eq(row.string(4), Some("\\N"))
 
-  let _ = client.execute("DROP TABLE test_copy_escape")
+  ignore((client.execute("DROP TABLE test_copy_escape") : Int))
   client.close()
 }
 
 ///|
 async test "COPY IN: write_row_nullable supports NULL values" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_copy_nullable (a TEXT, b TEXT)",
-  )
-  let _ = client.execute("DELETE FROM test_copy_nullable")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_copy_nullable") : Int))
 
   let rows = client.copy_in("COPY test_copy_nullable FROM STDIN", async fn(w) {
     w.write_row_nullable([Some("alive"), None])
@@ -685,17 +685,17 @@ async test "COPY IN: write_row_nullable supports NULL values" {
   assert_eq(row.string(0), Some("alive"))
   assert_true(row.is_null(1))
 
-  let _ = client.execute("DROP TABLE test_copy_nullable")
+  ignore((client.execute("DROP TABLE test_copy_nullable") : Int))
   client.close()
 }
 
 ///|
 async test "COPY IN: writer rejects writes after callback return" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_copy_writer_escape (id INT)",
-  )
-  let _ = client.execute("DELETE FROM test_copy_writer_escape")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_copy_writer_escape") : Int))
 
   let mut leaked_writer : @pgsql.CopyWriter? = None
   let rows = client.copy_in("COPY test_copy_writer_escape FROM STDIN", async fn(
@@ -720,7 +720,7 @@ async test "COPY IN: writer rejects writes after callback return" {
   let result = client.query("SELECT COUNT(*) FROM test_copy_writer_escape")
   assert_eq(result.row(0).unwrap().int64(0), Some(1L))
 
-  let _ = client.execute("DROP TABLE test_copy_writer_escape")
+  ignore((client.execute("DROP TABLE test_copy_writer_escape") : Int))
   client.close()
 }
 
@@ -730,11 +730,11 @@ async test "COPY OUT: re-entrant callback operation fails fast" {
 
   let mut saw_usage_error = false
   let failed = try {
-    let _ = client.copy_out("COPY (SELECT 1) TO STDOUT", async fn(
+    ignore((client.copy_out("COPY (SELECT 1) TO STDOUT", async fn(
       _data : Bytes,
     ) {
-      let _ = client.query("SELECT 1")
-    })
+      ignore((client.query("SELECT 1") : @pgsql.QueryResult))
+    }) : Int))
     false
   } catch {
     @pgsql.CopyCallbackError(failure) => {
@@ -759,19 +759,19 @@ async test "COPY OUT: re-entrant callback operation fails fast" {
 ///|
 async test "COPY IN: re-entrant callback operation fails fast" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_copy_in_reentrant (id INT)",
-  )
-  let _ = client.execute("DELETE FROM test_copy_in_reentrant")
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_copy_in_reentrant") : Int))
 
   let mut saw_usage_error = false
   let failed = try {
-    let _ = client.copy_in("COPY test_copy_in_reentrant FROM STDIN", async fn(
+    ignore((client.copy_in("COPY test_copy_in_reentrant FROM STDIN", async fn(
       w : @pgsql.CopyWriter,
     ) {
-      let _ = client.query("SELECT 1")
+      ignore((client.query("SELECT 1") : @pgsql.QueryResult))
       w.write_row(["1"])
-    })
+    }) : Int))
     false
   } catch {
     @pgsql.CopyCallbackError(failure) => {
@@ -790,7 +790,7 @@ async test "COPY IN: re-entrant callback operation fails fast" {
   let count_result = client.query("SELECT COUNT(*) FROM test_copy_in_reentrant")
   assert_eq(count_result.row(0).unwrap().int64(0), Some(0L))
 
-  let _ = client.execute("DROP TABLE test_copy_in_reentrant")
+  ignore((client.execute("DROP TABLE test_copy_in_reentrant") : Int))
   client.close()
 }
 
@@ -802,7 +802,7 @@ async test "LISTEN/NOTIFY: basic notification" {
   listener.listen("test_channel")
 
   // Send notification from another client
-  let _ = notifier.execute("NOTIFY test_channel, 'hello'")
+  ignore((notifier.execute("NOTIFY test_channel, 'hello'") : Int))
 
   // Wait for the notification
   let notification = listener.wait_for_notification()
@@ -823,11 +823,11 @@ async test "LISTEN/NOTIFY: poll_notifications" {
   listener.listen("poll_ch")
 
   // Send two notifications
-  let _ = notifier.execute("NOTIFY poll_ch, 'msg1'")
-  let _ = notifier.execute("NOTIFY poll_ch, 'msg2'")
+  ignore((notifier.execute("NOTIFY poll_ch, 'msg1'") : Int))
+  ignore((notifier.execute("NOTIFY poll_ch, 'msg2'") : Int))
 
   // Trigger a query to receive the notifications
-  let _ = listener.query("SELECT 1")
+  ignore((listener.query("SELECT 1") : @pgsql.QueryResult))
 
   let notifications = listener.poll_notifications()
   assert_eq(notifications.length(), 2)
@@ -856,9 +856,9 @@ async test "LISTEN/NOTIFY: UTF-8 payload round-trip" {
       b'-', b'\xE4', b'\xB8', b'\x96', b'\xE7', b'\x95', b'\x8C',
     ])[:],
   )
-  let _ = notifier.execute_params("SELECT pg_notify('utf8_ch', $1)", [
+  ignore((notifier.execute_params("SELECT pg_notify('utf8_ch', $1)", [
     @pgsql.String(payload),
-  ])
+  ]) : Int))
 
   let notification = listener.wait_for_notification()
   assert_eq(notification.channel(), "utf8_ch")
@@ -909,11 +909,11 @@ async test "pool: with_connection auto-release" {
 ///|
 async test "stream: basic row streaming" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute("CREATE TABLE IF NOT EXISTS test_stream (id INT)")
-  let _ = client.execute("DELETE FROM test_stream")
-  let _ = client.execute(
+  ignore((client.execute("CREATE TABLE IF NOT EXISTS test_stream (id INT)") : Int))
+  ignore((client.execute("DELETE FROM test_stream") : Int))
+  ignore((client.execute(
     "INSERT INTO test_stream SELECT generate_series(1, 250)",
-  )
+  ) : Int))
 
   let stream = client.query_stream(
     "SELECT id FROM test_stream ORDER BY id",
@@ -930,20 +930,20 @@ async test "stream: basic row streaming" {
   assert_eq(count, 250)
   assert_eq(last_id, 250)
 
-  let _ = client.execute("DROP TABLE test_stream")
+  ignore((client.execute("DROP TABLE test_stream") : Int))
   client.close()
 }
 
 ///|
 async test "stream: close before exhaustion" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_stream_close (id INT)",
-  )
-  let _ = client.execute("DELETE FROM test_stream_close")
-  let _ = client.execute(
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_stream_close") : Int))
+  ignore((client.execute(
     "INSERT INTO test_stream_close SELECT generate_series(1, 100)",
-  )
+  ) : Int))
 
   let stream = client.query_stream(
     "SELECT id FROM test_stream_close ORDER BY id",
@@ -967,7 +967,7 @@ async test "stream: close before exhaustion" {
   let result = client.query("SELECT 1 AS val")
   assert_eq(result.row(0).unwrap().int(0), Some(1))
 
-  let _ = client.execute("DROP TABLE test_stream_close")
+  ignore((client.execute("DROP TABLE test_stream_close") : Int))
   client.close()
 }
 
@@ -1003,13 +1003,13 @@ async test "stream: close commits before allowing concurrent query" {
 ///|
 async test "stream: parameterized streaming" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_stream_params (id INT, name TEXT)",
-  )
-  let _ = client.execute("DELETE FROM test_stream_params")
-  let _ = client.execute(
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_stream_params") : Int))
+  ignore((client.execute(
     "INSERT INTO test_stream_params VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Alice')",
-  )
+  ) : Int))
 
   let stream = client.query_stream(
     "SELECT id FROM test_stream_params WHERE name = $1 ORDER BY id",
@@ -1021,7 +1021,7 @@ async test "stream: parameterized streaming" {
   stream.for_each(fn(_row) { count += 1 })
   assert_eq(count, 2)
 
-  let _ = client.execute("DROP TABLE test_stream_params")
+  ignore((client.execute("DROP TABLE test_stream_params") : Int))
   client.close()
 }
 
@@ -1031,7 +1031,7 @@ async test "stream: invalid batch_size rejected" {
 
   let mut got_error = false
   try {
-    let _ = client.query_stream("SELECT 1", batch_size=0)
+    ignore((client.query_stream("SELECT 1", batch_size=0) : @pgsql.RowStream))
   } catch {
     @pgsql.StreamError(msg) => got_error = msg.contains("batch_size")
     _ => ()
@@ -1047,13 +1047,13 @@ async test "stream: invalid batch_size rejected" {
 ///|
 async test "stream: next() exhausts and auto-closes resources" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_stream_auto_close (id INT)",
-  )
-  let _ = client.execute("DELETE FROM test_stream_auto_close")
-  let _ = client.execute(
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_stream_auto_close") : Int))
+  ignore((client.execute(
     "INSERT INTO test_stream_auto_close VALUES (1), (2), (3)",
-  )
+  ) : Int))
 
   let stream = client.query_stream(
     "SELECT id FROM test_stream_auto_close ORDER BY id",
@@ -1074,20 +1074,20 @@ async test "stream: next() exhausts and auto-closes resources" {
   let result = client.query("SELECT COUNT(*) FROM test_stream_auto_close")
   assert_eq(result.row(0).unwrap().int64(0), Some(3L))
 
-  let _ = client.execute("DROP TABLE test_stream_auto_close")
+  ignore((client.execute("DROP TABLE test_stream_auto_close") : Int))
   client.close()
 }
 
 ///|
 async test "stream: re-entrant callback operation fails fast" {
   let client = @pgsql.Client::connect(get_config())
-  let _ = client.execute(
+  ignore((client.execute(
     "CREATE TABLE IF NOT EXISTS test_stream_reentrant (id INT)",
-  )
-  let _ = client.execute("DELETE FROM test_stream_reentrant")
-  let _ = client.execute(
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_stream_reentrant") : Int))
+  ignore((client.execute(
     "INSERT INTO test_stream_reentrant VALUES (1), (2), (3)",
-  )
+  ) : Int))
 
   let stream = client.query_stream(
     "SELECT id FROM test_stream_reentrant ORDER BY id",
@@ -1095,7 +1095,7 @@ async test "stream: re-entrant callback operation fails fast" {
   )
   let mut saw_usage_error = false
   let failed = try {
-    stream.for_each(async fn(_row) { let _ = client.query("SELECT 1") })
+    stream.for_each(async fn(_row) { ignore((client.query("SELECT 1") : @pgsql.QueryResult)) })
     false
   } catch {
     @pgsql.ClientUsageError(msg) => {
@@ -1111,7 +1111,7 @@ async test "stream: re-entrant callback operation fails fast" {
   let result = client.query("SELECT 1 AS val")
   assert_eq(result.row(0).unwrap().int(0), Some(1))
 
-  let _ = client.execute("DROP TABLE test_stream_reentrant")
+  ignore((client.execute("DROP TABLE test_stream_reentrant") : Int))
   client.close()
 }
 

@@ -114,7 +114,7 @@ test "BufferReader::cstring UTF-8 payload" {
 test "BufferReader::cstring rejects unterminated string" {
   let reader = BufferReader::new(Bytes::from_array([b'h', b'i']))
   let failed = try {
-    let _ = reader.cstring()
+    ignore((reader.cstring() : String))
     false
   } catch {
     BufferUnderflow(msg) => msg.contains("missing null terminator")
@@ -137,7 +137,7 @@ test "BufferReader::bytes" {
 test "BufferReader::bytes rejects negative length" {
   let reader = BufferReader::new(Bytes::from_array([b'\x01', b'\x02']))
   let failed = try {
-    let _ = reader.bytes(-1)
+    ignore((reader.bytes(-1) : Bytes))
     false
   } catch {
     BufferUnderflow(_) => true

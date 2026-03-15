@@ -109,7 +109,7 @@ pub async fn RowStream::close(self : RowStream) -> Unit {
     msgs.push(@protocol.Close(@protocol.TARGET_STATEMENT, self.stmt_name))
     msgs.push(@protocol.Sync)
     self.client.conn.send_all(msgs)
-    let _ = self.client.conn.receive_until_ready()
+    ignore((self.client.conn.receive_until_ready() : Array[@protocol.BackendMessage]))
     // Commit auto-transaction while still holding operation lock so no
     // unrelated query can execute inside the stream-owned transaction.
     if self.auto_tx {
@@ -169,11 +169,11 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
             match server_error_from_message(msg) {
               Some(info) => {
                 self.client.conn.send(@protocol.Sync)
-                let _ = self.client.conn.receive_until_ready()
+                ignore((self.client.conn.receive_until_ready() : Array[@protocol.BackendMessage]))
                 raise ServerError(info)
               }
               None => {
-                let _ = self.client.conn.dispatch_backend_message(msg)
+                ignore((self.client.conn.dispatch_backend_message(msg) : BackendDispatchResult))
               }
             }
         }
@@ -304,14 +304,14 @@ pub async fn Client::query_stream(
             exhausted = true
             // Need to Sync to get ReadyForQuery
             self.conn.send(@protocol.Sync)
-            let _ = self.conn.receive_until_ready()
+            ignore((self.conn.receive_until_ready() : Array[@protocol.BackendMessage]))
             done = true
           }
           _ =>
             match server_error_from_message(msg) {
               Some(info) => raise ServerError(info)
               None => {
-                let _ = self.conn.dispatch_backend_message(msg)
+                ignore((self.conn.dispatch_backend_message(msg) : BackendDispatchResult))
               }
             }
         }
@@ -369,7 +369,7 @@ async fn Client::cleanup_failed_stream_setup(
   self.conn.send(@protocol.Sync) catch {
     _ => ()
   }
-  let _ = self.conn.receive_until_ready() catch { _ => [] }
+  ignore((self.conn.receive_until_ready() catch { _ => [] } : Array[@protocol.BackendMessage]))
 
   // Then try to close portal/statement resources.
   self.conn.send_all([
@@ -379,13 +379,13 @@ async fn Client::cleanup_failed_stream_setup(
   ]) catch {
     _ => ()
   }
-  let _ = self.conn.receive_until_ready() catch { _ => [] }
+  ignore((self.conn.receive_until_ready() catch { _ => [] } : Array[@protocol.BackendMessage]))
 
   // Roll back auto-opened transaction if it was started.
   if auto_tx {
     self.conn.send(@protocol.Query("ROLLBACK")) catch {
       _ => ()
     }
-    let _ = self.conn.receive_until_ready() catch { _ => [] }
+    ignore((self.conn.receive_until_ready() catch { _ => [] } : Array[@protocol.BackendMessage]))
   }
 }

@@ -76,14 +76,14 @@ test "scram_client_final: malformed iteration rejected" {
   let (_, client_first_bare) = scram_client_first("user", client_nonce)
   let server_first = "r=abc123xyz,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4x96"
   let mut got_error = false
-  let _ = scram_client_final(
+  ignore((scram_client_final(
     "pencil", client_first_bare, server_first, client_nonce,
   ) catch {
     ScramError(_) => {
       got_error = true
       ("", b"")
     }
-  }
+  } : (String, Bytes)))
   assert_true(got_error)
 }
 
@@ -93,14 +93,14 @@ test "scram_client_final: oversized iteration rejected" {
   let (_, client_first_bare) = scram_client_first("user", client_nonce)
   let server_first = "r=abc123xyz,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=1000001"
   let mut got_error = false
-  let _ = scram_client_final(
+  ignore((scram_client_final(
     "pencil", client_first_bare, server_first, client_nonce,
   ) catch {
     ScramError(_) => {
       got_error = true
       ("", b"")
     }
-  }
+  } : (String, Bytes)))
   assert_true(got_error)
 }
 

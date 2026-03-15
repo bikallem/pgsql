@@ -202,19 +202,19 @@ pub async fn Client::prepare(self : Client, sql : String) -> PreparedStatement {
 ///|
 /// Begin a transaction
 pub async fn Client::begin(self : Client) -> Unit {
-  let _ = self.execute("BEGIN")
+  ignore((self.execute("BEGIN") : Int))
 }
 
 ///|
 /// Commit a transaction
 pub async fn Client::commit(self : Client) -> Unit {
-  let _ = self.execute("COMMIT")
+  ignore((self.execute("COMMIT") : Int))
 }
 
 ///|
 /// Rollback a transaction
 pub async fn Client::rollback(self : Client) -> Unit {
-  let _ = self.execute("ROLLBACK")
+  ignore((self.execute("ROLLBACK") : Int))
 }
 
 ///|
@@ -275,13 +275,13 @@ pub async fn Client::cancel(self : Client) -> Unit {
 ///|
 /// Start listening on a notification channel
 pub async fn Client::listen(self : Client, channel : String) -> Unit {
-  let _ = self.execute("LISTEN " + quote_identifier(channel))
+  ignore((self.execute("LISTEN " + quote_identifier(channel)) : Int))
 }
 
 ///|
 /// Stop listening on a notification channel
 pub async fn Client::unlisten(self : Client, channel : String) -> Unit {
-  let _ = self.execute("UNLISTEN " + quote_identifier(channel))
+  ignore((self.execute("UNLISTEN " + quote_identifier(channel)) : Int))
 }
 
 ///|
@@ -305,7 +305,7 @@ pub async fn Client::wait_for_notification(self : Client) -> Notification {
       let messages = self.conn.receive()
       for msg in messages {
         raise_if_server_error_message(msg)
-        let _ = self.conn.dispatch_backend_message(msg)
+        ignore((self.conn.dispatch_backend_message(msg) : BackendDispatchResult))
       }
       match self.conn.notification_queue.dequeue() {
         Some(notification) => return notification

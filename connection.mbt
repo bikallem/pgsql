@@ -84,7 +84,7 @@ fn NotificationQueue::compact_if_needed(self : NotificationQueue) -> Unit {
   }
   // Trim the array to just the remaining items
   while self.items.length() > remaining {
-    let _ = self.items.pop()
+    ignore((self.items.pop() : Notification?))
   }
   self.head = 0
 }

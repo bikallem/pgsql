@@ -377,7 +377,7 @@ test "decode_partial_message" {
 test "Decoder buffer clear" {
   let decoder = Decoder::new()
   let partial = Bytes::from_array([b'Z', b'\x00'])
-  let _ = decoder.parse(partial)
+  ignore((decoder.parse(partial) : Array[BackendMessage]))
   inspect(decoder.buffer.length() > 0, content="true")
   decoder.buffer.clear()
   inspect(decoder.buffer.length() > 0, content="false")
