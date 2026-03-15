@@ -2,38 +2,38 @@
 
 ///|
 /// Error raised when a read exceeds the available data in the buffer
-suberror BufferUnderflow {
+priv suberror BufferUnderflow {
   BufferUnderflow(String)
 }
 
 ///|
 /// A reader for parsing binary data from Bytes
-struct BufferReader {
+priv struct BufferReader {
   data : Bytes
   mut offset : Int
 }
 
 ///|
 /// Create a new BufferReader from Bytes
-pub fn BufferReader::new(data : Bytes) -> BufferReader {
+fn BufferReader::new(data : Bytes) -> BufferReader {
   { data, offset: 0 }
 }
 
 ///|
 /// Get remaining bytes count
-pub fn BufferReader::remaining(self : BufferReader) -> Int {
+fn BufferReader::remaining(self : BufferReader) -> Int {
   self.data.length() - self.offset
 }
 
 ///|
 /// Get current offset
-pub fn BufferReader::position(self : BufferReader) -> Int {
+fn BufferReader::position(self : BufferReader) -> Int {
   self.offset
 }
 
 ///|
 /// Read a single byte
-pub fn BufferReader::byte(self : BufferReader) -> Byte raise BufferUnderflow {
+fn BufferReader::byte(self : BufferReader) -> Byte raise BufferUnderflow {
   guard self.remaining() >= 1 else {
     raise BufferUnderflow(
       "byte: need 1 byte but only \{self.remaining()} remaining",
@@ -46,7 +46,7 @@ pub fn BufferReader::byte(self : BufferReader) -> Byte raise BufferUnderflow {
 
 ///|
 /// Read a 16-bit signed integer in big-endian format
-pub fn BufferReader::int16(self : BufferReader) -> Int raise BufferUnderflow {
+fn BufferReader::int16(self : BufferReader) -> Int raise BufferUnderflow {
   guard self.remaining() >= 2 else {
     raise BufferUnderflow(
       "int16: need 2 bytes but only \{self.remaining()} remaining",
@@ -66,7 +66,7 @@ pub fn BufferReader::int16(self : BufferReader) -> Int raise BufferUnderflow {
 
 ///|
 /// Read a 32-bit signed integer in big-endian format
-pub fn BufferReader::int32(self : BufferReader) -> Int raise BufferUnderflow {
+fn BufferReader::int32(self : BufferReader) -> Int raise BufferUnderflow {
   guard self.remaining() >= 4 else {
     raise BufferUnderflow(
       "int32: need 4 bytes but only \{self.remaining()} remaining",
@@ -82,7 +82,7 @@ pub fn BufferReader::int32(self : BufferReader) -> Int raise BufferUnderflow {
 
 ///|
 /// Read a 32-bit unsigned integer in big-endian format
-pub fn BufferReader::uint32(self : BufferReader) -> UInt raise BufferUnderflow {
+fn BufferReader::uint32(self : BufferReader) -> UInt raise BufferUnderflow {
   guard self.remaining() >= 4 else {
     raise BufferUnderflow(
       "uint32: need 4 bytes but only \{self.remaining()} remaining",
@@ -98,7 +98,7 @@ pub fn BufferReader::uint32(self : BufferReader) -> UInt raise BufferUnderflow {
 
 ///|
 /// Read a null-terminated C string (ASCII)
-pub fn BufferReader::cstring(
+fn BufferReader::cstring(
   self : BufferReader,
 ) -> String raise BufferUnderflow {
   let start = self.offset
@@ -121,7 +121,7 @@ pub fn BufferReader::cstring(
 
 ///|
 /// Read fixed number of bytes
-pub fn BufferReader::bytes(
+fn BufferReader::bytes(
   self : BufferReader,
   len : Int,
 ) -> Bytes raise BufferUnderflow {
@@ -143,6 +143,6 @@ pub fn BufferReader::bytes(
 
 ///|
 /// Skip bytes without reading
-pub fn BufferReader::skip(self : BufferReader, count : Int) -> Unit {
+fn BufferReader::skip(self : BufferReader, count : Int) -> Unit {
   self.offset += count
 }

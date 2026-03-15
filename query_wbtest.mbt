@@ -178,21 +178,21 @@ test "Row::column_count" {
 
 ///|
 test "build_query_result with rows" {
-  let messages : Array[@protocol.BackendMessage] = [
-    @protocol.RowDescription([
-      @protocol.FieldDescription::new("id", 0, 0, 23, 4, -1, @protocol.Text),
-      @protocol.FieldDescription::new("name", 0, 0, 25, -1, -1, @protocol.Text),
+  let messages : Array[BackendMessage] = [
+    RowDescription([
+      FieldDescription::new("id", 0, 0, 23, 4, -1, Text),
+      FieldDescription::new("name", 0, 0, 25, -1, -1, Text),
     ]),
-    @protocol.DataRow([
+    DataRow([
       Some(Bytes::from_array([b'1'])),
       Some(Bytes::from_array([b'A', b'l', b'i', b'c', b'e'])),
     ]),
-    @protocol.DataRow([
+    DataRow([
       Some(Bytes::from_array([b'2'])),
       Some(Bytes::from_array([b'B', b'o', b'b'])),
     ]),
-    @protocol.CommandComplete("SELECT 2"),
-    @protocol.ReadyForQuery(@protocol.Idle),
+    CommandComplete("SELECT 2"),
+    ReadyForQuery(Idle),
   ]
   let result = build_query_result(messages)
   inspect(result.row_count(), content="2")
@@ -215,9 +215,9 @@ test "build_query_result with rows" {
 
 ///|
 test "build_query_result empty" {
-  let messages : Array[@protocol.BackendMessage] = [
-    @protocol.EmptyQueryResponse,
-    @protocol.ReadyForQuery(@protocol.Idle),
+  let messages : Array[BackendMessage] = [
+    EmptyQueryResponse,
+    ReadyForQuery(Idle),
   ]
   let result = build_query_result(messages)
   inspect(result.row_count(), content="0")
@@ -226,9 +226,9 @@ test "build_query_result empty" {
 
 ///|
 test "build_query_result command only" {
-  let messages : Array[@protocol.BackendMessage] = [
-    @protocol.CommandComplete("INSERT 0 3"),
-    @protocol.ReadyForQuery(@protocol.Idle),
+  let messages : Array[BackendMessage] = [
+    CommandComplete("INSERT 0 3"),
+    ReadyForQuery(Idle),
   ]
   let result = build_query_result(messages)
   inspect(result.row_count(), content="0")

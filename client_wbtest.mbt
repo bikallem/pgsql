@@ -2,12 +2,12 @@
 /// Regression: wait_for_notification should fail fast on ErrorResponse.
 test "raise_if_server_error_message raises ServerError" {
   let fields : Map[String, String] = {}
-  fields[@protocol.FIELD_MESSAGE] = "decoder hardening failure"
-  fields[@protocol.FIELD_CODE] = "XX000"
+  fields[FIELD_MESSAGE] = "decoder hardening failure"
+  fields[FIELD_CODE] = "XX000"
 
   let mut message = ""
   let failed = try {
-    raise_if_server_error_message(@protocol.ErrorResponse(fields))
+    raise_if_server_error_message(ErrorResponse(fields))
     false
   } catch {
     ServerError(info) => {
@@ -22,7 +22,7 @@ test "raise_if_server_error_message raises ServerError" {
 
 ///|
 test "raise_if_server_error_message ignores non-error messages" {
-  raise_if_server_error_message(@protocol.ReadyForQuery(@protocol.Idle))
+  raise_if_server_error_message(ReadyForQuery(Idle))
 }
 
 ///|

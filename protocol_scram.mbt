@@ -5,7 +5,7 @@
 
 ///|
 /// SCRAM authentication error
-pub suberror ScramError {
+priv suberror ScramError {
   ScramError(String)
 }
 
@@ -17,7 +17,7 @@ const MAX_SCRAM_ITERATIONS : Int = 1000000
 /// Build the client-first message for SCRAM-SHA-256.
 /// Returns (full_message, bare_message).
 /// The bare_message is needed later for computing the auth message.
-pub fn scram_client_first(
+fn scram_client_first(
   username : String,
   nonce : String,
 ) -> (String, String) {
@@ -33,7 +33,7 @@ pub fn scram_client_first(
 /// Returns (client_final_message, expected_server_signature).
 ///
 /// server_first format: "r=<nonce>,s=<salt>,i=<iterations>"
-pub fn scram_client_final(
+fn scram_client_final(
   password : String,
   client_first_bare : String,
   server_first : String,
@@ -114,7 +114,7 @@ pub fn scram_client_final(
 ///|
 /// Verify the server-final-message matches the expected server signature.
 /// server_final format: "v=<base64_signature>"
-pub fn scram_verify_server(
+fn scram_verify_server(
   server_final : String,
   expected_signature : Bytes,
 ) -> Unit raise ScramError {

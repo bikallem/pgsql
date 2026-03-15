@@ -14,7 +14,7 @@ pub async fn CopyWriter::write(self : CopyWriter, data : Bytes) -> Unit {
   if not(self.conn.copy_in_active) {
     raise CopyError("COPY writer is no longer active")
   }
-  self.conn.send(@protocol.CopyData(data))
+  self.conn.send(CopyData(data))
 }
 
 ///|
@@ -50,7 +50,7 @@ pub async fn CopyWriter::write_row_nullable(
     }
   }
   buf.push(b'\n')
-  self.conn.send(@protocol.CopyData(Bytes::from_array(buf)))
+  self.conn.send(CopyData(Bytes::from_array(buf)))
 }
 
 ///|
@@ -62,7 +62,7 @@ pub async fn Client::copy_out(
   handler : async (Bytes) -> Unit,
 ) -> Int {
   self.with_operation(async fn() {
-    self.conn.send(@protocol.Query(sql))
+    self.conn.send(Query(sql))
 
     // Loop on receive until ReadyForQuery, calling handler for CopyData
     let mut row_count = 0
@@ -73,8 +73,8 @@ pub async fn Client::copy_out(
       let messages = self.conn.receive()
       for msg in messages {
         match msg {
-          @protocol.CopyOutResponse(_, _) => ()
-          @protocol.CopyData(data) =>
+          CopyOutResponse(_, _) => ()
+          CopyData(data) =>
             if handler_error is None {
               self.run_user_callback(async fn() { handler(data) }) catch {
                 err =>
@@ -86,9 +86,9 @@ pub async fn Client::copy_out(
                   )
               }
             }
-          @protocol.CopyDone => ()
-          @protocol.CommandComplete(tag) => command_tag = tag
-          @protocol.ErrorResponse(fields) =>
+          CopyDone => ()
+          CommandComplete(tag) => command_tag = tag
+          ErrorResponse(fields) =>
             if server_error is None {
               server_error = Some(ServerErrorInfo::from_fields(fields))
             }
@@ -127,7 +127,7 @@ pub async fn Client::copy_in(
 ) -> Int {
   self.with_operation(async fn() {
     self.conn.copy_in_active = false
-    self.conn.send(@protocol.Query(sql))
+    self.conn.send(Query(sql))
 
     // Wait for CopyInResponse
     let mut got_copy_in = false
@@ -136,8 +136,8 @@ pub async fn Client::copy_in(
       let messages = self.conn.receive()
       for msg in messages {
         match msg {
-          @protocol.CopyInResponse(_, _) => got_copy_in = true
-          @protocol.ErrorResponse(fields) =>
+          CopyInResponse(_, _) => got_copy_in = true
+          ErrorResponse(fields) =>
             if startup_error is None {
               startup_error = Some(ServerErrorInfo::from_fields(fields))
             }
@@ -162,8 +162,8 @@ pub async fn Client::copy_in(
     self.run_user_callback(async fn() { writer(copy_writer) }) catch {
       err => {
         // On error, send CopyFail and wait for ReadyForQuery
-        self.conn.send(@protocol.CopyFail(err.to_string()))
-        ignore((self.conn.receive_until_ready() : Array[@protocol.BackendMessage]))
+        self.conn.send(CopyFail(err.to_string()))
+        ignore((self.conn.receive_until_ready() : Array[BackendMessage]))
         self.conn.copy_in_active = false
         raise CopyCallbackError(
           CopyCallbackFailure::new("COPY IN writer", err.to_string()),
@@ -173,7 +173,7 @@ pub async fn Client::copy_in(
 
     let row_count = try {
       // Send CopyDone
-      self.conn.send(@protocol.CopyDone)
+      self.conn.send(CopyDone)
 
       // Wait for completion
       let messages = self.conn.receive_until_ready()
@@ -185,7 +185,7 @@ pub async fn Client::copy_in(
       let mut copied_rows = 0
       for msg in messages {
         match msg {
-          @protocol.CommandComplete(tag) =>
+          CommandComplete(tag) =>
             copied_rows = parse_affected_rows(tag)
           _ => ()
         }

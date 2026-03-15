@@ -7,38 +7,38 @@
 
 ///|
 /// A buffer for building binary messages
-struct BufferWriter {
+priv struct BufferWriter {
   data : Array[Byte]
 }
 
 ///|
 /// Create a new BufferWriter with optional initial capacity
-pub fn BufferWriter::new(capacity? : Int = 256) -> BufferWriter {
+fn BufferWriter::new(capacity? : Int = 256) -> BufferWriter {
   { data: Array::new(capacity~) }
 }
 
 ///|
 /// Get the current length of the buffer
-pub fn BufferWriter::length(self : BufferWriter) -> Int {
+fn BufferWriter::length(self : BufferWriter) -> Int {
   self.data.length()
 }
 
 ///|
 /// Add a single byte
-pub fn BufferWriter::add_byte(self : BufferWriter, value : Byte) -> Unit {
+fn BufferWriter::add_byte(self : BufferWriter, value : Byte) -> Unit {
   self.data.push(value)
 }
 
 ///|
 /// Add a 16-bit signed integer in big-endian format
-pub fn BufferWriter::add_int16(self : BufferWriter, value : Int) -> Unit {
+fn BufferWriter::add_int16(self : BufferWriter, value : Int) -> Unit {
   self.data.push(((value >> 8) & 0xFF).to_byte())
   self.data.push((value & 0xFF).to_byte())
 }
 
 ///|
 /// Add a 32-bit signed integer in big-endian format
-pub fn BufferWriter::add_int32(self : BufferWriter, value : Int) -> Unit {
+fn BufferWriter::add_int32(self : BufferWriter, value : Int) -> Unit {
   self.data.push(((value >> 24) & 0xFF).to_byte())
   self.data.push(((value >> 16) & 0xFF).to_byte())
   self.data.push(((value >> 8) & 0xFF).to_byte())
@@ -47,7 +47,7 @@ pub fn BufferWriter::add_int32(self : BufferWriter, value : Int) -> Unit {
 
 ///|
 /// Add a null-terminated C string (UTF-8 encoded)
-pub fn BufferWriter::add_cstring(self : BufferWriter, value : String) -> Unit {
+fn BufferWriter::add_cstring(self : BufferWriter, value : String) -> Unit {
   let bytes = @utf8.encode(value[:])
   for i = 0; i < bytes.length(); i = i + 1 {
     self.data.push(bytes[i])
@@ -57,7 +57,7 @@ pub fn BufferWriter::add_cstring(self : BufferWriter, value : String) -> Unit {
 
 ///|
 /// Add raw bytes
-pub fn BufferWriter::add_bytes(self : BufferWriter, value : Bytes) -> Unit {
+fn BufferWriter::add_bytes(self : BufferWriter, value : Bytes) -> Unit {
   for i = 0; i < value.length(); i = i + 1 {
     self.data.push(value[i])
   }
@@ -65,14 +65,14 @@ pub fn BufferWriter::add_bytes(self : BufferWriter, value : Bytes) -> Unit {
 
 ///|
 /// Convert to Bytes (used by tests)
-pub fn BufferWriter::to_bytes(self : BufferWriter) -> Bytes {
+fn BufferWriter::to_bytes(self : BufferWriter) -> Bytes {
   Bytes::from_array(self.data)
 }
 
 ///|
 /// Flush the buffer as a complete message with type code
 /// The length field includes itself (4 bytes) but not the type code
-pub fn BufferWriter::flush(self : BufferWriter, code : Byte) -> Bytes {
+fn BufferWriter::flush(self : BufferWriter, code : Byte) -> Bytes {
   let payload_len = self.data.length()
   let msg_len = payload_len + 4 // length includes itself
   let result = Array::new(capacity=payload_len + 5)
@@ -98,7 +98,7 @@ pub fn BufferWriter::flush(self : BufferWriter, code : Byte) -> Bytes {
 ///|
 /// Flush the buffer as a startup message (no type code)
 /// StartupMessage format: length (4 bytes) + protocol version + parameters
-pub fn BufferWriter::flush_startup(self : BufferWriter) -> Bytes {
+fn BufferWriter::flush_startup(self : BufferWriter) -> Bytes {
   let payload_len = self.data.length()
   let msg_len = payload_len + 4 // length includes itself
   let result = Array::new(capacity=payload_len + 4)

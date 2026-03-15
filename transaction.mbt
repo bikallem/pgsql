@@ -98,7 +98,7 @@ pub async fn Transaction::query_params(
   self.check_active()
   let messages = self.client.with_transaction_operation(async fn() {
     self.client.bind_execute_unlocked("", params, prefix=[
-      @protocol.Parse("", sql, []),
+      Parse("", sql, []),
     ])
   })
   build_query_result(messages)

@@ -166,7 +166,7 @@ pub async fn Client::query_params(
 ) -> QueryResult {
   // Parse + bind-execute in a single batch
   let messages = self.bind_execute("", params, prefix=[
-    @protocol.Parse("", sql, []),
+    Parse("", sql, []),
   ])
   build_query_result(messages)
 }
@@ -220,13 +220,13 @@ pub async fn Client::rollback(self : Client) -> Unit {
 ///|
 /// Check if in a transaction
 pub fn Client::in_transaction(self : Client) -> Bool {
-  self.conn.transaction_status is (@protocol.InTransaction | @protocol.Failed)
+  self.conn.transaction_status is (InTransaction | Failed)
 }
 
 ///|
 /// Transaction status
 pub fn Client::transaction_status(self : Client) -> TransactionStatus {
-  tx_status_from_protocol(self.conn.transaction_status)
+  self.conn.transaction_status
 }
 
 ///|
@@ -332,8 +332,8 @@ async fn Client::bind_execute(
   self : Client,
   stmt_name : String,
   params : Array[Value],
-  prefix? : Array[@protocol.FrontendMessage] = [],
-) -> Array[@protocol.BackendMessage] {
+  prefix? : Array[FrontendMessage] = [],
+) -> Array[BackendMessage] {
   self.with_operation(async fn() {
     self.bind_execute_unlocked(stmt_name, params, prefix~)
   })
@@ -342,7 +342,7 @@ async fn Client::bind_execute(
 ///|
 /// Execute simple-query path assuming operation serialization is already held.
 async fn Client::query_unlocked(self : Client, sql : String) -> QueryResult {
-  self.conn.send(@protocol.Query(sql))
+  self.conn.send(Query(sql))
   let messages = self.conn.receive_until_ready()
   check_error(messages)
   build_query_result(messages)
@@ -356,7 +356,7 @@ async fn Client::prepare_unlocked(
 ) -> PreparedStatement {
   self.stmt_counter += 1
   let name = "__prep_" + self.stmt_counter.to_string()
-  self.conn.send_all([@protocol.Parse(name, sql, []), @protocol.Sync])
+  self.conn.send_all([Parse(name, sql, []), Sync])
   let messages = self.conn.receive_until_ready()
   check_error(messages)
   { client: self, name, sql, closed: false, tx_scoped: false }
@@ -368,15 +368,15 @@ async fn Client::bind_execute_unlocked(
   self : Client,
   stmt_name : String,
   params : Array[Value],
-  prefix? : Array[@protocol.FrontendMessage] = [],
-) -> Array[@protocol.BackendMessage] {
+  prefix? : Array[FrontendMessage] = [],
+) -> Array[BackendMessage] {
   let param_bytes = serialize_params(params)
   let msgs = Array::from_iter(prefix.iter())
   msgs.append([
-    @protocol.Bind("", stmt_name, [], param_bytes, []),
-    @protocol.Describe(@protocol.TARGET_PORTAL, ""),
-    @protocol.Execute("", 0),
-    @protocol.Sync,
+    Bind("", stmt_name, [], param_bytes, []),
+    Describe(TARGET_PORTAL, ""),
+    Execute("", 0),
+    Sync,
   ])
   self.conn.send_all(msgs)
 
@@ -431,7 +431,7 @@ fn quote_identifier(name : String) -> String {
 ///|
 /// Build QueryResult from backend messages
 fn build_query_result(
-  messages : Array[@protocol.BackendMessage],
+  messages : Array[BackendMessage],
 ) -> QueryResult {
   let mut columns : Array[ColumnInfo] = []
   let mut col_index : Map[String, Int] = {}
@@ -440,16 +440,16 @@ fn build_query_result(
 
   for msg in messages {
     match msg {
-      @protocol.RowDescription(f) => {
+      RowDescription(f) => {
         columns = f.map(fn(fd) { column_info_from_field(fd) })
         col_index = build_column_index(columns)
       }
-      @protocol.DataRow(values) => {
+      DataRow(values) => {
         let typed_values = convert_row_values(values, columns)
         rows.push(Row::new(typed_values, columns, col_index))
       }
-      @protocol.CommandComplete(tag) => command_tag = tag
-      @protocol.EmptyQueryResponse => ()
+      CommandComplete(tag) => command_tag = tag
+      EmptyQueryResponse => ()
       _ => ()
     }
   }
@@ -467,16 +467,16 @@ fn convert_row_values(
     let type_oid = if i < columns.length() {
       columns[i].type_oid
     } else {
-      @protocol.OID_TEXT
+      OID_TEXT
     }
-    value_from_protocol(@protocol.parse_text_value(raw, type_oid))
+    parse_text_value(raw, type_oid)
   })
 }
 
 ///|
 /// Serialize parameter values for Bind message
 fn serialize_params(params : Array[Value]) -> Array[Bytes?] {
-  params.map(fn(p) { @protocol.serialize_value(value_to_protocol(p)) })
+  params.map(fn(p) { serialize_value(p) })
 }
 
 ///|

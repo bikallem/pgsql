@@ -18,7 +18,7 @@ const COMPACT_THRESHOLD : Int = 4096
 ///|
 /// Decoder for PostgreSQL protocol messages
 /// Handles incremental parsing of data that may arrive in chunks
-struct Decoder {
+priv struct Decoder {
   /// Buffer for incomplete messages
   mut buffer : Array[Byte]
   /// Start index of unread bytes inside `buffer`.
@@ -27,7 +27,7 @@ struct Decoder {
 
 ///|
 /// Create a new Decoder
-pub fn Decoder::new() -> Decoder {
+fn Decoder::new() -> Decoder {
   { buffer: [], start: 0 }
 }
 
@@ -35,7 +35,7 @@ pub fn Decoder::new() -> Decoder {
 /// Parse messages from incoming data
 /// Returns all complete messages that can be parsed from the buffer
 /// Incomplete messages are buffered for the next call
-pub fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
+fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
   if self.start >= self.buffer.length() {
     self.buffer.clear()
     self.start = 0

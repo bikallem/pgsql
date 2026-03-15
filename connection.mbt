@@ -79,13 +79,13 @@ priv struct Connection {
   /// Transport (TCP or TLS)
   transport : Transport
   /// Protocol decoder
-  decoder : @protocol.Decoder
+  decoder : Decoder
   /// Backend process ID
   mut process_id : Int
   /// Backend secret key (for cancellation)
   mut secret_key : Int
   /// Current transaction status
-  mut transaction_status : @protocol.TransactionStatus
+  mut transaction_status : TransactionStatus
   /// Server parameters
   server_params : Map[String, String]
   /// Queue of received notifications
@@ -110,10 +110,10 @@ fn Connection::create(config : Config, transport : Transport) -> Connection {
   {
     config,
     transport,
-    decoder: @protocol.Decoder::new(),
+    decoder: Decoder::new(),
     process_id: 0,
     secret_key: 0,
-    transaction_status: @protocol.Idle,
+    transaction_status: Idle,
     server_params: {},
     notification_queue: NotificationQueue::new(),
     copy_in_active: false,
@@ -125,9 +125,9 @@ fn Connection::create(config : Config, transport : Transport) -> Connection {
 /// Send a protocol message
 async fn Connection::send(
   self : Connection,
-  msg : @protocol.FrontendMessage,
+  msg : FrontendMessage,
 ) -> Unit {
-  let bytes = @protocol.encode(msg)
+  let bytes = encode(msg)
   self.transport.write(bytes)
 }
 
@@ -135,7 +135,7 @@ async fn Connection::send(
 /// Send multiple protocol messages in a single write to reduce syscalls
 async fn Connection::send_all(
   self : Connection,
-  msgs : Array[@protocol.FrontendMessage],
+  msgs : Array[FrontendMessage],
 ) -> Unit {
   if msgs.length() == 0 {
     return
@@ -145,13 +145,13 @@ async fn Connection::send_all(
 
 ///|
 /// Encode a frontend message batch into a single contiguous frame.
-fn encode_frontend_batch(msgs : Array[@protocol.FrontendMessage]) -> Bytes {
+fn encode_frontend_batch(msgs : Array[FrontendMessage]) -> Bytes {
   if msgs.length() == 1 {
-    return @protocol.encode(msgs[0])
+    return encode(msgs[0])
   }
   let buf : Array[Byte] = []
   for msg in msgs {
-    let bytes = @protocol.encode(msg)
+    let bytes = encode(msg)
     for i = 0; i < bytes.length(); i = i + 1 {
       buf.push(bytes[i])
     }
@@ -165,7 +165,7 @@ fn encode_frontend_batch(msgs : Array[@protocol.FrontendMessage]) -> Bytes {
 /// ConnectionClosedError after the timeout expires.
 async fn Connection::receive(
   self : Connection,
-) -> Array[@protocol.BackendMessage] {
+) -> Array[BackendMessage] {
   let data = if self.config.read_timeout > 0 {
     @async.with_timeout(
       self.config.read_timeout,
@@ -185,8 +185,8 @@ async fn Connection::receive(
 /// Receive messages until ReadyForQuery
 async fn Connection::receive_until_ready(
   self : Connection,
-) -> Array[@protocol.BackendMessage] {
-  let all_messages : Array[@protocol.BackendMessage] = []
+) -> Array[BackendMessage] {
+  let all_messages : Array[BackendMessage] = []
 
   while true {
     let messages = self.receive()
@@ -208,7 +208,7 @@ async fn Connection::receive_until_ready(
 ///|
 /// Raise ServerError if messages contain an error
 fn check_error(
-  messages : Array[@protocol.BackendMessage],
+  messages : Array[BackendMessage],
 ) -> Unit raise ServerError {
   for msg in messages {
     match server_error_from_message(msg) {
@@ -221,10 +221,10 @@ fn check_error(
 ///|
 /// Parse ErrorResponse into structured server error info.
 fn server_error_from_message(
-  msg : @protocol.BackendMessage,
+  msg : BackendMessage,
 ) -> ServerErrorInfo? {
   match msg {
-    @protocol.ErrorResponse(fields) =>
+    ErrorResponse(fields) =>
       Some(ServerErrorInfo::from_fields(fields))
     _ => None
   }
@@ -233,7 +233,7 @@ fn server_error_from_message(
 ///|
 /// Raise ServerError when backend message is ErrorResponse.
 fn raise_if_server_error_message(
-  msg : @protocol.BackendMessage,
+  msg : BackendMessage,
 ) -> Unit raise ServerError {
   match server_error_from_message(msg) {
     Some(info) => raise ServerError(info)
@@ -245,18 +245,18 @@ fn raise_if_server_error_message(
 /// Apply shared side effects from backend control messages.
 fn Connection::dispatch_backend_message(
   self : Connection,
-  msg : @protocol.BackendMessage,
+  msg : BackendMessage,
 ) -> BackendDispatchResult {
   match msg {
-    @protocol.NotificationResponse(pid, channel, payload) => {
+    NotificationResponse(pid, channel, payload) => {
       self.notification_queue.enqueue(Notification::new(channel, payload, pid))
       Consumed
     }
-    @protocol.ParameterStatus(name, value) => {
+    ParameterStatus(name, value) => {
       self.server_params[name] = value
       Consumed
     }
-    @protocol.ReadyForQuery(status) => {
+    ReadyForQuery(status) => {
       self.transaction_status = status
       Ready
     }
@@ -267,7 +267,7 @@ fn Connection::dispatch_backend_message(
 ///|
 /// Close the connection, sending Terminate message first
 async fn Connection::close(self : Connection) -> Unit {
-  self.send(@protocol.Terminate) catch {
+  self.send(Terminate) catch {
     _ => () // Best effort — socket may already be broken
   }
   self.transport.close()
@@ -307,7 +307,7 @@ async fn cancel_request(
 ) -> Unit {
   let addr = @socket.Addr::resolve(config.host, port=config.port)
   let tcp = @socket.Tcp::connect(addr)
-  tcp.write(@protocol.encode(@protocol.CancelRequest(process_id, secret_key)))
+  tcp.write(encode(CancelRequest(process_id, secret_key)))
   tcp.close()
 }
 
@@ -321,7 +321,7 @@ async fn negotiate_transport(tcp : @socket.Tcp, config : Config) -> Transport {
     Disable => PlainTcp(tcp)
     Prefer | Require | VerifyFull => {
       // Send SSLRequest message
-      tcp.write(@protocol.encode(@protocol.SSLRequest))
+      tcp.write(encode(SSLRequest))
       // Read single-byte response
       match tcp.read_some() {
         Some(data) if data.length() > 0 && data[0] == b'S' => {
@@ -345,7 +345,7 @@ async fn Connection::startup(self : Connection) -> Unit {
   params["database"] = self.config.database
 
   // Send StartupMessage
-  self.send(@protocol.StartupMessage(params))
+  self.send(StartupMessage(params))
 
   // Handle authentication
   self.authenticate()
@@ -398,62 +398,62 @@ async fn Connection::authenticate(self : Connection) -> Unit {
 
     for msg in messages {
       match msg {
-        @protocol.AuthenticationOk =>
+        AuthenticationOk =>
           // Authentication successful, continue to receive startup messages
           ()
-        @protocol.AuthenticationCleartextPassword =>
+        AuthenticationCleartextPassword =>
           // Send password in cleartext
-          self.send(@protocol.PasswordMessage(self.config.password))
-        @protocol.AuthenticationMD5Password(salt) => {
+          self.send(PasswordMessage(self.config.password))
+        AuthenticationMD5Password(salt) => {
           // Compute MD5 hash
-          let hash = @protocol.md5_password(
+          let hash = md5_password(
             self.config.password,
             self.config.user,
             salt,
           )
-          self.send(@protocol.PasswordMessage(hash))
+          self.send(PasswordMessage(hash))
         }
-        @protocol.AuthenticationSASL(mechanisms) => {
+        AuthenticationSASL(mechanisms) => {
           // SCRAM-SHA-256 initial handshake
           guard mechanisms.contains("SCRAM-SHA-256") else {
             raise AuthError("Server requires unsupported SASL mechanism")
           }
           let nonce = generate_nonce()
-          let (client_first, client_first_bare) = @protocol.scram_client_first(
+          let (client_first, client_first_bare) = scram_client_first(
             self.config.user,
             nonce,
           )
           scram_nonce = nonce
           scram_client_first_bare = client_first_bare
           self.send(
-            @protocol.SASLInitialResponse(
+            SASLInitialResponse(
               "SCRAM-SHA-256",
               @utf8.encode(client_first[:]),
             ),
           )
         }
-        @protocol.AuthenticationSASLContinue(data) => {
+        AuthenticationSASLContinue(data) => {
           // SCRAM server-first-message → compute client-final
           let server_first = @utf8.decode_lossy(data[:])
-          let (client_final, expected_sig) = @protocol.scram_client_final(
+          let (client_final, expected_sig) = scram_client_final(
             self.config.password,
             scram_client_first_bare,
             server_first,
             scram_nonce,
           ) catch {
-            @protocol.ScramError(msg) => raise AuthError(msg)
+            ScramError(msg) => raise AuthError(msg)
           }
           scram_expected_sig = expected_sig
-          self.send(@protocol.SASLResponse(@utf8.encode(client_final[:])))
+          self.send(SASLResponse(@utf8.encode(client_final[:])))
         }
-        @protocol.AuthenticationSASLFinal(data) => {
+        AuthenticationSASLFinal(data) => {
           // SCRAM server-final-message → verify server signature
           let server_final = @utf8.decode_lossy(data[:])
-          @protocol.scram_verify_server(server_final, scram_expected_sig) catch {
-            @protocol.ScramError(msg) => raise AuthError(msg)
+          scram_verify_server(server_final, scram_expected_sig) catch {
+            ScramError(msg) => raise AuthError(msg)
           }
         }
-        @protocol.BackendKeyData(pid, key) => {
+        BackendKeyData(pid, key) => {
           self.process_id = pid
           self.secret_key = key
         }

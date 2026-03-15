@@ -5,7 +5,7 @@
 
 ///|
 /// Encode a FrontendMessage to Bytes
-pub fn encode(msg : FrontendMessage) -> Bytes {
+fn encode(msg : FrontendMessage) -> Bytes {
   match msg {
     StartupMessage(params) => encode_startup(params)
     SSLRequest => encode_ssl_request()

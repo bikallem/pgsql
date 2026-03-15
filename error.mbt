@@ -110,18 +110,18 @@ pub struct ServerErrorInfo {
 pub fn ServerErrorInfo::from_fields(
   fields : Map[String, String],
 ) -> ServerErrorInfo {
-  let severity = fields.get(@protocol.FIELD_SEVERITY).unwrap_or_else(fn() {
-    fields.get(@protocol.FIELD_SEVERITY_NL).unwrap_or("ERROR")
+  let severity = fields.get(FIELD_SEVERITY).unwrap_or_else(fn() {
+    fields.get(FIELD_SEVERITY_NL).unwrap_or("ERROR")
   })
   {
     severity,
-    code: fields.get(@protocol.FIELD_CODE).unwrap_or(""),
-    message: fields.get(@protocol.FIELD_MESSAGE).unwrap_or("Unknown error"),
-    detail: fields.get(@protocol.FIELD_DETAIL),
-    hint: fields.get(@protocol.FIELD_HINT),
-    table: fields.get(@protocol.FIELD_TABLE),
-    column: fields.get(@protocol.FIELD_COLUMN),
-    constraint: fields.get(@protocol.FIELD_CONSTRAINT),
+    code: fields.get(FIELD_CODE).unwrap_or(""),
+    message: fields.get(FIELD_MESSAGE).unwrap_or("Unknown error"),
+    detail: fields.get(FIELD_DETAIL),
+    hint: fields.get(FIELD_HINT),
+    table: fields.get(FIELD_TABLE),
+    column: fields.get(FIELD_COLUMN),
+    constraint: fields.get(FIELD_CONSTRAINT),
   }
 }
 

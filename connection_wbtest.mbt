@@ -140,15 +140,15 @@ test "NotificationQueue compact preserves ordering" {
 
 ///|
 test "encode_frontend_batch matches concatenated protocol encoding" {
-  let msgs : Array[@protocol.FrontendMessage] = [
-    @protocol.Query("SELECT 1"),
-    @protocol.Sync,
+  let msgs : Array[FrontendMessage] = [
+    Query("SELECT 1"),
+    Sync,
   ]
   let batch = encode_frontend_batch(msgs)
 
   let expected : Array[Byte] = []
   for msg in msgs {
-    let encoded = @protocol.encode(msg)
+    let encoded = encode(msg)
     for i = 0; i < encoded.length(); i = i + 1 {
       expected.push(encoded[i])
     }
@@ -162,9 +162,9 @@ test "encode_frontend_batch matches concatenated protocol encoding" {
 
 ///|
 test "encode_frontend_batch passes through single message encoding" {
-  let msg = @protocol.Flush
+  let msg = Flush
   let batch = encode_frontend_batch([msg])
-  let encoded = @protocol.encode(msg)
+  let encoded = encode(msg)
   assert_eq(batch.length(), encoded.length())
   for i = 0; i < batch.length(); i = i + 1 {
     assert_eq(batch[i], encoded[i])

@@ -1,11 +1,12 @@
 import {
-  "bikallem/pgsql/internal/protocol",
   "moonbitlang/async" @async,
   "moonbitlang/async/socket",
   "moonbitlang/async/tls",
   "moonbitlang/core/encoding/base64" @base64,
   "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/core/random" @random,
+  "moonbitlang/core/strconv" @strconv,
+  "moonbitlang/x/crypto" @crypto,
 }
 
 import {

@@ -6,7 +6,7 @@
 ///|
 /// Compute MD5 password hash for PostgreSQL authentication
 /// Returns the string to send in PasswordMessage
-pub fn md5_password(
+fn md5_password(
   password : String,
   username : String,
   salt : Bytes,

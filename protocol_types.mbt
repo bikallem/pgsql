@@ -9,119 +9,82 @@
 // =============================================================================
 
 // Boolean
-pub const OID_BOOL : UInt = 16
+const OID_BOOL : UInt = 16
 
 // Numeric Types
 
 ///|
-pub const OID_INT2 : UInt = 21 // smallint
+const OID_INT2 : UInt = 21 // smallint
 
 ///|
-pub const OID_INT4 : UInt = 23 // integer
+const OID_INT4 : UInt = 23 // integer
 
 ///|
-pub const OID_INT8 : UInt = 20 // bigint
+const OID_INT8 : UInt = 20 // bigint
 
 ///|
-pub const OID_FLOAT4 : UInt = 700 // real
+const OID_FLOAT4 : UInt = 700 // real
 
 ///|
-pub const OID_FLOAT8 : UInt = 701 // double precision
+const OID_FLOAT8 : UInt = 701 // double precision
 
 ///|
-pub const OID_NUMERIC : UInt = 1700 // numeric/decimal
+const OID_NUMERIC : UInt = 1700 // numeric/decimal
 
 // Character Types
 
 ///|
-pub const OID_CHAR : UInt = 18 // "char" (single character)
+const OID_CHAR : UInt = 18 // "char" (single character)
 
 ///|
-pub const OID_NAME : UInt = 19 // name (63 chars)
+const OID_NAME : UInt = 19 // name (63 chars)
 
 ///|
-pub const OID_TEXT : UInt = 25 // text
+const OID_TEXT : UInt = 25 // text
 
 ///|
-pub const OID_VARCHAR : UInt = 1043 // varchar
+const OID_VARCHAR : UInt = 1043 // varchar
 
 ///|
-pub const OID_BPCHAR : UInt = 1042 // char(n)
+const OID_BPCHAR : UInt = 1042 // char(n)
 
 // Binary Types
 
 ///|
-pub const OID_BYTEA : UInt = 17 // bytea
+const OID_BYTEA : UInt = 17 // bytea
 
 // Date/Time Types
 
 ///|
-pub const OID_DATE : UInt = 1082
+const OID_DATE : UInt = 1082
 
 ///|
-pub const OID_TIME : UInt = 1083
+const OID_TIME : UInt = 1083
 
 ///|
-pub const OID_TIMESTAMP : UInt = 1114
+const OID_TIMESTAMP : UInt = 1114
 
 ///|
-pub const OID_TIMESTAMPTZ : UInt = 1184
+const OID_TIMESTAMPTZ : UInt = 1184
 
 ///|
-pub const OID_TIMETZ : UInt = 1266
+const OID_TIMETZ : UInt = 1266
 
 ///|
-pub const OID_INTERVAL : UInt = 1186
+const OID_INTERVAL : UInt = 1186
 
 // JSON Types
 
 ///|
-pub const OID_JSON : UInt = 114
+const OID_JSON : UInt = 114
 
 ///|
-pub const OID_JSONB : UInt = 3802
+const OID_JSONB : UInt = 3802
 
 // UUID
 
 ///|
-pub const OID_UUID : UInt = 2950
-
-// =============================================================================
-// Value Type
-// =============================================================================
-
-///|
-/// Represents a PostgreSQL value in MoonBit
-pub(all) enum Value {
-  /// NULL value
-  Null
-  /// Boolean value
-  Bool(Bool)
-  /// 32-bit integer
-  Int(Int)
-  /// 64-bit integer
-  Int64(Int64)
-  /// Floating point number
-  Float(Double)
-  /// String/text value
-  String(String)
-  /// Binary data
-  Bytes(Bytes)
-  /// Date value (e.g. "2024-03-15")
-  Date(String)
-  /// Time value (e.g. "14:30:00.123456")
-  Time(String)
-  /// Timestamp without timezone (e.g. "2024-03-15 14:30:00")
-  Timestamp(String)
-  /// Timestamp with timezone (e.g. "2024-03-15 14:30:00+00")
-  TimestampTz(String)
-  /// Interval value (e.g. "1 year 2 mons 3 days 04:05:06")
-  Interval(String)
-  /// JSON/JSONB value
-  Json(String)
-  /// UUID value (e.g. "550e8400-e29b-41d4-a716-446655440000")
-  Uuid(String)
-} derive(Show, Eq)
+const OID_UUID : UInt = 2950
 
 // =============================================================================
 // Text Format Parsing (PostgreSQL -> MoonBit)
@@ -130,7 +93,7 @@ pub(all) enum Value {
 ///|
 /// Parse a PostgreSQL text-format value to a MoonBit Value
 /// Returns Null if the input is None (SQL NULL)
-pub fn parse_text_value(data : Bytes?, type_oid : UInt) -> Value {
+fn parse_text_value(data : Bytes?, type_oid : UInt) -> Value {
   match data {
     None => Null
     Some(bytes) => {
@@ -308,7 +271,7 @@ fn hex_digit_value(b : Byte) -> Int? {
 ///|
 /// Serialize a Value to PostgreSQL text format
 /// Returns None for Null values
-pub fn serialize_value(value : Value) -> Bytes? {
+fn serialize_value(value : Value) -> Bytes? {
   match value {
     Null => None
     Bool(b) => {

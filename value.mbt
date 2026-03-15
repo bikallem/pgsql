@@ -204,6 +204,12 @@ pub fn ColumnInfo::type_size(self : ColumnInfo) -> Int {
 }
 
 ///|
+/// Convert protocol FieldDescription to public ColumnInfo
+fn column_info_from_field(fd : FieldDescription) -> ColumnInfo {
+  { name: fd.name(), type_oid: fd.type_oid(), type_size: fd.type_size() }
+}
+
+///|
 /// Transaction status indicator
 pub(all) enum TransactionStatus {
   /// Not in a transaction block

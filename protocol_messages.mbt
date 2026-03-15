@@ -10,7 +10,7 @@
 ///|
 /// Protocol version 3.0 (major=3, minor=0)
 /// Encoded as Int32: (3 << 16) | 0 = 196608
-pub const PROTOCOL_VERSION : Int = 196608
+const PROTOCOL_VERSION : Int = 196608
 
 // =============================================================================
 // Backend Message Type Codes (Server -> Client)
@@ -206,11 +206,11 @@ const TX_IN_TRANSACTION : Byte = b'T'
 
 ///|
 /// Statement target for Describe and Close messages
-pub const TARGET_STATEMENT : Byte = b'S'
+const TARGET_STATEMENT : Byte = b'S'
 
 ///|
 /// Portal target for Describe and Close messages
-pub const TARGET_PORTAL : Byte = b'P'
+const TARGET_PORTAL : Byte = b'P'
 
 // =============================================================================
 // Error/Notice Field Keys
@@ -218,58 +218,48 @@ pub const TARGET_PORTAL : Byte = b'P'
 
 ///|
 /// Severity field (localized)
-pub const FIELD_SEVERITY : String = "S"
+const FIELD_SEVERITY : String = "S"
 
 ///|
 /// Severity field (non-localized)
-pub const FIELD_SEVERITY_NL : String = "V"
+const FIELD_SEVERITY_NL : String = "V"
 
 ///|
 /// SQLSTATE error code
-pub const FIELD_CODE : String = "C"
+const FIELD_CODE : String = "C"
 
 ///|
 /// Human-readable error message
-pub const FIELD_MESSAGE : String = "M"
+const FIELD_MESSAGE : String = "M"
 
 ///|
 /// Detail message
-pub const FIELD_DETAIL : String = "D"
+const FIELD_DETAIL : String = "D"
 
 ///|
 /// Hint message
-pub const FIELD_HINT : String = "H"
+const FIELD_HINT : String = "H"
 
 ///|
 /// Table name
-pub const FIELD_TABLE : String = "t"
+const FIELD_TABLE : String = "t"
 
 ///|
 /// Column name
-pub const FIELD_COLUMN : String = "c"
+const FIELD_COLUMN : String = "c"
 
 ///|
 /// Constraint name
-pub const FIELD_CONSTRAINT : String = "n"
+const FIELD_CONSTRAINT : String = "n"
 
 // =============================================================================
 // Common Types
 // =============================================================================
 
-///|
-/// Transaction status indicator from ReadyForQuery message
-pub(all) enum TransactionStatus {
-  /// Not in a transaction block
-  Idle
-  /// In a transaction block
-  InTransaction
-  /// In a failed transaction block (queries will be rejected until ROLLBACK)
-  Failed
-} derive(Show, Eq)
 
 ///|
 /// Format code for data transmission
-pub(all) enum FormatCode {
+enum FormatCode {
   /// Text format (default, human-readable)
   Text
   /// Binary format (more efficient, type-specific encoding)
@@ -297,25 +287,25 @@ struct FieldDescription {
 
 ///|
 /// Column name
-pub fn FieldDescription::name(self : FieldDescription) -> String {
+fn FieldDescription::name(self : FieldDescription) -> String {
   self.name
 }
 
 ///|
 /// OID of the field's data type
-pub fn FieldDescription::type_oid(self : FieldDescription) -> UInt {
+fn FieldDescription::type_oid(self : FieldDescription) -> UInt {
   self.type_oid
 }
 
 ///|
 /// Data type size (negative for variable-width types)
-pub fn FieldDescription::type_size(self : FieldDescription) -> Int {
+fn FieldDescription::type_size(self : FieldDescription) -> Int {
   self.type_size
 }
 
 ///|
 /// Create a new FieldDescription
-pub fn FieldDescription::new(
+fn FieldDescription::new(
   name : String,
   table_oid : UInt,
   column_id : Int,
@@ -333,7 +323,7 @@ pub fn FieldDescription::new(
 
 ///|
 /// Messages sent from PostgreSQL server to client
-pub(all) enum BackendMessage {
+enum BackendMessage {
   // --- Authentication Messages ---
   /// Authentication successful
   AuthenticationOk
@@ -409,7 +399,7 @@ pub(all) enum BackendMessage {
 
 ///|
 /// Messages sent from client to PostgreSQL server
-pub(all) enum FrontendMessage {
+enum FrontendMessage {
   // --- Startup Messages ---
   /// Initial connection message
   StartupMessage(Map[String, String]) // parameters: user, database, etc.
