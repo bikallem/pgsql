@@ -165,24 +165,21 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
             self.lock_held = false
             return
           }
-          _ =>
-            match server_error_from_message(msg) {
-              Some(info) => {
-                self.client.conn.send(Sync)
-                ignore(
-                  (
-                    self.client.conn.receive_until_ready() :
-                    Array[BackendMessage]),
-                )
-                raise ServerError(info)
-              }
-              None =>
-                ignore(
-                  (
-                    self.client.conn.dispatch_backend_message(msg) :
-                    BackendDispatchResult),
-                )
-            }
+          ErrorResponse(fields) => {
+            self.client.conn.send(Sync)
+            ignore(
+              (
+                self.client.conn.receive_until_ready() :
+                Array[BackendMessage]),
+            )
+            raise ServerError(ServerErrorInfo::from_fields(fields))
+          }
+          msg =>
+            ignore(
+              (
+                self.client.conn.dispatch_backend_message(msg) :
+                BackendDispatchResult),
+            )
         }
       }
     }
@@ -304,16 +301,14 @@ pub async fn Client::query_stream(
             ignore((self.conn.receive_until_ready() : Array[BackendMessage]))
             done = true
           }
-          _ =>
-            match server_error_from_message(msg) {
-              Some(info) => raise ServerError(info)
-              None =>
-                ignore(
-                  (
-                    self.conn.dispatch_backend_message(msg) :
-                    BackendDispatchResult),
-                )
-            }
+          ErrorResponse(fields) =>
+            raise ServerError(ServerErrorInfo::from_fields(fields))
+          msg =>
+            ignore(
+              (
+                self.conn.dispatch_backend_message(msg) :
+                BackendDispatchResult),
+            )
         }
       }
       if done {

@@ -90,7 +90,7 @@ pub async fn Client::copy_out(
             if server_error is None {
               server_error = Some(ServerErrorInfo::from_fields(fields))
             }
-          _ =>
+          msg =>
             match self.conn.dispatch_backend_message(msg) {
               Ready => {
                 match server_error {
@@ -139,7 +139,7 @@ pub async fn Client::copy_in(
             if startup_error is None {
               startup_error = Some(ServerErrorInfo::from_fields(fields))
             }
-          _ =>
+          msg =>
             match self.conn.dispatch_backend_message(msg) {
               Ready =>
                 match startup_error {
@@ -185,7 +185,17 @@ pub async fn Client::copy_in(
       for msg in messages {
         match msg {
           CommandComplete(tag) => copied_rows = parse_affected_rows(tag)
-          _ => ()
+          ReadyForQuery(_) | ErrorResponse(_) | NoticeResponse(_) |
+          ParameterStatus(_, _) | NotificationResponse(_, _, _) |
+          CloseComplete | ParseComplete | BindComplete | NoData |
+          PortalSuspended | EmptyQueryResponse | RowDescription(_) |
+          DataRow(_) | ParameterDescription(_) |
+          NegotiateProtocolVersion(_, _) |
+          CopyInResponse(_, _) | CopyOutResponse(_, _) | CopyData(_) |
+          CopyDone | AuthenticationOk | AuthenticationCleartextPassword |
+          AuthenticationMD5Password(_) | AuthenticationSASL(_) |
+          AuthenticationSASLContinue(_) | AuthenticationSASLFinal(_) |
+          BackendKeyData(_, _) => ()
         }
       }
       copied_rows

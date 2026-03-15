@@ -259,6 +259,15 @@ pub fn Client::poll_notifications(self : Client) -> Array[Notification] {
 }
 
 ///|
+/// Return any queued server notices (warnings, informational messages)
+/// and clear the queue
+pub fn Client::poll_notices(self : Client) -> Array[ServerErrorInfo] {
+  let notices = self.conn.notice_queue.copy()
+  self.conn.notice_queue.clear()
+  notices
+}
+
+///|
 /// Wait until a notification arrives.
 /// First checks the queue, then loops on receive until one arrives.
 pub async fn Client::wait_for_notification(self : Client) -> Notification {
@@ -417,8 +426,17 @@ fn build_query_result(messages : Array[BackendMessage]) -> QueryResult {
         rows.push(Row::new(typed_values, columns, col_index))
       }
       CommandComplete(tag) => command_tag = tag
-      EmptyQueryResponse => ()
-      _ => ()
+      EmptyQueryResponse | ReadyForQuery(_) | ParameterDescription(_) |
+      NegotiateProtocolVersion(_, _) => ()
+      // These should have been consumed by dispatch_backend_message
+      NotificationResponse(_, _, _) | ParameterStatus(_, _) |
+      NoticeResponse(_) | CloseComplete | ParseComplete | BindComplete |
+      NoData | PortalSuspended | ErrorResponse(_) |
+      CopyInResponse(_, _) | CopyOutResponse(_, _) | CopyData(_) |
+      CopyDone | AuthenticationOk | AuthenticationCleartextPassword |
+      AuthenticationMD5Password(_) | AuthenticationSASL(_) |
+      AuthenticationSASLContinue(_) | AuthenticationSASLFinal(_) |
+      BackendKeyData(_, _) => ()
     }
   }
 

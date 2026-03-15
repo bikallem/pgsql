@@ -59,6 +59,7 @@ pub async fn Client::execute(Self, String) -> Int
 pub async fn Client::execute_params(Self, String, Array[Value]) -> Int
 pub fn Client::in_transaction(Self) -> Bool
 pub async fn Client::listen(Self, String) -> Unit
+pub fn Client::poll_notices(Self) -> Array[ServerErrorInfo]
 pub fn Client::poll_notifications(Self) -> Array[Notification]
 pub async fn Client::prepare(Self, String) -> PreparedStatement
 pub async fn Client::query(Self, String) -> QueryResult

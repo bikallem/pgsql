@@ -90,6 +90,8 @@ priv struct Connection {
   server_params : Map[String, String]
   /// Queue of received notifications
   notification_queue : NotificationQueue
+  /// Queue of received notices (warnings, informational messages)
+  notice_queue : Array[ServerErrorInfo]
   /// True while COPY FROM STDIN is active on this connection.
   mut copy_in_active : Bool
   /// Serialize protocol operations on this connection
@@ -116,6 +118,7 @@ fn Connection::create(config : Config, transport : Transport) -> Connection {
     transaction_status: Idle,
     server_params: {},
     notification_queue: NotificationQueue::new(),
+    notice_queue: [],
     copy_in_active: false,
     operation_guard: @async.Semaphore::new(1),
   }
@@ -216,7 +219,16 @@ fn check_error(messages : Array[BackendMessage]) -> Unit raise ServerError {
 fn server_error_from_message(msg : BackendMessage) -> ServerErrorInfo? {
   match msg {
     ErrorResponse(fields) => Some(ServerErrorInfo::from_fields(fields))
-    _ => None
+    AuthenticationOk | AuthenticationCleartextPassword |
+    AuthenticationMD5Password(_) | AuthenticationSASL(_) |
+    AuthenticationSASLContinue(_) | AuthenticationSASLFinal(_) |
+    BackendKeyData(_, _) | ParameterStatus(_, _) | ReadyForQuery(_) |
+    NegotiateProtocolVersion(_, _) | RowDescription(_) | DataRow(_) |
+    CommandComplete(_) | EmptyQueryResponse | ParseComplete | BindComplete |
+    CloseComplete | NoData | ParameterDescription(_) | PortalSuspended |
+    NoticeResponse(_) | NotificationResponse(_, _, _) |
+    CopyInResponse(_, _) | CopyOutResponse(_, _) | CopyData(_) |
+    CopyDone => None
   }
 }
 
@@ -238,6 +250,7 @@ fn Connection::dispatch_backend_message(
   msg : BackendMessage,
 ) -> BackendDispatchResult {
   match msg {
+    // Connection state updates
     NotificationResponse(pid, channel, payload) => {
       self.notification_queue.enqueue(Notification::new(channel, payload, pid))
       Consumed
@@ -250,7 +263,23 @@ fn Connection::dispatch_backend_message(
       self.transaction_status = status
       Ready
     }
-    _ => Unhandled
+    // Server notices (warnings, informational messages)
+    NoticeResponse(fields) => {
+      self.notice_queue.push(ServerErrorInfo::from_fields(fields))
+      Consumed
+    }
+    // Protocol acknowledgments — no action needed
+    CloseComplete | ParseComplete | BindComplete | NoData | PortalSuspended |
+    EmptyQueryResponse => Consumed
+    // Messages with payload handled by callers
+    RowDescription(_) | DataRow(_) | CommandComplete(_) | ErrorResponse(_) |
+    CopyInResponse(_, _) | CopyOutResponse(_, _) | CopyData(_) | CopyDone |
+    ParameterDescription(_) | NegotiateProtocolVersion(_, _) => Unhandled
+    // Authentication messages — only expected during startup
+    AuthenticationOk | AuthenticationCleartextPassword |
+    AuthenticationMD5Password(_) | AuthenticationSASL(_) |
+    AuthenticationSASLContinue(_) | AuthenticationSASLFinal(_) |
+    BackendKeyData(_, _) => Unhandled
   }
 }
 
@@ -440,15 +469,15 @@ async fn Connection::authenticate(self : Connection) -> Unit {
           self.process_id = pid
           self.secret_key = key
         }
-        _ =>
+        ErrorResponse(fields) =>
+          raise AuthError(
+            ServerErrorInfo::from_fields(fields).message,
+          )
+        msg =>
           match self.dispatch_backend_message(msg) {
             Ready => return
             Consumed => ()
-            Unhandled =>
-              match server_error_from_message(msg) {
-                Some(info) => raise AuthError(info.message)
-                None => ()
-              }
+            Unhandled => ()
           }
       }
     }
