@@ -11,7 +11,7 @@ test "raise_if_server_error_message raises ServerError" {
     false
   } catch {
     ServerError(info) => {
-      message = info.message()
+      message = info.message
       true
     }
   }

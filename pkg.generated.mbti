@@ -49,6 +49,9 @@ pub suberror TxError {
 pub impl Show for TxError
 
 // Types and methods
+type BackendMessage
+pub impl Show for BackendMessage
+
 type Client
 pub async fn Client::begin(Self) -> Unit
 pub async fn Client::cancel(Self) -> Unit
@@ -107,6 +110,16 @@ type CopyWriter
 pub async fn CopyWriter::write(Self, Bytes) -> Unit
 pub async fn CopyWriter::write_row(Self, Array[String]) -> Unit
 pub async fn CopyWriter::write_row_nullable(Self, Array[String?]) -> Unit
+
+type FieldDescription
+pub impl Show for FieldDescription
+
+type FormatCode
+pub impl Eq for FormatCode
+pub impl Show for FormatCode
+
+type FrontendMessage
+pub impl Show for FrontendMessage
 
 type Notification
 pub fn Notification::channel(Self) -> String

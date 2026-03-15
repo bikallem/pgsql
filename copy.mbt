@@ -79,10 +79,10 @@ pub async fn Client::copy_out(
               self.run_user_callback(async fn() { handler(data) }) catch {
                 err =>
                   handler_error = Some(
-                    CopyCallbackFailure::new(
-                      "COPY OUT handler",
-                      err.to_string(),
-                    ),
+                    CopyCallbackFailure::{
+                      stage: "COPY OUT handler",
+                      message: err.to_string(),
+                    },
                   )
               }
             }
@@ -166,7 +166,7 @@ pub async fn Client::copy_in(
         ignore((self.conn.receive_until_ready() : Array[BackendMessage]))
         self.conn.copy_in_active = false
         raise CopyCallbackError(
-          CopyCallbackFailure::new("COPY IN writer", err.to_string()),
+          CopyCallbackFailure::{ stage: "COPY IN writer", message: err.to_string() },
         )
       }
     }

@@ -177,7 +177,7 @@ struct ColumnInfo {
 
 ///|
 /// Create a new ColumnInfo
-pub fn ColumnInfo::new(
+fn ColumnInfo::new(
   name : String,
   type_oid : UInt,
   type_size : Int,

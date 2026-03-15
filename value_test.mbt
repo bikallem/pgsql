@@ -114,14 +114,6 @@ test "Value::equality" {
 }
 
 ///|
-test "ColumnInfo::getters" {
-  let col = @pgsql.ColumnInfo::new("id", 23, 4)
-  inspect(col.name(), content="id")
-  inspect(col.type_oid(), content="23")
-  inspect(col.type_size(), content="4")
-}
-
-///|
 test "Value::as_date" {
   inspect(
     @pgsql.Date("2024-03-15").as_date(),

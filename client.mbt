@@ -200,24 +200,6 @@ pub async fn Client::prepare(self : Client, sql : String) -> PreparedStatement {
 }
 
 ///|
-/// Begin a transaction
-pub async fn Client::begin(self : Client) -> Unit {
-  ignore((self.execute("BEGIN") : Int))
-}
-
-///|
-/// Commit a transaction
-pub async fn Client::commit(self : Client) -> Unit {
-  ignore((self.execute("COMMIT") : Int))
-}
-
-///|
-/// Rollback a transaction
-pub async fn Client::rollback(self : Client) -> Unit {
-  ignore((self.execute("ROLLBACK") : Int))
-}
-
-///|
 /// Check if in a transaction
 pub fn Client::in_transaction(self : Client) -> Bool {
   self.conn.transaction_status is (InTransaction | Failed)
@@ -250,18 +232,6 @@ pub async fn Client::close(self : Client) -> Unit {
 /// Server parameter
 pub fn Client::server_param(self : Client, name : String) -> String? {
   self.conn.server_params.get(name)
-}
-
-///|
-/// Backend process ID
-pub fn Client::process_id(self : Client) -> Int {
-  self.conn.process_id
-}
-
-///|
-/// Backend secret key (for cancel requests)
-pub fn Client::secret_key(self : Client) -> Int {
-  self.conn.secret_key
 }
 
 ///|

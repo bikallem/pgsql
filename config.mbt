@@ -83,12 +83,6 @@ pub fn Config::user(self : Config) -> String {
 }
 
 ///|
-/// Password
-pub fn Config::password(self : Config) -> String {
-  self.password
-}
-
-///|
 /// Database
 pub fn Config::database(self : Config) -> String {
   self.database

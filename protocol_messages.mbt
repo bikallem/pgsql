@@ -259,7 +259,7 @@ const FIELD_CONSTRAINT : String = "n"
 
 ///|
 /// Format code for data transmission
-enum FormatCode {
+priv enum FormatCode {
   /// Text format (default, human-readable)
   Text
   /// Binary format (more efficient, type-specific encoding)
@@ -268,7 +268,7 @@ enum FormatCode {
 
 ///|
 /// Description of a field/column in query results
-struct FieldDescription {
+priv struct FieldDescription {
   /// Column name
   name : String
   /// OID of the table (0 if not a table column)
@@ -323,7 +323,7 @@ fn FieldDescription::new(
 
 ///|
 /// Messages sent from PostgreSQL server to client
-enum BackendMessage {
+priv enum BackendMessage {
   // --- Authentication Messages ---
   /// Authentication successful
   AuthenticationOk
@@ -399,7 +399,7 @@ enum BackendMessage {
 
 ///|
 /// Messages sent from client to PostgreSQL server
-enum FrontendMessage {
+priv enum FrontendMessage {
   // --- Startup Messages ---
   /// Initial connection message
   StartupMessage(Map[String, String]) // parameters: user, database, etc.

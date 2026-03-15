@@ -46,26 +46,6 @@ pub struct CopyCallbackFailure {
 } derive(Show, Eq)
 
 ///|
-pub fn CopyCallbackFailure::new(
-  stage : String,
-  message : String,
-) -> CopyCallbackFailure {
-  { stage, message }
-}
-
-///|
-/// Callback stage where failure happened.
-pub fn CopyCallbackFailure::stage(self : CopyCallbackFailure) -> String {
-  self.stage
-}
-
-///|
-/// Original callback error rendered as text.
-pub fn CopyCallbackFailure::message(self : CopyCallbackFailure) -> String {
-  self.message
-}
-
-///|
 /// COPY operation error
 pub suberror CopyError {
   CopyError(String)
@@ -107,7 +87,7 @@ pub struct ServerErrorInfo {
 
 ///|
 /// Create a ServerErrorInfo from error response fields
-pub fn ServerErrorInfo::from_fields(
+fn ServerErrorInfo::from_fields(
   fields : Map[String, String],
 ) -> ServerErrorInfo {
   let severity = fields.get(FIELD_SEVERITY).unwrap_or_else(fn() {
@@ -123,54 +103,6 @@ pub fn ServerErrorInfo::from_fields(
     column: fields.get(FIELD_COLUMN),
     constraint: fields.get(FIELD_CONSTRAINT),
   }
-}
-
-///|
-/// Error severity (ERROR, FATAL, PANIC)
-pub fn ServerErrorInfo::severity(self : ServerErrorInfo) -> String {
-  self.severity
-}
-
-///|
-/// SQLSTATE error code (e.g. "23505" for unique violation)
-pub fn ServerErrorInfo::code(self : ServerErrorInfo) -> String {
-  self.code
-}
-
-///|
-/// Error message
-pub fn ServerErrorInfo::message(self : ServerErrorInfo) -> String {
-  self.message
-}
-
-///|
-/// Optional detail message
-pub fn ServerErrorInfo::detail(self : ServerErrorInfo) -> String? {
-  self.detail
-}
-
-///|
-/// Optional hint
-pub fn ServerErrorInfo::hint(self : ServerErrorInfo) -> String? {
-  self.hint
-}
-
-///|
-/// Optional table name
-pub fn ServerErrorInfo::table(self : ServerErrorInfo) -> String? {
-  self.table
-}
-
-///|
-/// Optional column name
-pub fn ServerErrorInfo::column(self : ServerErrorInfo) -> String? {
-  self.column
-}
-
-///|
-/// Optional constraint name
-pub fn ServerErrorInfo::constraint(self : ServerErrorInfo) -> String? {
-  self.constraint
 }
 
 ///|

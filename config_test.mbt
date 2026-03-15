@@ -5,7 +5,6 @@ test "Config::new defaults" {
   inspect(cfg.host(), content="localhost")
   inspect(cfg.port(), content="5432")
   inspect(cfg.user(), content="user1")
-  inspect(cfg.password(), content="pass1")
   inspect(cfg.database(), content="db1")
   inspect(cfg.ssl_mode(), content="Require")
 }
@@ -23,7 +22,6 @@ test "Config::new custom" {
   inspect(cfg.host(), content="10.0.0.1")
   inspect(cfg.port(), content="5433")
   inspect(cfg.user(), content="admin")
-  inspect(cfg.password(), content="secret")
   inspect(cfg.database(), content="mydb")
   inspect(cfg.ssl_mode(), content="Disable")
 }

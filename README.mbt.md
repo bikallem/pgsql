@@ -233,11 +233,11 @@ async test "error handling" {
 
   let result = client.query("SELECT 1") catch {
     @pgsql.ServerError(info) => {
-      let _ = info.code() // SQLSTATE, e.g. "42P01"
-      let _ = info.message() // human-readable message
-      let _ = info.severity() // ERROR, FATAL, PANIC
-      let _ = info.detail() // optional detail
-      let _ = info.hint() // optional hint
+      ignore((info.code : String)) // SQLSTATE, e.g. "42P01"
+      ignore((info.message : String)) // human-readable message
+      ignore((info.severity : String)) // ERROR, FATAL, PANIC
+      ignore((info.detail : String?)) // optional detail
+      ignore((info.hint : String?)) // optional hint
       return
     }
     _ => return
