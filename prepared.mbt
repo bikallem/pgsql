@@ -108,8 +108,6 @@ pub fn PreparedStatement::sql(self : PreparedStatement) -> String {
 
 ///|
 /// Parameter type OIDs expected by this prepared statement.
-pub fn PreparedStatement::param_types(
-  self : PreparedStatement,
-) -> Array[UInt] {
+pub fn PreparedStatement::param_types(self : PreparedStatement) -> Array[UInt] {
   self.param_types
 }
