@@ -77,7 +77,11 @@ pub async fn Client::unlisten(Self, String) -> Unit
 pub async fn Client::wait_for_notification(Self) -> Notification
 
 type ColumnInfo
+pub fn ColumnInfo::column_id(Self) -> Int
+pub fn ColumnInfo::is_binary(Self) -> Bool
 pub fn ColumnInfo::name(Self) -> String
+pub fn ColumnInfo::table_oid(Self) -> UInt
+pub fn ColumnInfo::type_modifier(Self) -> Int
 pub fn ColumnInfo::type_oid(Self) -> UInt
 pub fn ColumnInfo::type_size(Self) -> Int
 pub impl Eq for ColumnInfo

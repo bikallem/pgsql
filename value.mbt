@@ -165,30 +165,40 @@ pub fn Value::as_uuid(self : Value) -> String? {
 }
 
 ///|
-/// Simplified column metadata exposed to end-users
+/// Column metadata exposed to end-users
 struct ColumnInfo {
   /// Column name
   name : String
+  /// OID of the source table (0 if not a table column)
+  table_oid : UInt
+  /// Attribute number within the table (0 if not a table column)
+  column_id : Int
   /// PostgreSQL type OID
   type_oid : UInt
   /// Data type size (negative for variable-width)
   type_size : Int
+  /// Type-specific modifier (e.g. precision for NUMERIC)
+  type_modifier : Int
+  /// Whether column uses binary format
+  binary : Bool
 } derive(Show, Eq)
-
-///|
-/// Create a new ColumnInfo
-fn ColumnInfo::new(
-  name : String,
-  type_oid : UInt,
-  type_size : Int,
-) -> ColumnInfo {
-  { name, type_oid, type_size }
-}
 
 ///|
 /// Column name
 pub fn ColumnInfo::name(self : ColumnInfo) -> String {
   self.name
+}
+
+///|
+/// OID of the source table (0 if not a table column)
+pub fn ColumnInfo::table_oid(self : ColumnInfo) -> UInt {
+  self.table_oid
+}
+
+///|
+/// Attribute number within the table (0 if not a table column)
+pub fn ColumnInfo::column_id(self : ColumnInfo) -> Int {
+  self.column_id
 }
 
 ///|
@@ -204,9 +214,29 @@ pub fn ColumnInfo::type_size(self : ColumnInfo) -> Int {
 }
 
 ///|
+/// Type modifier (e.g. precision for NUMERIC, length for VARCHAR)
+pub fn ColumnInfo::type_modifier(self : ColumnInfo) -> Int {
+  self.type_modifier
+}
+
+///|
+/// Whether column uses binary format
+pub fn ColumnInfo::is_binary(self : ColumnInfo) -> Bool {
+  self.binary
+}
+
+///|
 /// Convert FieldDescription to user-facing ColumnInfo
 fn column_info_from_field(fd : FieldDescription) -> ColumnInfo {
-  ColumnInfo::new(fd.name(), fd.type_oid(), fd.type_size())
+  {
+    name: fd.name,
+    table_oid: fd.table_oid,
+    column_id: fd.column_id,
+    type_oid: fd.type_oid,
+    type_size: fd.type_size,
+    type_modifier: fd.type_modifier,
+    binary: fd.format is Binary,
+  }
 }
 
 ///|

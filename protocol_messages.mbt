@@ -263,7 +263,7 @@ priv enum FormatCode {
   Text
   /// Binary format (more efficient, type-specific encoding)
   Binary
-} derive(Show)
+}
 
 ///|
 /// Description of a field/column in query results
@@ -282,24 +282,6 @@ priv struct FieldDescription {
   type_modifier : Int
   /// Format code (text or binary)
   format : FormatCode
-} derive(Show)
-
-///|
-/// Column name
-fn FieldDescription::name(self : FieldDescription) -> String {
-  self.name
-}
-
-///|
-/// OID of the field's data type
-fn FieldDescription::type_oid(self : FieldDescription) -> UInt {
-  self.type_oid
-}
-
-///|
-/// Data type size (negative for variable-width types)
-fn FieldDescription::type_size(self : FieldDescription) -> Int {
-  self.type_size
 }
 
 ///|

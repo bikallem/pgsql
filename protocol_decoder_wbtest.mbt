@@ -223,10 +223,10 @@ test "decode_row_description" {
   let messages = decoder.parse(data)
   match messages[0] {
     RowDescription(fields) => {
-      inspect(fields.length(), content="1")
-      inspect(fields[0].name, content="id")
-      inspect(fields[0].type_oid, content="23")
-      inspect(fields[0].format, content="Text")
+      assert_eq(fields.length(), 1)
+      assert_eq(fields[0].name, "id")
+      assert_eq(fields[0].type_oid, 23U)
+      assert_true(fields[0].format is Text)
     }
     _ => fail("Expected RowDescription")
   }
@@ -402,7 +402,7 @@ test "decode_copy_in_response" {
   let messages = decoder.parse(data)
   match messages[0] {
     CopyInResponse(fmt, col_fmts) => {
-      inspect(fmt, content="Text")
+      assert_true(fmt is Text)
       inspect(col_fmts.length(), content="2")
     }
     _ => fail("Expected CopyInResponse")
@@ -654,9 +654,9 @@ test "decode_copy_out_response" {
   let messages = decoder.parse(data)
   match messages[0] {
     CopyOutResponse(fmt, col_fmts) => {
-      inspect(fmt, content="Binary")
+      assert_true(fmt is Binary)
       inspect(col_fmts.length(), content="1")
-      inspect(col_fmts[0], content="Binary")
+      assert_true(col_fmts[0] is Binary)
     }
     _ => fail("Expected CopyOutResponse")
   }
@@ -781,18 +781,18 @@ test "decode_row_description_multiple_columns" {
   match messages[0] {
     RowDescription(fields) => {
       assert_eq(fields.length(), 2)
-      inspect(fields[0].name, content="id")
-      inspect(fields[0].table_oid, content="1000")
-      inspect(fields[0].column_id, content="1")
-      inspect(fields[0].type_oid, content="23")
-      inspect(fields[0].type_size, content="4")
-      inspect(fields[0].format, content="Text")
-      inspect(fields[1].name, content="name")
-      inspect(fields[1].table_oid, content="1000")
-      inspect(fields[1].column_id, content="2")
-      inspect(fields[1].type_oid, content="25")
-      inspect(fields[1].type_size, content="-1")
-      inspect(fields[1].format, content="Binary")
+      assert_eq(fields[0].name, "id")
+      assert_eq(fields[0].table_oid, 1000U)
+      assert_eq(fields[0].column_id, 1)
+      assert_eq(fields[0].type_oid, 23U)
+      assert_eq(fields[0].type_size, 4)
+      assert_true(fields[0].format is Text)
+      assert_eq(fields[1].name, "name")
+      assert_eq(fields[1].table_oid, 1000U)
+      assert_eq(fields[1].column_id, 2)
+      assert_eq(fields[1].type_oid, 25U)
+      assert_eq(fields[1].type_size, -1)
+      assert_true(fields[1].format is Binary)
     }
     _ => fail("Expected RowDescription")
   }
@@ -1060,11 +1060,11 @@ test "decode_copy_out_response_binary_multiple_columns" {
   inspect(messages.length(), content="1")
   match messages[0] {
     CopyOutResponse(fmt, col_fmts) => {
-      inspect(fmt, content="Binary")
+      assert_true(fmt is Binary)
       assert_eq(col_fmts.length(), 3)
-      inspect(col_fmts[0], content="Binary")
-      inspect(col_fmts[1], content="Text")
-      inspect(col_fmts[2], content="Binary")
+      assert_true(col_fmts[0] is Binary)
+      assert_true(col_fmts[1] is Text)
+      assert_true(col_fmts[2] is Binary)
     }
     _ => fail("Expected CopyOutResponse")
   }
