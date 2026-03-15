@@ -105,11 +105,7 @@ pub async fn Client::copy_out(
                 if server_error is None {
                   server_error = Some(ServerErrorInfo::from_fields(fields))
                 }
-              QueryMessage::CopyInResponse | QueryMessage::RowDescription(_) |
-              QueryMessage::DataRow(_) | QueryMessage::EmptyQueryResponse |
-              QueryMessage::ParseComplete | QueryMessage::BindComplete |
-              QueryMessage::NoData | QueryMessage::PortalSuspended |
-              QueryMessage::ParameterDescription(_) => ()
+              qm => raise ProtocolError(unexpected_message("COPY OUT", qm))
             }
         }
       }
@@ -151,13 +147,7 @@ pub async fn Client::copy_in(
                 if startup_error is None {
                   startup_error = Some(ServerErrorInfo::from_fields(fields))
                 }
-              QueryMessage::CopyOutResponse | QueryMessage::CopyData(_) |
-              QueryMessage::CopyDone | QueryMessage::RowDescription(_) |
-              QueryMessage::DataRow(_) | QueryMessage::CommandComplete(_) |
-              QueryMessage::EmptyQueryResponse | QueryMessage::ParseComplete |
-              QueryMessage::BindComplete | QueryMessage::NoData |
-              QueryMessage::PortalSuspended |
-              QueryMessage::ParameterDescription(_) => ()
+              qm => raise ProtocolError(unexpected_message("COPY IN startup", qm))
             }
         }
       }
@@ -195,10 +185,9 @@ pub async fn Client::copy_in(
       for msg in messages {
         match msg {
           CommandComplete(tag) => copied_rows = parse_affected_rows(tag)
-          ErrorResponse(_) | RowDescription(_) | DataRow(_) |
-          EmptyQueryResponse | ParseComplete | BindComplete | NoData |
-          PortalSuspended | ParameterDescription(_) |
-          CopyInResponse | CopyOutResponse | CopyData(_) | CopyDone => ()
+          // ErrorResponse already handled by check_error above
+          ErrorResponse(_) => ()
+          qm => raise ProtocolError(unexpected_message("COPY IN completion", qm))
         }
       }
       copied_rows

@@ -3,6 +3,12 @@
 /// Defines error types for PostgreSQL operations.
 
 ///|
+/// Protocol violation — unexpected message in context
+pub suberror ProtocolError {
+  ProtocolError(String)
+}
+
+///|
 /// Connection closed error
 pub suberror ConnectionClosedError
 
@@ -122,6 +128,13 @@ pub impl Show for ClientUsageError with output(self, logger) {
 pub impl Show for AuthError with output(self, logger) {
   let AuthError(msg) = self
   logger.write_string("AuthError: ")
+  logger.write_string(msg)
+}
+
+///|
+pub impl Show for ProtocolError with output(self, logger) {
+  let ProtocolError(msg) = self
+  logger.write_string("ProtocolError: ")
   logger.write_string(msg)
 }
 

@@ -203,6 +203,28 @@ async fn Connection::receive(self : Connection) -> Array[BackendMessage] {
 }
 
 ///|
+/// Format an unexpected QueryMessage for error reporting.
+fn unexpected_message(context : String, qm : QueryMessage) -> String {
+  let name = match qm {
+    RowDescription(_) => "RowDescription"
+    DataRow(_) => "DataRow"
+    CommandComplete(_) => "CommandComplete"
+    EmptyQueryResponse => "EmptyQueryResponse"
+    ErrorResponse(_) => "ErrorResponse"
+    ParseComplete => "ParseComplete"
+    BindComplete => "BindComplete"
+    NoData => "NoData"
+    PortalSuspended => "PortalSuspended"
+    ParameterDescription(_) => "ParameterDescription"
+    CopyInResponse => "CopyInResponse"
+    CopyOutResponse => "CopyOutResponse"
+    CopyData(_) => "CopyData"
+    CopyDone => "CopyDone"
+  }
+  "Unexpected " + name + " during " + context
+}
+
+///|
 /// Receive messages until ReadyForQuery
 async fn Connection::receive_until_ready(
   self : Connection,

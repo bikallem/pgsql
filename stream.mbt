@@ -172,12 +172,10 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
                 )
                 raise ServerError(ServerErrorInfo::from_fields(fields))
               }
-              QueryMessage::ParseComplete | QueryMessage::BindComplete |
-              QueryMessage::NoData | QueryMessage::RowDescription(_) |
-              QueryMessage::EmptyQueryResponse |
-              QueryMessage::ParameterDescription(_) |
-              QueryMessage::CopyInResponse | QueryMessage::CopyOutResponse |
-              QueryMessage::CopyData(_) | QueryMessage::CopyDone => ()
+              qm =>
+                raise ProtocolError(
+                  unexpected_message("stream fetch", qm),
+                )
             }
         }
       }
@@ -302,10 +300,10 @@ pub async fn Client::query_stream(
               }
               QueryMessage::ErrorResponse(fields) =>
                 raise ServerError(ServerErrorInfo::from_fields(fields))
-              QueryMessage::EmptyQueryResponse |
-              QueryMessage::ParameterDescription(_) |
-              QueryMessage::CopyInResponse | QueryMessage::CopyOutResponse |
-              QueryMessage::CopyData(_) | QueryMessage::CopyDone => ()
+              qm =>
+                raise ProtocolError(
+                  unexpected_message("stream setup", qm),
+                )
             }
         }
       }

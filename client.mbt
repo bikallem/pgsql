@@ -410,7 +410,9 @@ fn quote_identifier(name : String) -> String {
 
 ///|
 /// Build QueryResult from backend messages
-fn build_query_result(messages : Array[QueryMessage]) -> QueryResult {
+fn build_query_result(
+  messages : Array[QueryMessage],
+) -> QueryResult raise ProtocolError {
   let mut columns : Array[ColumnInfo] = []
   let mut col_index : Map[String, Int] = {}
   let rows : Array[Row] = []
@@ -427,9 +429,14 @@ fn build_query_result(messages : Array[QueryMessage]) -> QueryResult {
         rows.push(Row::new(typed_values, columns, col_index))
       }
       CommandComplete(tag) => command_tag = tag
+      // Expected protocol acks from extended query flow
       EmptyQueryResponse | ParseComplete | BindComplete | NoData |
-      PortalSuspended | ParameterDescription(_) | ErrorResponse(_) |
-      CopyInResponse | CopyOutResponse | CopyData(_) | CopyDone => ()
+      PortalSuspended | ParameterDescription(_) => ()
+      // ErrorResponse already handled by check_error before build_query_result
+      ErrorResponse(_) => ()
+      // These should never appear in query results
+      CopyInResponse | CopyOutResponse | CopyData(_) | CopyDone =>
+        raise ProtocolError(unexpected_message("query result", msg))
     }
   }
 
