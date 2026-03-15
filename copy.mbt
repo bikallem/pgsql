@@ -70,42 +70,46 @@ pub async fn Client::copy_out(
     let mut server_error : ServerErrorInfo? = None
     let mut handler_error : CopyCallbackFailure? = None
     while true {
-      let messages = self.conn.receive()
-      for msg in messages {
-        match msg {
-          CopyOutResponse(_, _) => ()
-          CopyData(data) =>
-            if handler_error is None {
-              self.run_user_callback(async fn() { handler(data) }) catch {
-                err =>
-                  handler_error = Some(CopyCallbackFailure::{
-                    stage: "COPY OUT handler",
-                    message: err.to_string(),
-                  })
-              }
+      let raw_messages = self.conn.receive()
+      for raw in raw_messages {
+        match self.conn.dispatch(raw) {
+          Ready => {
+            match server_error {
+              Some(info) => raise ServerError(info)
+              None => ()
             }
-          CopyDone => ()
-          CommandComplete(tag) => command_tag = tag
-          ErrorResponse(fields) =>
-            if server_error is None {
-              server_error = Some(ServerErrorInfo::from_fields(fields))
+            match handler_error {
+              Some(failure) => raise CopyCallbackError(failure)
+              None => ()
             }
-          msg =>
-            match self.conn.dispatch_backend_message(msg) {
-              Ready => {
-                match server_error {
-                  Some(info) => raise ServerError(info)
-                  None => ()
+            row_count = parse_affected_rows(command_tag)
+            return row_count
+          }
+          Consumed => ()
+          Message(qm) =>
+            match qm {
+              QueryMessage::CopyOutResponse => ()
+              QueryMessage::CopyData(data) =>
+                if handler_error is None {
+                  self.run_user_callback(async fn() { handler(data) }) catch {
+                    err =>
+                      handler_error = Some(CopyCallbackFailure::{
+                        stage: "COPY OUT handler",
+                        message: err.to_string(),
+                      })
+                  }
                 }
-                match handler_error {
-                  Some(failure) => raise CopyCallbackError(failure)
-                  None => ()
+              QueryMessage::CopyDone => ()
+              QueryMessage::CommandComplete(tag) => command_tag = tag
+              QueryMessage::ErrorResponse(fields) =>
+                if server_error is None {
+                  server_error = Some(ServerErrorInfo::from_fields(fields))
                 }
-                row_count = parse_affected_rows(command_tag)
-                return row_count
-              }
-              Consumed => ()
-              Unhandled => ()
+              QueryMessage::CopyInResponse | QueryMessage::RowDescription(_) |
+              QueryMessage::DataRow(_) | QueryMessage::EmptyQueryResponse |
+              QueryMessage::ParseComplete | QueryMessage::BindComplete |
+              QueryMessage::NoData | QueryMessage::PortalSuspended |
+              QueryMessage::ParameterDescription(_) => ()
             }
         }
       }
@@ -131,23 +135,29 @@ pub async fn Client::copy_in(
     let mut got_copy_in = false
     let mut startup_error : ServerErrorInfo? = None
     while not(got_copy_in) {
-      let messages = self.conn.receive()
-      for msg in messages {
-        match msg {
-          CopyInResponse(_, _) => got_copy_in = true
-          ErrorResponse(fields) =>
-            if startup_error is None {
-              startup_error = Some(ServerErrorInfo::from_fields(fields))
+      let raw_messages = self.conn.receive()
+      for raw in raw_messages {
+        match self.conn.dispatch(raw) {
+          Ready =>
+            match startup_error {
+              Some(info) => raise ServerError(info)
+              None => raise CopyError("COPY IN was not started")
             }
-          msg =>
-            match self.conn.dispatch_backend_message(msg) {
-              Ready =>
-                match startup_error {
-                  Some(info) => raise ServerError(info)
-                  None => raise CopyError("COPY IN was not started")
+          Consumed => ()
+          Message(qm) =>
+            match qm {
+              QueryMessage::CopyInResponse => got_copy_in = true
+              QueryMessage::ErrorResponse(fields) =>
+                if startup_error is None {
+                  startup_error = Some(ServerErrorInfo::from_fields(fields))
                 }
-              Consumed => ()
-              Unhandled => ()
+              QueryMessage::CopyOutResponse | QueryMessage::CopyData(_) |
+              QueryMessage::CopyDone | QueryMessage::RowDescription(_) |
+              QueryMessage::DataRow(_) | QueryMessage::CommandComplete(_) |
+              QueryMessage::EmptyQueryResponse | QueryMessage::ParseComplete |
+              QueryMessage::BindComplete | QueryMessage::NoData |
+              QueryMessage::PortalSuspended |
+              QueryMessage::ParameterDescription(_) => ()
             }
         }
       }
@@ -161,7 +171,7 @@ pub async fn Client::copy_in(
       err => {
         // On error, send CopyFail and wait for ReadyForQuery
         self.conn.send(CopyFail(err.to_string()))
-        ignore((self.conn.receive_until_ready() : Array[BackendMessage]))
+        ignore((self.conn.receive_until_ready() : Array[QueryMessage]))
         self.conn.copy_in_active = false
         raise CopyCallbackError(CopyCallbackFailure::{
           stage: "COPY IN writer",
@@ -185,17 +195,10 @@ pub async fn Client::copy_in(
       for msg in messages {
         match msg {
           CommandComplete(tag) => copied_rows = parse_affected_rows(tag)
-          ReadyForQuery(_) | ErrorResponse(_) | NoticeResponse(_) |
-          ParameterStatus(_, _) | NotificationResponse(_, _, _) |
-          CloseComplete | ParseComplete | BindComplete | NoData |
-          PortalSuspended | EmptyQueryResponse | RowDescription(_) |
-          DataRow(_) | ParameterDescription(_) |
-          NegotiateProtocolVersion(_, _) |
-          CopyInResponse(_, _) | CopyOutResponse(_, _) | CopyData(_) |
-          CopyDone | AuthenticationOk | AuthenticationCleartextPassword |
-          AuthenticationMD5Password(_) | AuthenticationSASL(_) |
-          AuthenticationSASLContinue(_) | AuthenticationSASLFinal(_) |
-          BackendKeyData(_, _) => ()
+          ErrorResponse(_) | RowDescription(_) | DataRow(_) |
+          EmptyQueryResponse | ParseComplete | BindComplete | NoData |
+          PortalSuspended | ParameterDescription(_) |
+          CopyInResponse | CopyOutResponse | CopyData(_) | CopyDone => ()
         }
       }
       copied_rows

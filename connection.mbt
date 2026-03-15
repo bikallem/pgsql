@@ -99,11 +99,34 @@ priv struct Connection {
 }
 
 ///|
-/// Result of applying a backend message to connection state.
-priv enum BackendDispatchResult {
+/// Query-relevant messages passed through by dispatch after connection-level
+/// messages have been consumed. This is the narrower type that callers work with.
+priv enum QueryMessage {
+  RowDescription(Array[FieldDescription])
+  DataRow(Array[Bytes?])
+  CommandComplete(String)
+  EmptyQueryResponse
+  ErrorResponse(Map[String, String])
+  ParseComplete
+  BindComplete
+  NoData
+  PortalSuspended
+  ParameterDescription(Array[UInt])
+  CopyInResponse
+  CopyOutResponse
+  CopyData(Bytes)
+  CopyDone
+}
+
+///|
+/// Result of dispatching a backend message.
+priv enum DispatchResult {
+  /// Message consumed (connection state updated, notice queued, etc.)
   Consumed
+  /// ReadyForQuery received — stop receiving
   Ready
-  Unhandled
+  /// Query-relevant message passed through for caller processing
+  Message(QueryMessage)
 }
 
 ///|
@@ -183,72 +206,43 @@ async fn Connection::receive(self : Connection) -> Array[BackendMessage] {
 /// Receive messages until ReadyForQuery
 async fn Connection::receive_until_ready(
   self : Connection,
-) -> Array[BackendMessage] {
-  let all_messages : Array[BackendMessage] = []
-
+) -> Array[QueryMessage] {
+  let result : Array[QueryMessage] = []
   while true {
     let messages = self.receive()
     for msg in messages {
-      match self.dispatch_backend_message(msg) {
-        Ready => {
-          all_messages.push(msg)
-          return all_messages
-        }
+      match self.dispatch(msg) {
+        Ready => return result
         Consumed => ()
-        Unhandled => all_messages.push(msg)
+        Message(qm) => result.push(qm)
       }
     }
   } nobreak {
-    all_messages
+    result
   }
 }
 
 ///|
-/// Raise ServerError if messages contain an error
-fn check_error(messages : Array[BackendMessage]) -> Unit raise ServerError {
+/// Raise ServerError if query messages contain an error.
+fn check_error(messages : Array[QueryMessage]) -> Unit raise ServerError {
   for msg in messages {
-    match server_error_from_message(msg) {
-      Some(info) => raise ServerError(info)
-      None => ()
+    match msg {
+      ErrorResponse(fields) => raise ServerError(ServerErrorInfo::from_fields(fields))
+      RowDescription(_) | DataRow(_) | CommandComplete(_) |
+      EmptyQueryResponse | ParseComplete | BindComplete | NoData |
+      PortalSuspended | ParameterDescription(_) |
+      CopyInResponse | CopyOutResponse | CopyData(_) | CopyDone => ()
     }
   }
 }
 
 ///|
-/// Parse ErrorResponse into structured server error info.
-fn server_error_from_message(msg : BackendMessage) -> ServerErrorInfo? {
-  match msg {
-    ErrorResponse(fields) => Some(ServerErrorInfo::from_fields(fields))
-    AuthenticationOk | AuthenticationCleartextPassword |
-    AuthenticationMD5Password(_) | AuthenticationSASL(_) |
-    AuthenticationSASLContinue(_) | AuthenticationSASLFinal(_) |
-    BackendKeyData(_, _) | ParameterStatus(_, _) | ReadyForQuery(_) |
-    NegotiateProtocolVersion(_, _) | RowDescription(_) | DataRow(_) |
-    CommandComplete(_) | EmptyQueryResponse | ParseComplete | BindComplete |
-    CloseComplete | NoData | ParameterDescription(_) | PortalSuspended |
-    NoticeResponse(_) | NotificationResponse(_, _, _) |
-    CopyInResponse(_, _) | CopyOutResponse(_, _) | CopyData(_) |
-    CopyDone => None
-  }
-}
-
-///|
-/// Raise ServerError when backend message is ErrorResponse.
-fn raise_if_server_error_message(
-  msg : BackendMessage,
-) -> Unit raise ServerError {
-  match server_error_from_message(msg) {
-    Some(info) => raise ServerError(info)
-    None => ()
-  }
-}
-
-///|
-/// Apply shared side effects from backend control messages.
-fn Connection::dispatch_backend_message(
+/// Dispatch a backend message: consume connection-level messages, convert
+/// query-relevant messages to QueryMessage, drop the rest.
+fn Connection::dispatch(
   self : Connection,
   msg : BackendMessage,
-) -> BackendDispatchResult {
+) -> DispatchResult {
   match msg {
     // Connection state updates
     NotificationResponse(pid, channel, payload) => {
@@ -268,18 +262,32 @@ fn Connection::dispatch_backend_message(
       self.notice_queue.push(ServerErrorInfo::from_fields(fields))
       Consumed
     }
-    // Protocol acknowledgments — no action needed
-    CloseComplete | ParseComplete | BindComplete | NoData | PortalSuspended |
-    EmptyQueryResponse => Consumed
-    // Messages with payload handled by callers
-    RowDescription(_) | DataRow(_) | CommandComplete(_) | ErrorResponse(_) |
-    CopyInResponse(_, _) | CopyOutResponse(_, _) | CopyData(_) | CopyDone |
-    ParameterDescription(_) | NegotiateProtocolVersion(_, _) => Unhandled
-    // Authentication messages — only expected during startup
+    // Protocol acknowledgments
+    CloseComplete => Consumed
+    // Query-relevant messages — pass through as narrower type
+    RowDescription(f) => Message(QueryMessage::RowDescription(f))
+    DataRow(v) => Message(QueryMessage::DataRow(v))
+    CommandComplete(tag) => Message(QueryMessage::CommandComplete(tag))
+    EmptyQueryResponse => Message(QueryMessage::EmptyQueryResponse)
+    ErrorResponse(f) => Message(QueryMessage::ErrorResponse(f))
+    ParseComplete => Message(QueryMessage::ParseComplete)
+    BindComplete => Message(QueryMessage::BindComplete)
+    NoData => Message(QueryMessage::NoData)
+    PortalSuspended => Message(QueryMessage::PortalSuspended)
+    ParameterDescription(oids) =>
+      Message(QueryMessage::ParameterDescription(oids))
+    // COPY messages — pass through for COPY callers
+    CopyInResponse(_, _) => Message(QueryMessage::CopyInResponse)
+    CopyOutResponse(_, _) => Message(QueryMessage::CopyOutResponse)
+    CopyData(data) => Message(QueryMessage::CopyData(data))
+    CopyDone => Message(QueryMessage::CopyDone)
+    // Protocol messages consumed but payload unused (future features)
+    NegotiateProtocolVersion(_, _) => Consumed
+    // Authentication messages — only expected during startup, ignore elsewhere
     AuthenticationOk | AuthenticationCleartextPassword |
     AuthenticationMD5Password(_) | AuthenticationSASL(_) |
     AuthenticationSASLContinue(_) | AuthenticationSASLFinal(_) |
-    BackendKeyData(_, _) => Unhandled
+    BackendKeyData(_, _) => Consumed
   }
 }
 
@@ -474,10 +482,9 @@ async fn Connection::authenticate(self : Connection) -> Unit {
             ServerErrorInfo::from_fields(fields).message,
           )
         msg =>
-          match self.dispatch_backend_message(msg) {
+          match self.dispatch(msg) {
             Ready => return
-            Consumed => ()
-            Unhandled => ()
+            Consumed | Message(_) => ()
           }
       }
     }

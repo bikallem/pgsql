@@ -178,21 +178,20 @@ test "Row::column_count" {
 
 ///|
 test "build_query_result with rows" {
-  let messages : Array[BackendMessage] = [
-    RowDescription([
+  let messages : Array[QueryMessage] = [
+    QueryMessage::RowDescription([
       FieldDescription::new("id", 0, 0, 23, 4, -1, Text),
       FieldDescription::new("name", 0, 0, 25, -1, -1, Text),
     ]),
-    DataRow([
+    QueryMessage::DataRow([
       Some(Bytes::from_array([b'1'])),
       Some(Bytes::from_array([b'A', b'l', b'i', b'c', b'e'])),
     ]),
-    DataRow([
+    QueryMessage::DataRow([
       Some(Bytes::from_array([b'2'])),
       Some(Bytes::from_array([b'B', b'o', b'b'])),
     ]),
-    CommandComplete("SELECT 2"),
-    ReadyForQuery(Idle),
+    QueryMessage::CommandComplete("SELECT 2"),
   ]
   let result = build_query_result(messages)
   inspect(result.row_count(), content="2")
@@ -215,9 +214,8 @@ test "build_query_result with rows" {
 
 ///|
 test "build_query_result empty" {
-  let messages : Array[BackendMessage] = [
-    EmptyQueryResponse,
-    ReadyForQuery(Idle),
+  let messages : Array[QueryMessage] = [
+    QueryMessage::EmptyQueryResponse,
   ]
   let result = build_query_result(messages)
   inspect(result.row_count(), content="0")
@@ -226,9 +224,8 @@ test "build_query_result empty" {
 
 ///|
 test "build_query_result command only" {
-  let messages : Array[BackendMessage] = [
-    CommandComplete("INSERT 0 3"),
-    ReadyForQuery(Idle),
+  let messages : Array[QueryMessage] = [
+    QueryMessage::CommandComplete("INSERT 0 3"),
   ]
   let result = build_query_result(messages)
   inspect(result.row_count(), content="0")

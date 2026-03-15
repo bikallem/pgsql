@@ -109,7 +109,7 @@ pub async fn RowStream::close(self : RowStream) -> Unit {
     msgs.push(Close(TARGET_STATEMENT, self.stmt_name))
     msgs.push(Sync)
     self.client.conn.send_all(msgs)
-    ignore((self.client.conn.receive_until_ready() : Array[BackendMessage]))
+    ignore((self.client.conn.receive_until_ready() : Array[QueryMessage]))
     // Commit auto-transaction while still holding operation lock so no
     // unrelated query can execute inside the stream-owned transaction.
     if self.auto_tx {
@@ -142,44 +142,43 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
     ])
     // Read responses until we get PortalSuspended or CommandComplete
     while true {
-      let messages = self.client.conn.receive()
-      for msg in messages {
-        match msg {
-          DataRow(values) => {
-            let typed_values = convert_row_values(values, self.fields)
-            self.buffer.push(
-              Row::new(typed_values, self.fields, self.column_index),
-            )
-          }
-          PortalSuspended =>
-            // More rows available in next batch
-            return
-          CommandComplete(_) => {
-            // All rows have been returned — need to read until ReadyForQuery
-            // by sending Sync
-            self.exhausted = true
-            self.client.conn.send(Sync)
-            let rfq_msgs = self.client.conn.receive_until_ready()
-            check_error(rfq_msgs)
-            self.client.conn.operation_guard.release()
-            self.lock_held = false
-            return
-          }
-          ErrorResponse(fields) => {
-            self.client.conn.send(Sync)
-            ignore(
-              (
-                self.client.conn.receive_until_ready() :
-                Array[BackendMessage]),
-            )
-            raise ServerError(ServerErrorInfo::from_fields(fields))
-          }
-          msg =>
-            ignore(
-              (
-                self.client.conn.dispatch_backend_message(msg) :
-                BackendDispatchResult),
-            )
+      let raw_messages = self.client.conn.receive()
+      for raw in raw_messages {
+        match self.client.conn.dispatch(raw) {
+          Consumed => ()
+          Ready => ()
+          Message(qm) =>
+            match qm {
+              QueryMessage::DataRow(values) => {
+                let typed_values = convert_row_values(values, self.fields)
+                self.buffer.push(
+                  Row::new(typed_values, self.fields, self.column_index),
+                )
+              }
+              QueryMessage::PortalSuspended => return
+              QueryMessage::CommandComplete(_) => {
+                self.exhausted = true
+                self.client.conn.send(Sync)
+                let rfq_msgs = self.client.conn.receive_until_ready()
+                check_error(rfq_msgs)
+                self.client.conn.operation_guard.release()
+                self.lock_held = false
+                return
+              }
+              QueryMessage::ErrorResponse(fields) => {
+                self.client.conn.send(Sync)
+                ignore(
+                  (self.client.conn.receive_until_ready() : Array[QueryMessage]),
+                )
+                raise ServerError(ServerErrorInfo::from_fields(fields))
+              }
+              QueryMessage::ParseComplete | QueryMessage::BindComplete |
+              QueryMessage::NoData | QueryMessage::RowDescription(_) |
+              QueryMessage::EmptyQueryResponse |
+              QueryMessage::ParameterDescription(_) |
+              QueryMessage::CopyInResponse | QueryMessage::CopyOutResponse |
+              QueryMessage::CopyData(_) | QueryMessage::CopyDone => ()
+            }
         }
       }
     }
@@ -276,39 +275,38 @@ pub async fn Client::query_stream(
     let mut exhausted = false
 
     while true {
-      let messages = self.conn.receive()
+      let raw_messages = self.conn.receive()
       let mut done = false
-      for msg in messages {
-        match msg {
-          ParseComplete | BindComplete => ()
-          RowDescription(f) => {
-            columns = f.map(fn(fd) { column_info_from_field(fd) })
-            col_index = build_column_index(columns)
-          }
-          NoData => columns = []
-          DataRow(values) => {
-            let typed_values = convert_row_values(values, columns)
-            rows.push(Row::new(typed_values, columns, col_index))
-          }
-          PortalSuspended =>
-            // First batch done, more rows available
-            done = true
-          CommandComplete(_) => {
-            // All rows fit in first batch
-            exhausted = true
-            // Need to Sync to get ReadyForQuery
-            self.conn.send(Sync)
-            ignore((self.conn.receive_until_ready() : Array[BackendMessage]))
-            done = true
-          }
-          ErrorResponse(fields) =>
-            raise ServerError(ServerErrorInfo::from_fields(fields))
-          msg =>
-            ignore(
-              (
-                self.conn.dispatch_backend_message(msg) :
-                BackendDispatchResult),
-            )
+      for raw in raw_messages {
+        match self.conn.dispatch(raw) {
+          Consumed => ()
+          Ready => ()
+          Message(qm) =>
+            match qm {
+              QueryMessage::ParseComplete | QueryMessage::BindComplete => ()
+              QueryMessage::RowDescription(f) => {
+                columns = f.map(fn(fd) { column_info_from_field(fd) })
+                col_index = build_column_index(columns)
+              }
+              QueryMessage::NoData => columns = []
+              QueryMessage::DataRow(values) => {
+                let typed_values = convert_row_values(values, columns)
+                rows.push(Row::new(typed_values, columns, col_index))
+              }
+              QueryMessage::PortalSuspended => done = true
+              QueryMessage::CommandComplete(_) => {
+                exhausted = true
+                self.conn.send(Sync)
+                ignore((self.conn.receive_until_ready() : Array[QueryMessage]))
+                done = true
+              }
+              QueryMessage::ErrorResponse(fields) =>
+                raise ServerError(ServerErrorInfo::from_fields(fields))
+              QueryMessage::EmptyQueryResponse |
+              QueryMessage::ParameterDescription(_) |
+              QueryMessage::CopyInResponse | QueryMessage::CopyOutResponse |
+              QueryMessage::CopyData(_) | QueryMessage::CopyDone => ()
+            }
         }
       }
       if done {
@@ -365,7 +363,7 @@ async fn Client::cleanup_failed_stream_setup(
     _ => ()
   }
   ignore(
-    (self.conn.receive_until_ready() catch { _ => [] } : Array[BackendMessage]),
+    (self.conn.receive_until_ready() catch { _ => [] } : Array[QueryMessage]),
   )
 
   // Then try to close portal/statement resources.
@@ -377,7 +375,7 @@ async fn Client::cleanup_failed_stream_setup(
     _ => ()
   }
   ignore(
-    (self.conn.receive_until_ready() catch { _ => [] } : Array[BackendMessage]),
+    (self.conn.receive_until_ready() catch { _ => [] } : Array[QueryMessage]),
   )
 
   // Roll back auto-opened transaction if it was started.
@@ -386,7 +384,7 @@ async fn Client::cleanup_failed_stream_setup(
       _ => ()
     }
     ignore(
-      (self.conn.receive_until_ready() catch { _ => [] } : Array[BackendMessage]),
+      (self.conn.receive_until_ready() catch { _ => [] } : Array[QueryMessage]),
     )
   }
 }

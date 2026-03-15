@@ -1,13 +1,13 @@
 ///|
-/// Regression: wait_for_notification should fail fast on ErrorResponse.
-test "raise_if_server_error_message raises ServerError" {
+/// Regression: check_error raises ServerError for ErrorResponse.
+test "check_error raises ServerError" {
   let fields : Map[String, String] = {}
   fields[FIELD_MESSAGE] = "decoder hardening failure"
   fields[FIELD_CODE] = "XX000"
 
   let mut message = ""
   let failed = try {
-    raise_if_server_error_message(ErrorResponse(fields))
+    check_error([QueryMessage::ErrorResponse(fields)])
     false
   } catch {
     ServerError(info) => {
@@ -21,8 +21,8 @@ test "raise_if_server_error_message raises ServerError" {
 }
 
 ///|
-test "raise_if_server_error_message ignores non-error messages" {
-  raise_if_server_error_message(ReadyForQuery(Idle))
+test "check_error ignores non-error messages" {
+  check_error([QueryMessage::CommandComplete("SELECT 1")])
 }
 
 ///|

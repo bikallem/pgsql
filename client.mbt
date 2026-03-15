@@ -279,12 +279,13 @@ pub async fn Client::wait_for_notification(self : Client) -> Notification {
     }
     // Loop on receive until a notification arrives
     while true {
-      let messages = self.conn.receive()
-      for msg in messages {
-        raise_if_server_error_message(msg)
-        ignore(
-          (self.conn.dispatch_backend_message(msg) : BackendDispatchResult),
-        )
+      let raw_messages = self.conn.receive()
+      for raw in raw_messages {
+        match self.conn.dispatch(raw) {
+          Message(QueryMessage::ErrorResponse(fields)) =>
+            raise ServerError(ServerErrorInfo::from_fields(fields))
+          Ready | Consumed | Message(_) => ()
+        }
       }
       match self.conn.notification_queue.dequeue() {
         Some(notification) => return notification
@@ -312,7 +313,7 @@ async fn Client::bind_execute(
   stmt_name : String,
   params : Array[Value],
   prefix? : Array[FrontendMessage] = [],
-) -> Array[BackendMessage] {
+) -> Array[QueryMessage] {
   self.with_operation(async fn() {
     self.bind_execute_unlocked(stmt_name, params, prefix~)
   })
@@ -348,7 +349,7 @@ async fn Client::bind_execute_unlocked(
   stmt_name : String,
   params : Array[Value],
   prefix? : Array[FrontendMessage] = [],
-) -> Array[BackendMessage] {
+) -> Array[QueryMessage] {
   let param_bytes = serialize_params(params)
   let msgs = Array::from_iter(prefix.iter())
   msgs.append([
@@ -409,7 +410,7 @@ fn quote_identifier(name : String) -> String {
 
 ///|
 /// Build QueryResult from backend messages
-fn build_query_result(messages : Array[BackendMessage]) -> QueryResult {
+fn build_query_result(messages : Array[QueryMessage]) -> QueryResult {
   let mut columns : Array[ColumnInfo] = []
   let mut col_index : Map[String, Int] = {}
   let rows : Array[Row] = []
@@ -426,17 +427,9 @@ fn build_query_result(messages : Array[BackendMessage]) -> QueryResult {
         rows.push(Row::new(typed_values, columns, col_index))
       }
       CommandComplete(tag) => command_tag = tag
-      EmptyQueryResponse | ReadyForQuery(_) | ParameterDescription(_) |
-      NegotiateProtocolVersion(_, _) => ()
-      // These should have been consumed by dispatch_backend_message
-      NotificationResponse(_, _, _) | ParameterStatus(_, _) |
-      NoticeResponse(_) | CloseComplete | ParseComplete | BindComplete |
-      NoData | PortalSuspended | ErrorResponse(_) |
-      CopyInResponse(_, _) | CopyOutResponse(_, _) | CopyData(_) |
-      CopyDone | AuthenticationOk | AuthenticationCleartextPassword |
-      AuthenticationMD5Password(_) | AuthenticationSASL(_) |
-      AuthenticationSASLContinue(_) | AuthenticationSASLFinal(_) |
-      BackendKeyData(_, _) => ()
+      EmptyQueryResponse | ParseComplete | BindComplete | NoData |
+      PortalSuspended | ParameterDescription(_) | ErrorResponse(_) |
+      CopyInResponse | CopyOutResponse | CopyData(_) | CopyDone => ()
     }
   }
 
