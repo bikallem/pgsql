@@ -249,7 +249,7 @@ pub async fn Client::close(self : Client) -> Unit {
 ///|
 /// Server parameter
 pub fn Client::server_param(self : Client, name : String) -> String? {
-  self.conn.server_param(name)
+  self.conn.server_params.get(name)
 }
 
 ///|
@@ -287,7 +287,7 @@ pub async fn Client::unlisten(self : Client, channel : String) -> Unit {
 ///|
 /// Return any queued notifications and clear the queue
 pub fn Client::poll_notifications(self : Client) -> Array[Notification] {
-  self.conn.drain_notifications()
+  self.conn.notification_queue.drain()
 }
 
 ///|
@@ -296,7 +296,7 @@ pub fn Client::poll_notifications(self : Client) -> Array[Notification] {
 pub async fn Client::wait_for_notification(self : Client) -> Notification {
   self.with_operation(async fn() {
     // Check queue first
-    match self.conn.dequeue_notification() {
+    match self.conn.notification_queue.dequeue() {
       Some(notification) => return notification
       None => ()
     }
@@ -304,10 +304,10 @@ pub async fn Client::wait_for_notification(self : Client) -> Notification {
     while true {
       let messages = self.conn.receive()
       for msg in messages {
-        raise_if_error_response(msg)
+        raise_if_server_error_message(msg)
         let _ = self.conn.dispatch_backend_message(msg)
       }
-      match self.conn.dequeue_notification() {
+      match self.conn.notification_queue.dequeue() {
         Some(notification) => return notification
         None => ()
       }
@@ -388,14 +388,6 @@ async fn Client::bind_execute_unlocked(
 // =============================================================================
 // Helper Functions
 // =============================================================================
-
-///|
-/// Raise ServerError when a backend message is ErrorResponse.
-fn raise_if_error_response(
-  msg : @protocol.BackendMessage,
-) -> Unit raise ServerError {
-  raise_if_server_error_message(msg)
-}
 
 ///|
 /// Raise ClientUsageError when entering a re-entrant callback operation.

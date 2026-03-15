@@ -87,16 +87,6 @@ pub const OID_JSONB : UInt = 3802
 pub const OID_UUID : UInt = 2950
 
 // =============================================================================
-// Byte/String Conversion Helpers
-// =============================================================================
-
-///|
-/// Convert UTF-8 bytes to string (invalid sequences are replaced).
-fn bytes_to_ascii_string(data : Bytes) -> String {
-  @utf8.decode_lossy(data[:])
-}
-
-// =============================================================================
 // Value Type
 // =============================================================================
 
@@ -144,7 +134,7 @@ pub fn parse_text_value(data : Bytes?, type_oid : UInt) -> Value {
   match data {
     None => Null
     Some(bytes) => {
-      let text = bytes_to_ascii_string(bytes)
+      let text = @utf8.decode_lossy(bytes[:])
       parse_text_value_inner(text, type_oid)
     }
   }

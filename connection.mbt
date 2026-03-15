@@ -246,26 +246,6 @@ async fn Connection::receive_until_ready(
   }
 }
 
-///|
-/// Enqueue a notification in arrival order.
-fn Connection::enqueue_notification(
-  self : Connection,
-  notification : Notification,
-) -> Unit {
-  self.notification_queue.enqueue(notification)
-}
-
-///|
-/// Pop the next queued notification in FIFO order.
-fn Connection::dequeue_notification(self : Connection) -> Notification? {
-  self.notification_queue.dequeue()
-}
-
-///|
-/// Return queued notifications in order and clear the queue.
-fn Connection::drain_notifications(self : Connection) -> Array[Notification] {
-  self.notification_queue.drain()
-}
 
 ///|
 /// Raise ServerError if messages contain an error
@@ -311,7 +291,7 @@ fn Connection::dispatch_backend_message(
 ) -> BackendDispatchResult {
   match classify_backend_dispatch_message(msg) {
     QueueNotification(notification) => {
-      self.enqueue_notification(notification)
+      self.notification_queue.enqueue(notification)
       Consumed
     }
     UpdateParameter(name, value) => {
@@ -324,12 +304,6 @@ fn Connection::dispatch_backend_message(
     }
     Ignore => Unhandled
   }
-}
-
-///|
-/// Server parameter
-fn Connection::server_param(self : Connection, name : String) -> String? {
-  self.server_params.get(name)
 }
 
 ///|
