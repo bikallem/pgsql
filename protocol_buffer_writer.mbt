@@ -59,6 +59,7 @@ fn BufferWriter::add_bytes(self : BufferWriter, value : Bytes) -> Unit {
 
 ///|
 /// Convert to Bytes (used by tests)
+#warnings("-1")
 fn BufferWriter::to_bytes(self : BufferWriter) -> Bytes {
   Bytes::from_array(self.data)
 }

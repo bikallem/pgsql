@@ -263,7 +263,7 @@ priv enum FormatCode {
   Text
   /// Binary format (more efficient, type-specific encoding)
   Binary
-} derive(Show, Eq)
+} derive(Show)
 
 ///|
 /// Description of a field/column in query results

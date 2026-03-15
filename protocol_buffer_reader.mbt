@@ -26,7 +26,8 @@ fn BufferReader::remaining(self : BufferReader) -> Int {
 }
 
 ///|
-/// Get current offset
+/// Get current offset (used by tests)
+#warnings("-1")
 fn BufferReader::position(self : BufferReader) -> Int {
   self.offset
 }
@@ -138,4 +139,3 @@ fn BufferReader::bytes(
   self.offset += len
   Bytes::from_array(arr)
 }
-
