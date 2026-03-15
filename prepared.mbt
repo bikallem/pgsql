@@ -12,6 +12,8 @@ struct PreparedStatement {
   name : String
   /// Original SQL
   sql : String
+  /// Parameter type OIDs from ParameterDescription
+  param_types : Array[UInt]
   /// Whether the statement has been closed
   mut closed : Bool
   /// True when created via Transaction::prepare and bound to tx callback scope.
@@ -102,4 +104,12 @@ pub fn PreparedStatement::name(self : PreparedStatement) -> String {
 /// Original SQL string.
 pub fn PreparedStatement::sql(self : PreparedStatement) -> String {
   self.sql
+}
+
+///|
+/// Parameter type OIDs expected by this prepared statement.
+pub fn PreparedStatement::param_types(
+  self : PreparedStatement,
+) -> Array[UInt] {
+  self.param_types
 }

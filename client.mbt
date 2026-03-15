@@ -334,9 +334,21 @@ async fn Client::prepare_unlocked(
 ) -> PreparedStatement {
   self.stmt_counter += 1
   let name = "__prep_" + self.stmt_counter.to_string()
-  self.conn.send_all([Parse(name, sql, []), Sync])
-  ignore((self.conn.receive_until_ready() : Array[QueryMessage]))
-  { client: self, name, sql, closed: false, tx_scoped: false }
+  self.conn.send_all([
+    Parse(name, sql, []),
+    Describe(TARGET_STATEMENT, name),
+    Sync,
+  ])
+  let messages = self.conn.receive_until_ready()
+  let mut param_types : Array[UInt] = []
+  for msg in messages {
+    match msg {
+      ParameterDescription(oids) => param_types = oids
+      ParseComplete | RowDescription(_) | NoData => ()
+      qm => raise ProtocolError(unexpected_message("prepare", qm))
+    }
+  }
+  { client: self, name, sql, param_types, closed: false, tx_scoped: false }
 }
 
 ///|

@@ -123,6 +123,7 @@ pub async fn PreparedStatement::close(Self) -> Unit
 pub async fn PreparedStatement::execute(Self, Array[Value]) -> Int
 pub fn PreparedStatement::is_closed(Self) -> Bool
 pub fn PreparedStatement::name(Self) -> String
+pub fn PreparedStatement::param_types(Self) -> Array[UInt]
 pub async fn PreparedStatement::query(Self, Array[Value]) -> QueryResult
 pub fn PreparedStatement::sql(Self) -> String
 

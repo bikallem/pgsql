@@ -308,13 +308,66 @@ fn Connection::dispatch(
     PortalSuspended => Message(QueryMessage::PortalSuspended)
     ParameterDescription(oids) =>
       Message(QueryMessage::ParameterDescription(oids))
-    // COPY messages — pass through for COPY callers
-    CopyInResponse(_, _) => Message(QueryMessage::CopyInResponse)
-    CopyOutResponse(_, _) => Message(QueryMessage::CopyOutResponse)
+    // COPY messages — validate text format, reject binary
+    CopyInResponse(fmt, _col_fmts) => {
+      guard fmt is Text else {
+        Error(ServerErrorInfo::{
+          severity: "ERROR",
+          code: "0A000",
+          message: "Binary COPY format is not supported",
+          detail: None,
+          hint: Some("Use text format COPY or omit the BINARY option"),
+          table: None,
+          column: None,
+          constraint: None,
+        })
+      }
+      Message(QueryMessage::CopyInResponse)
+    }
+    CopyOutResponse(fmt, _col_fmts) => {
+      guard fmt is Text else {
+        Error(ServerErrorInfo::{
+          severity: "ERROR",
+          code: "0A000",
+          message: "Binary COPY format is not supported",
+          detail: None,
+          hint: Some("Use text format COPY or omit the BINARY option"),
+          table: None,
+          column: None,
+          constraint: None,
+        })
+      }
+      Message(QueryMessage::CopyOutResponse)
+    }
     CopyData(data) => Message(QueryMessage::CopyData(data))
     CopyDone => Message(QueryMessage::CopyDone)
-    // Protocol messages consumed but payload unused (future features)
-    NegotiateProtocolVersion(_, _) => Consumed
+    // Protocol version negotiation — raise so the caller knows
+    NegotiateProtocolVersion(server_minor, unrecognized) => {
+      let msg = "Server only supports protocol minor version " +
+        server_minor.to_string()
+      let detail = if unrecognized.length() > 0 {
+        let mut opts = ""
+        for i, opt in unrecognized {
+          if i > 0 {
+            opts = opts + ", "
+          }
+          opts = opts + opt
+        }
+        Some("Unrecognized options: " + opts)
+      } else {
+        None
+      }
+      Error(ServerErrorInfo::{
+        severity: "WARNING",
+        code: "01000",
+        message: msg,
+        detail,
+        hint: None,
+        table: None,
+        column: None,
+        constraint: None,
+      })
+    }
     // Authentication messages — only expected during startup, ignore elsewhere
     AuthenticationOk
     | AuthenticationCleartextPassword
