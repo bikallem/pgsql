@@ -743,3 +743,364 @@ test "decode_unsupported_auth_type" {
     _ => fail("Expected ErrorResponse for unsupported auth")
   }
 }
+
+// =============================================================================
+// Extended decoder coverage tests
+// =============================================================================
+
+///|
+test "decode_row_description_multiple_columns" {
+  // RowDescription with 2 columns:
+  //   "id"  : table_oid=1000, col_id=1, type_oid=23 (int4), size=4, mod=-1, fmt=text(0)
+  //   "name": table_oid=1000, col_id=2, type_oid=25 (text), size=-1, mod=-1, fmt=binary(1)
+  // field 1: "id\0"(3) + 18 = 21 bytes
+  // field 2: "name\0"(5) + 18 = 23 bytes
+  // payload: field_count(2) + 21 + 23 = 46 bytes; length = 46 + 4 = 50 = 0x32
+  let data = Bytes::from_array([
+    b'T', b'\x00', b'\x00', b'\x00', b'\x32',
+    b'\x00', b'\x02', // field_count = 2
+    // Column 1: "id"
+    b'i', b'd', b'\x00', // name
+    b'\x00', b'\x00', b'\x03', b'\xE8', // table_oid = 1000
+    b'\x00', b'\x01', // column_id = 1
+    b'\x00', b'\x00', b'\x00', b'\x17', // type_oid = 23 (int4)
+    b'\x00', b'\x04', // type_size = 4
+    b'\xFF', b'\xFF', b'\xFF', b'\xFF', // type_modifier = -1
+    b'\x00', b'\x00', // format = text
+    // Column 2: "name"
+    b'n', b'a', b'm', b'e', b'\x00', // name
+    b'\x00', b'\x00', b'\x03', b'\xE8', // table_oid = 1000
+    b'\x00', b'\x02', // column_id = 2
+    b'\x00', b'\x00', b'\x00', b'\x19', // type_oid = 25 (text)
+    b'\xFF', b'\xFF', // type_size = -1
+    b'\xFF', b'\xFF', b'\xFF', b'\xFF', // type_modifier = -1
+    b'\x00', b'\x01', // format = binary
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="1")
+  match messages[0] {
+    RowDescription(fields) => {
+      assert_eq(fields.length(), 2)
+      inspect(fields[0].name, content="id")
+      inspect(fields[0].table_oid, content="1000")
+      inspect(fields[0].column_id, content="1")
+      inspect(fields[0].type_oid, content="23")
+      inspect(fields[0].type_size, content="4")
+      inspect(fields[0].format, content="Text")
+      inspect(fields[1].name, content="name")
+      inspect(fields[1].table_oid, content="1000")
+      inspect(fields[1].column_id, content="2")
+      inspect(fields[1].type_oid, content="25")
+      inspect(fields[1].type_size, content="-1")
+      inspect(fields[1].format, content="Binary")
+    }
+    _ => fail("Expected RowDescription")
+  }
+}
+
+///|
+test "decode_data_row_all_nulls" {
+  // DataRow with 3 columns, all NULL (-1 length each)
+  // payload: col_count(2) + 3 * int32(4) = 14; length = 14 + 4 = 18 = 0x12
+  let data = Bytes::from_array([
+    b'D', b'\x00', b'\x00', b'\x00', b'\x12',
+    b'\x00', b'\x03', // 3 columns
+    b'\xFF', b'\xFF', b'\xFF', b'\xFF', // NULL
+    b'\xFF', b'\xFF', b'\xFF', b'\xFF', // NULL
+    b'\xFF', b'\xFF', b'\xFF', b'\xFF', // NULL
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="1")
+  match messages[0] {
+    DataRow(values) => {
+      assert_eq(values.length(), 3)
+      inspect(values[0], content="None")
+      inspect(values[1], content="None")
+      inspect(values[2], content="None")
+    }
+    _ => fail("Expected DataRow")
+  }
+}
+
+///|
+test "decode_data_row_many_columns" {
+  // DataRow with 5 columns of varied data:
+  //   col0: "AB" (2 bytes), col1: NULL, col2: "X" (1 byte),
+  //   col3: "" (0 bytes), col4: "\x01\x02\x03\x04" (4 bytes)
+  // payload: col_count(2) +
+  //   len(4)+2 + len(4) + len(4)+1 + len(4)+0 + len(4)+4 = 2+6+4+5+4+8 = 29
+  // length = 29 + 4 = 33 = 0x21
+  let data = Bytes::from_array([
+    b'D', b'\x00', b'\x00', b'\x00', b'\x21',
+    b'\x00', b'\x05', // 5 columns
+    // col 0: "AB" (length 2)
+    b'\x00', b'\x00', b'\x00', b'\x02', b'A', b'B',
+    // col 1: NULL
+    b'\xFF', b'\xFF', b'\xFF', b'\xFF',
+    // col 2: "X" (length 1)
+    b'\x00', b'\x00', b'\x00', b'\x01', b'X',
+    // col 3: "" (length 0)
+    b'\x00', b'\x00', b'\x00', b'\x00',
+    // col 4: 4 binary bytes
+    b'\x00', b'\x00', b'\x00', b'\x04', b'\x01', b'\x02', b'\x03', b'\x04',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="1")
+  match messages[0] {
+    DataRow(values) => {
+      assert_eq(values.length(), 5)
+      // col 0: "AB"
+      inspect(values[0] is Some(_), content="true")
+      assert_eq(values[0].unwrap().length(), 2)
+      // col 1: NULL
+      inspect(values[1], content="None")
+      // col 2: "X"
+      assert_eq(values[2].unwrap().length(), 1)
+      // col 3: empty
+      assert_eq(values[3].unwrap().length(), 0)
+      // col 4: 4 bytes
+      let v4 = values[4].unwrap()
+      assert_eq(v4.length(), 4)
+      inspect(v4[0], content="b'\\x01'")
+      inspect(v4[3], content="b'\\x04'")
+    }
+    _ => fail("Expected DataRow")
+  }
+}
+
+///|
+test "decode_command_complete_insert" {
+  // "INSERT 0 3\0" = 11 bytes; length = 11 + 4 = 15 = 0x0F
+  let data = Bytes::from_array([
+    b'C', b'\x00', b'\x00', b'\x00', b'\x0F',
+    b'I', b'N', b'S', b'E', b'R', b'T', b' ', b'0', b' ', b'3', b'\x00',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  match messages[0] {
+    CommandComplete(tag) => inspect(tag, content="INSERT 0 3")
+    _ => fail("Expected CommandComplete")
+  }
+}
+
+///|
+test "decode_command_complete_update" {
+  // "UPDATE 5\0" = 9 bytes; length = 9 + 4 = 13 = 0x0D
+  let data = Bytes::from_array([
+    b'C', b'\x00', b'\x00', b'\x00', b'\x0D',
+    b'U', b'P', b'D', b'A', b'T', b'E', b' ', b'5', b'\x00',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  match messages[0] {
+    CommandComplete(tag) => inspect(tag, content="UPDATE 5")
+    _ => fail("Expected CommandComplete")
+  }
+}
+
+///|
+test "decode_command_complete_delete" {
+  // "DELETE 0\0" = 9 bytes; length = 9 + 4 = 13 = 0x0D
+  let data = Bytes::from_array([
+    b'C', b'\x00', b'\x00', b'\x00', b'\x0D',
+    b'D', b'E', b'L', b'E', b'T', b'E', b' ', b'0', b'\x00',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  match messages[0] {
+    CommandComplete(tag) => inspect(tag, content="DELETE 0")
+    _ => fail("Expected CommandComplete")
+  }
+}
+
+///|
+test "decode_command_complete_create_table" {
+  // "CREATE TABLE\0" = 13 bytes; length = 13 + 4 = 17 = 0x11
+  let data = Bytes::from_array([
+    b'C', b'\x00', b'\x00', b'\x00', b'\x11',
+    b'C', b'R', b'E', b'A', b'T', b'E', b' ', b'T', b'A', b'B', b'L', b'E',
+    b'\x00',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  match messages[0] {
+    CommandComplete(tag) => inspect(tag, content="CREATE TABLE")
+    _ => fail("Expected CommandComplete")
+  }
+}
+
+///|
+test "decode_command_complete_move" {
+  // "MOVE 10\0" = 8 bytes; length = 8 + 4 = 12 = 0x0C
+  let data = Bytes::from_array([
+    b'C', b'\x00', b'\x00', b'\x00', b'\x0C',
+    b'M', b'O', b'V', b'E', b' ', b'1', b'0', b'\x00',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  match messages[0] {
+    CommandComplete(tag) => inspect(tag, content="MOVE 10")
+    _ => fail("Expected CommandComplete")
+  }
+}
+
+///|
+test "decode_error_response_all_field_types" {
+  // ErrorResponse with fields: S, V, C, M, D, H, t, c, n
+  // S=ERROR\0       (7)
+  // V=ERROR\0       (7)
+  // C=23505\0       (7)
+  // M=dup key\0     (9)
+  // D=detail\0      (8)
+  // H=hint\0        (6)
+  // t=users\0       (7)
+  // c=email\0       (7)
+  // n=uq_email\0    (10)
+  // \0 terminator   (1)
+  // Total field bytes = 7+7+7+9+8+6+7+7+10+1 = 69; length = 69 + 4 = 73 = 0x49
+  let data = Bytes::from_array([
+    b'E', b'\x00', b'\x00', b'\x00', b'\x49',
+    // S=ERROR
+    b'S', b'E', b'R', b'R', b'O', b'R', b'\x00',
+    // V=ERROR
+    b'V', b'E', b'R', b'R', b'O', b'R', b'\x00',
+    // C=23505
+    b'C', b'2', b'3', b'5', b'0', b'5', b'\x00',
+    // M=dup key
+    b'M', b'd', b'u', b'p', b' ', b'k', b'e', b'y', b'\x00',
+    // D=detail
+    b'D', b'd', b'e', b't', b'a', b'i', b'l', b'\x00',
+    // H=hint
+    b'H', b'h', b'i', b'n', b't', b'\x00',
+    // t=users
+    b't', b'u', b's', b'e', b'r', b's', b'\x00',
+    // c=email
+    b'c', b'e', b'm', b'a', b'i', b'l', b'\x00',
+    // n=uq_email
+    b'n', b'u', b'q', b'_', b'e', b'm', b'a', b'i', b'l', b'\x00',
+    // terminator
+    b'\x00',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="1")
+  match messages[0] {
+    ErrorResponse(fields) => {
+      inspect(
+        fields["S"],
+        content=(
+          #|ERROR
+        ),
+      )
+      inspect(
+        fields["V"],
+        content=(
+          #|ERROR
+        ),
+      )
+      inspect(
+        fields["C"],
+        content=(
+          #|23505
+        ),
+      )
+      inspect(
+        fields["M"],
+        content=(
+          #|dup key
+        ),
+      )
+      inspect(
+        fields["D"],
+        content=(
+          #|detail
+        ),
+      )
+      inspect(
+        fields["H"],
+        content=(
+          #|hint
+        ),
+      )
+      inspect(
+        fields["t"],
+        content=(
+          #|users
+        ),
+      )
+      inspect(
+        fields["c"],
+        content=(
+          #|email
+        ),
+      )
+      inspect(
+        fields["n"],
+        content=(
+          #|uq_email
+        ),
+      )
+    }
+    _ => fail("Expected ErrorResponse")
+  }
+}
+
+///|
+test "decode_copy_out_response_binary_multiple_columns" {
+  // CopyOutResponse: binary overall, 3 columns: binary, text, binary
+  // payload: format(1) + count(2) + 3*int16(6) = 9; length = 9 + 4 = 13 = 0x0D
+  let data = Bytes::from_array([
+    b'H', b'\x00', b'\x00', b'\x00', b'\x0D',
+    b'\x01', // binary overall format
+    b'\x00', b'\x03', // 3 columns
+    b'\x00', b'\x01', // column 1: binary
+    b'\x00', b'\x00', // column 2: text
+    b'\x00', b'\x01', // column 3: binary
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="1")
+  match messages[0] {
+    CopyOutResponse(fmt, col_fmts) => {
+      inspect(fmt, content="Binary")
+      assert_eq(col_fmts.length(), 3)
+      inspect(col_fmts[0], content="Binary")
+      inspect(col_fmts[1], content="Text")
+      inspect(col_fmts[2], content="Binary")
+    }
+    _ => fail("Expected CopyOutResponse")
+  }
+}
+
+///|
+test "decode_authentication_sasl_multiple_mechanisms" {
+  // AuthenticationSASL with 2 mechanisms: "SCRAM-SHA-256" and "SCRAM-SHA-256-PLUS"
+  // type(4) + "SCRAM-SHA-256\0"(14) + "SCRAM-SHA-256-PLUS\0"(19) + "\0"(1) = 38
+  // length = 38 + 4 = 42 = 0x2A
+  let data = Bytes::from_array([
+    b'R', b'\x00', b'\x00', b'\x00', b'\x2A',
+    b'\x00', b'\x00', b'\x00', b'\x0A', // auth type = 10 (SASL)
+    // "SCRAM-SHA-256\0"
+    b'S', b'C', b'R', b'A', b'M', b'-', b'S', b'H', b'A', b'-', b'2', b'5',
+    b'6', b'\x00',
+    // "SCRAM-SHA-256-PLUS\0"
+    b'S', b'C', b'R', b'A', b'M', b'-', b'S', b'H', b'A', b'-', b'2', b'5',
+    b'6', b'-', b'P', b'L', b'U', b'S', b'\x00',
+    // terminator
+    b'\x00',
+  ])
+  let decoder = Decoder::new()
+  let messages = decoder.parse(data)
+  inspect(messages.length(), content="1")
+  match messages[0] {
+    AuthenticationSASL(mechanisms) => {
+      assert_eq(mechanisms.length(), 2)
+      inspect(mechanisms[0], content="SCRAM-SHA-256")
+      inspect(mechanisms[1], content="SCRAM-SHA-256-PLUS")
+    }
+    _ => fail("Expected AuthenticationSASL")
+  }
+}

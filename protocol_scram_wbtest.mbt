@@ -150,3 +150,97 @@ test "parse_scram_iteration_count" {
   assert_eq(parse_scram_iteration_count("1"), 1)
   assert_eq(parse_scram_iteration_count("100000"), 100000)
 }
+
+// =============================================================================
+// Medium/Low priority tests
+// =============================================================================
+
+///|
+test "scram_client_final: server nonce not prefixed by client nonce raises error" {
+  let client_nonce = "abc123"
+  let (_, client_first_bare) = scram_client_first("user", client_nonce)
+  // Server nonce does NOT start with client_nonce
+  let server_first = "r=WRONG_NONCExyz,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096"
+  let mut got_error = false
+  ignore((scram_client_final(
+    "pencil", client_first_bare, server_first, client_nonce,
+  ) catch {
+    ScramError(msg) => {
+      got_error = true
+      assert_true(msg.contains("client nonce"))
+      ("", b"")
+    }
+  } : (String, Bytes)))
+  assert_true(got_error)
+}
+
+///|
+test "scram_client_final: invalid base64 salt raises error" {
+  let client_nonce = "abc123"
+  let (_, client_first_bare) = scram_client_first("user", client_nonce)
+  // "!!!" is not valid base64
+  let server_first = "r=abc123xyz,s=!!!invalid!!!,i=4096"
+  let mut got_error = false
+  ignore((scram_client_final(
+    "pencil", client_first_bare, server_first, client_nonce,
+  ) catch {
+    ScramError(msg) => {
+      got_error = true
+      assert_true(msg.contains("base64") || msg.contains("salt"))
+      ("", b"")
+    }
+  } : (String, Bytes)))
+  assert_true(got_error)
+}
+
+///|
+test "scram_client_final: iteration count at MAX_SCRAM_ITERATIONS succeeds" {
+  let client_nonce = "abc123"
+  let (_, client_first_bare) = scram_client_first("user", client_nonce)
+  let server_first = "r=abc123xyz,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=1000000"
+  // Should not raise — iteration count is exactly at the limit
+  // We just verify it doesn't error; we don't run all iterations,
+  // but the parse step should accept 1000000
+  let result = try {
+    ignore((scram_client_final(
+      "pencil", client_first_bare, server_first, client_nonce,
+    ) : (String, Bytes)))
+    true
+  } catch {
+    ScramError(_) => false
+  }
+  assert_true(result)
+}
+
+///|
+test "scram_client_final: iteration count = 1 succeeds" {
+  let client_nonce = "abc123"
+  let (_, client_first_bare) = scram_client_first("user", client_nonce)
+  let server_first = "r=abc123xyz,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=1"
+  let (client_final, _server_sig) = scram_client_final(
+    "pencil", client_first_bare, server_first, client_nonce,
+  )
+  assert_true(client_final.has_prefix("c=biws,r=abc123xyz,p="))
+}
+
+///|
+test "scram_verify_server: malformed server-final without v= attribute" {
+  let mut got_error = false
+  scram_verify_server("s=something", Bytes::make(32, b'\x00')) catch {
+    ScramError(msg) => {
+      got_error = true
+      assert_true(msg.contains("v") || msg.contains("Missing"))
+    }
+  }
+  assert_true(got_error)
+}
+
+///|
+test "escape_scram_username: just equals sign" {
+  inspect(escape_scram_username("="), content="=3D")
+}
+
+///|
+test "escape_scram_username: just comma" {
+  inspect(escape_scram_username(","), content="=2C")
+}

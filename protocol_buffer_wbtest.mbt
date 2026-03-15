@@ -144,3 +144,53 @@ test "BufferReader::bytes rejects negative length" {
   }
   assert_true(failed)
 }
+
+// =============================================================================
+// Medium/Low priority tests
+// =============================================================================
+
+///|
+test "BufferReader::int16 INT16_MAX" {
+  // 32767 = 0x7FFF
+  let data = Bytes::from_array([b'\x7F', b'\xFF'])
+  let reader = BufferReader::new(data)
+  inspect(reader.int16(), content="32767")
+}
+
+///|
+test "BufferReader::int16 INT16_MIN" {
+  // -32768 = 0x8000
+  let data = Bytes::from_array([b'\x80', b'\x00'])
+  let reader = BufferReader::new(data)
+  inspect(reader.int16(), content="-32768")
+}
+
+///|
+test "BufferReader::int32 INT32_MAX" {
+  // 2147483647 = 0x7FFFFFFF
+  let data = Bytes::from_array([b'\x7F', b'\xFF', b'\xFF', b'\xFF'])
+  let reader = BufferReader::new(data)
+  inspect(reader.int32(), content="2147483647")
+}
+
+///|
+test "BufferReader::int32 INT32_MIN" {
+  // -2147483648 = 0x80000000
+  let data = Bytes::from_array([b'\x80', b'\x00', b'\x00', b'\x00'])
+  let reader = BufferReader::new(data)
+  inspect(reader.int32(), content="-2147483648")
+}
+
+///|
+test "BufferWriter/BufferReader roundtrip: int16 + int32 + cstring" {
+  let writer = BufferWriter::new()
+  writer.add_int16(-1234)
+  writer.add_int32(305419896)
+  writer.add_cstring("hello")
+  let bytes = writer.to_bytes()
+  let reader = BufferReader::new(bytes)
+  inspect(reader.int16(), content="-1234")
+  inspect(reader.int32(), content="305419896")
+  inspect(reader.cstring(), content="hello")
+  inspect(reader.remaining(), content="0")
+}

@@ -78,3 +78,32 @@ test "md5_password known PostgreSQL value" {
     ),
   )
 }
+
+// =============================================================================
+// Medium/Low priority tests
+// =============================================================================
+
+///|
+test "md5_password with empty password" {
+  let salt = Bytes::from_array([b'\x01', b'\x02', b'\x03', b'\x04'])
+  let result = md5_password("", "postgres", salt)
+  assert_true(result[:3] == "md5")
+  assert_eq(result.length(), 35)
+}
+
+///|
+test "md5_password with empty username" {
+  let salt = Bytes::from_array([b'\x01', b'\x02', b'\x03', b'\x04'])
+  let result = md5_password("secret", "", salt)
+  assert_true(result[:3] == "md5")
+  assert_eq(result.length(), 35)
+}
+
+///|
+test "md5_password different salt produces different output" {
+  let salt1 = Bytes::from_array([b'\x01', b'\x02', b'\x03', b'\x04'])
+  let salt2 = Bytes::from_array([b'\x05', b'\x06', b'\x07', b'\x08'])
+  let result1 = md5_password("secret", "postgres", salt1)
+  let result2 = md5_password("secret", "postgres", salt2)
+  assert_true(result1 != result2)
+}

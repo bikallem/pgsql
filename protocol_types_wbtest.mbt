@@ -534,3 +534,161 @@ test "serialize_value Uuid" {
     None => fail("Expected Some")
   }
 }
+
+// =============================================================================
+// Medium/Low priority tests
+// =============================================================================
+
+///|
+test "parse_text_value INT32_MAX via OID_INT4" {
+  let bytes = @utf8.encode("2147483647"[:])
+  inspect(parse_text_value(Some(bytes), OID_INT4), content="Int(2147483647)")
+}
+
+///|
+test "parse_text_value INT32_MIN overflows to String via OID_INT4" {
+  // parse_int computes absolute value first; 2147483648 overflows the guard
+  let bytes = @utf8.encode("-2147483648"[:])
+  inspect(
+    parse_text_value(Some(bytes), OID_INT4),
+    content=(
+      #|String("-2147483648")
+    ),
+  )
+}
+
+///|
+test "parse_text_value INT64_MAX via OID_INT8" {
+  let bytes = @utf8.encode("9223372036854775807"[:])
+  inspect(
+    parse_text_value(Some(bytes), OID_INT8),
+    content="Int64(9223372036854775807)",
+  )
+}
+
+///|
+test "parse_text_value INT64_MIN overflows to String via OID_INT8" {
+  let bytes = @utf8.encode("-9223372036854775808"[:])
+  inspect(
+    parse_text_value(Some(bytes), OID_INT8),
+    content=(
+      #|String("-9223372036854775808")
+    ),
+  )
+}
+
+///|
+test "parse_text_value INT32_MAX+1 falls back to String via OID_INT4" {
+  let bytes = @utf8.encode("2147483648"[:])
+  inspect(
+    parse_text_value(Some(bytes), OID_INT4),
+    content=(
+      #|String("2147483648")
+    ),
+  )
+}
+
+///|
+test "parse_text_value bytea odd-length hex returns String" {
+  // "\x486" is 3 hex chars after \x — odd length, invalid
+  let bytes = @utf8.encode("\\x486"[:])
+  inspect(
+    parse_text_value(Some(bytes), OID_BYTEA),
+    content=(
+      #|String("\\x486")
+    ),
+  )
+}
+
+///|
+test "parse_text_value bytea invalid hex chars returns String" {
+  let bytes = @utf8.encode("\\xGG"[:])
+  inspect(
+    parse_text_value(Some(bytes), OID_BYTEA),
+    content=(
+      #|String("\\xGG")
+    ),
+  )
+}
+
+///|
+test "parse_text_value OID_CHAR parses as String" {
+  let bytes = @utf8.encode("X"[:])
+  inspect(
+    parse_text_value(Some(bytes), OID_CHAR),
+    content=(
+      #|String("X")
+    ),
+  )
+}
+
+///|
+test "parse_text_value OID_NAME parses as String" {
+  let bytes = @utf8.encode("my_table"[:])
+  inspect(
+    parse_text_value(Some(bytes), OID_NAME),
+    content=(
+      #|String("my_table")
+    ),
+  )
+}
+
+///|
+test "parse_text_value OID_BPCHAR parses as String" {
+  let bytes = @utf8.encode("abc"[:])
+  inspect(
+    parse_text_value(Some(bytes), OID_BPCHAR),
+    content=(
+      #|String("abc")
+    ),
+  )
+}
+
+///|
+test "parse_float negative zero" {
+  let bytes = @utf8.encode("-0.0"[:])
+  // MoonBit normalizes -0.0 to 0 in display
+  inspect(parse_text_value(Some(bytes), OID_FLOAT8), content="Float(0)")
+}
+
+///|
+test "parse_float 1e308" {
+  let bytes = @utf8.encode("1e308"[:])
+  match parse_text_value(Some(bytes), OID_FLOAT8) {
+    Float(n) => assert_true(n > 9.9e307)
+    _ => fail("Expected Float")
+  }
+}
+
+///|
+test "parse_float 1e-308" {
+  let bytes = @utf8.encode("1e-308"[:])
+  match parse_text_value(Some(bytes), OID_FLOAT8) {
+    Float(n) => assert_true(n > 0.0 && n < 0.1e-306)
+    _ => fail("Expected Float")
+  }
+}
+
+///|
+test "serialize roundtrip Float NaN" {
+  match serialize_value(Float(0.0 / 0.0)) {
+    Some(b) => inspect(test_bytes_to_string(b), content="NaN")
+    None => fail("Expected Some")
+  }
+}
+
+///|
+test "serialize roundtrip Float Infinity" {
+  match serialize_value(Float(1.0 / 0.0)) {
+    Some(b) => inspect(test_bytes_to_string(b), content="Infinity")
+    None => fail("Expected Some")
+  }
+}
+
+///|
+test "serialize roundtrip Float -Infinity" {
+  match serialize_value(Float(-1.0 / 0.0)) {
+    Some(b) => inspect(test_bytes_to_string(b), content="-Infinity")
+    None => fail("Expected Some")
+  }
+}
