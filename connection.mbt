@@ -77,15 +77,8 @@ fn NotificationQueue::compact_if_needed(self : NotificationQueue) -> Unit {
   if self.head < 128 || self.head * 2 < len {
     return
   }
-  // Shift remaining items to front in-place, avoiding a second copy.
-  let remaining = len - self.head
-  for i = 0; i < remaining; i = i + 1 {
-    self.items[i] = self.items[self.head + i]
-  }
-  // Trim the array to just the remaining items
-  while self.items.length() > remaining {
-    ignore((self.items.pop() : Notification?))
-  }
+  // Drain the consumed prefix in-place.
+  ignore((self.items.drain(0, self.head) : Array[Notification]))
   self.head = 0
 }
 
@@ -245,7 +238,6 @@ async fn Connection::receive_until_ready(
     all_messages
   }
 }
-
 
 ///|
 /// Raise ServerError if messages contain an error
