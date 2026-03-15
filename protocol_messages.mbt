@@ -390,7 +390,7 @@ priv enum BackendMessage {
   CopyData(Bytes)
   /// COPY completed
   CopyDone
-} derive(Show)
+}
 
 // =============================================================================
 // Frontend Messages (Client -> Server)
@@ -446,4 +446,4 @@ priv enum FrontendMessage {
   // --- Termination ---
   /// Close connection
   Terminate
-} derive(Show)
+}

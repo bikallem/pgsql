@@ -139,8 +139,3 @@ fn BufferReader::bytes(
   Bytes::from_array(arr)
 }
 
-///|
-/// Skip bytes without reading
-fn BufferReader::skip(self : BufferReader, count : Int) -> Unit {
-  self.offset += count
-}

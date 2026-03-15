@@ -18,12 +18,6 @@ fn BufferWriter::new(capacity? : Int = 256) -> BufferWriter {
 }
 
 ///|
-/// Get the current length of the buffer
-fn BufferWriter::length(self : BufferWriter) -> Int {
-  self.data.length()
-}
-
-///|
 /// Add a single byte
 fn BufferWriter::add_byte(self : BufferWriter, value : Byte) -> Unit {
   self.data.push(value)

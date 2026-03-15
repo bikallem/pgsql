@@ -133,7 +133,7 @@ test "parse_text_value text UTF-8" {
 test "parse_text_value varchar" {
   let bytes = Bytes::from_array([b'a', b'b', b'c'])
   inspect(
-    parse_text_value(Some(bytes), OID_VARCHAR),
+    parse_text_value(Some(bytes), 1043),
     content=(
       #|String("abc")
     ),
@@ -612,10 +612,10 @@ test "parse_text_value bytea invalid hex chars returns String" {
 }
 
 ///|
-test "parse_text_value OID_CHAR parses as String" {
+test "parse_text_value 18 parses as String" {
   let bytes = @utf8.encode("X"[:])
   inspect(
-    parse_text_value(Some(bytes), OID_CHAR),
+    parse_text_value(Some(bytes), 18),
     content=(
       #|String("X")
     ),
@@ -623,10 +623,10 @@ test "parse_text_value OID_CHAR parses as String" {
 }
 
 ///|
-test "parse_text_value OID_NAME parses as String" {
+test "parse_text_value 19 parses as String" {
   let bytes = @utf8.encode("my_table"[:])
   inspect(
-    parse_text_value(Some(bytes), OID_NAME),
+    parse_text_value(Some(bytes), 19),
     content=(
       #|String("my_table")
     ),
@@ -634,10 +634,10 @@ test "parse_text_value OID_NAME parses as String" {
 }
 
 ///|
-test "parse_text_value OID_BPCHAR parses as String" {
+test "parse_text_value 1042 parses as String" {
   let bytes = @utf8.encode("abc"[:])
   inspect(
-    parse_text_value(Some(bytes), OID_BPCHAR),
+    parse_text_value(Some(bytes), 1042),
     content=(
       #|String("abc")
     ),
