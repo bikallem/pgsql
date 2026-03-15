@@ -72,7 +72,7 @@ pub async fn PreparedStatement::close(self : PreparedStatement) -> Unit {
   }
   let close_stmt = async fn() {
     self.client.conn.send_all([Close(TARGET_STATEMENT, self.name), Sync])
-    let messages = self.client.conn.receive_until_ready()
+    ignore((self.client.conn.receive_until_ready() : Array[QueryMessage]))
   }
   if self.tx_scoped {
     if not(self.client.in_transaction_callback) {

@@ -3,7 +3,7 @@
 test "BufferWriter::add_byte" {
   let writer = BufferWriter::new()
   writer.add_byte(b'\x42')
-  let result = writer.to_bytes()
+  let result = Bytes::from_array(writer.data)
   assert_eq(result.length(), 1)
   assert_eq(result[0], b'\x42')
 }
@@ -12,7 +12,7 @@ test "BufferWriter::add_byte" {
 test "BufferWriter::add_int16" {
   let writer = BufferWriter::new()
   writer.add_int16(0x1234)
-  let result = writer.to_bytes()
+  let result = Bytes::from_array(writer.data)
   assert_eq(result.length(), 2)
   assert_eq(result[0], b'\x12')
   assert_eq(result[1], b'\x34')
@@ -22,7 +22,7 @@ test "BufferWriter::add_int16" {
 test "BufferWriter::add_int16_negative" {
   let writer = BufferWriter::new()
   writer.add_int16(-1)
-  let result = writer.to_bytes()
+  let result = Bytes::from_array(writer.data)
   assert_eq(result.length(), 2)
   assert_eq(result[0], b'\xFF')
   assert_eq(result[1], b'\xFF')
@@ -32,7 +32,7 @@ test "BufferWriter::add_int16_negative" {
 test "BufferWriter::add_int32" {
   let writer = BufferWriter::new()
   writer.add_int32(0x12345678)
-  let result = writer.to_bytes()
+  let result = Bytes::from_array(writer.data)
   assert_eq(result.length(), 4)
   assert_eq(result[0], b'\x12')
   assert_eq(result[1], b'\x34')
@@ -44,7 +44,7 @@ test "BufferWriter::add_int32" {
 test "BufferWriter::add_cstring" {
   let writer = BufferWriter::new()
   writer.add_cstring("hello")
-  let result = writer.to_bytes()
+  let result = Bytes::from_array(writer.data)
   assert_eq(result.length(), 6) // 5 chars + null terminator
   assert_eq(result[5], b'\x00')
 }
@@ -90,7 +90,7 @@ test "BufferReader::cstring" {
   let data = Bytes::from_array([b'h', b'i', b'\x00', b'x'])
   let reader = BufferReader::new(data)
   assert_eq(reader.cstring(), "hi")
-  assert_eq(reader.position(), 3)
+  assert_eq(reader.offset, 3)
 }
 
 ///|
@@ -187,7 +187,7 @@ test "BufferWriter/BufferReader roundtrip: int16 + int32 + cstring" {
   writer.add_int16(-1234)
   writer.add_int32(305419896)
   writer.add_cstring("hello")
-  let bytes = writer.to_bytes()
+  let bytes = Bytes::from_array(writer.data)
   let reader = BufferReader::new(bytes)
   inspect(reader.int16(), content="-1234")
   inspect(reader.int32(), content="305419896")

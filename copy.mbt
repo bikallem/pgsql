@@ -86,10 +86,7 @@ pub async fn Client::copy_out(
             return row_count
           }
           Consumed => ()
-          Error(info) =>
-            if server_error is None {
-              server_error = Some(info)
-            }
+          Error(info) => if server_error is None { server_error = Some(info) }
           Message(qm) =>
             match qm {
               QueryMessage::CopyOutResponse => ()
@@ -105,7 +102,6 @@ pub async fn Client::copy_out(
                 }
               QueryMessage::CopyDone => ()
               QueryMessage::CommandComplete(tag) => command_tag = tag
-
               qm => raise ProtocolError(unexpected_message("COPY OUT", qm))
             }
         }
@@ -141,14 +137,12 @@ pub async fn Client::copy_in(
               None => raise CopyError("COPY IN was not started")
             }
           Consumed => ()
-          Error(info) =>
-            if startup_error is None {
-              startup_error = Some(info)
-            }
+          Error(info) => if startup_error is None { startup_error = Some(info) }
           Message(qm) =>
             match qm {
               QueryMessage::CopyInResponse => got_copy_in = true
-              qm => raise ProtocolError(unexpected_message("COPY IN startup", qm))
+              qm =>
+                raise ProtocolError(unexpected_message("COPY IN startup", qm))
             }
         }
       }
@@ -179,14 +173,13 @@ pub async fn Client::copy_in(
       let messages = self.conn.receive_until_ready()
       self.conn.copy_in_active = false
 
-
       // Extract row count from CommandComplete
       let mut copied_rows = 0
       for msg in messages {
         match msg {
           CommandComplete(tag) => copied_rows = parse_affected_rows(tag)
-
-          qm => raise ProtocolError(unexpected_message("COPY IN completion", qm))
+          qm =>
+            raise ProtocolError(unexpected_message("COPY IN completion", qm))
         }
       }
       copied_rows

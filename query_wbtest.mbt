@@ -214,9 +214,7 @@ test "build_query_result with rows" {
 
 ///|
 test "build_query_result empty" {
-  let messages : Array[QueryMessage] = [
-    QueryMessage::EmptyQueryResponse,
-  ]
+  let messages : Array[QueryMessage] = [QueryMessage::EmptyQueryResponse]
   let result = build_query_result(messages)
   inspect(result.row_count(), content="0")
   inspect(result.column_count(), content="0")

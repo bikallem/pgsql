@@ -165,15 +165,14 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
               QueryMessage::CommandComplete(_) => {
                 self.exhausted = true
                 self.client.conn.send(Sync)
-                ignore((self.client.conn.receive_until_ready() : Array[QueryMessage]))
+                ignore(
+                  (self.client.conn.receive_until_ready() : Array[QueryMessage]),
+                )
                 self.client.conn.operation_guard.release()
                 self.lock_held = false
                 return
               }
-              qm =>
-                raise ProtocolError(
-                  unexpected_message("stream fetch", qm),
-                )
+              qm => raise ProtocolError(unexpected_message("stream fetch", qm))
             }
         }
       }
@@ -296,10 +295,7 @@ pub async fn Client::query_stream(
                 ignore((self.conn.receive_until_ready() : Array[QueryMessage]))
                 done = true
               }
-              qm =>
-                raise ProtocolError(
-                  unexpected_message("stream setup", qm),
-                )
+              qm => raise ProtocolError(unexpected_message("stream setup", qm))
             }
         }
       }

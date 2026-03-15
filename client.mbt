@@ -335,7 +335,7 @@ async fn Client::prepare_unlocked(
   self.stmt_counter += 1
   let name = "__prep_" + self.stmt_counter.to_string()
   self.conn.send_all([Parse(name, sql, []), Sync])
-  let messages = self.conn.receive_until_ready()
+  ignore((self.conn.receive_until_ready() : Array[QueryMessage]))
   { client: self, name, sql, closed: false, tx_scoped: false }
 }
 
@@ -426,8 +426,12 @@ fn build_query_result(
       }
       CommandComplete(tag) => command_tag = tag
       // Expected protocol acks from extended query flow
-      EmptyQueryResponse | ParseComplete | BindComplete | NoData |
-      PortalSuspended | ParameterDescription(_) => ()
+      EmptyQueryResponse
+      | ParseComplete
+      | BindComplete
+      | NoData
+      | PortalSuspended
+      | ParameterDescription(_) => ()
       // These should never appear in query results
       CopyInResponse | CopyOutResponse | CopyData(_) | CopyDone =>
         raise ProtocolError(unexpected_message("query result", msg))

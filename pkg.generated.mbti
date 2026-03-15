@@ -33,6 +33,11 @@ pub suberror PreparedStmtError {
 }
 pub impl Show for PreparedStmtError
 
+pub suberror ProtocolError {
+  ProtocolError(String)
+}
+pub impl Show for ProtocolError
+
 pub suberror ServerError {
   ServerError(ServerErrorInfo)
 }

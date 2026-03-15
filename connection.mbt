@@ -295,10 +295,13 @@ fn Connection::dispatch(
     // Protocol messages consumed but payload unused (future features)
     NegotiateProtocolVersion(_, _) => Consumed
     // Authentication messages — only expected during startup, ignore elsewhere
-    AuthenticationOk | AuthenticationCleartextPassword |
-    AuthenticationMD5Password(_) | AuthenticationSASL(_) |
-    AuthenticationSASLContinue(_) | AuthenticationSASLFinal(_) |
-    BackendKeyData(_, _) => Consumed
+    AuthenticationOk
+    | AuthenticationCleartextPassword
+    | AuthenticationMD5Password(_)
+    | AuthenticationSASL(_)
+    | AuthenticationSASLContinue(_)
+    | AuthenticationSASLFinal(_)
+    | BackendKeyData(_, _) => Consumed
   }
 }
 
@@ -489,9 +492,7 @@ async fn Connection::authenticate(self : Connection) -> Unit {
           self.secret_key = key
         }
         ErrorResponse(fields) =>
-          raise AuthError(
-            ServerErrorInfo::from_fields(fields).message,
-          )
+          raise AuthError(ServerErrorInfo::from_fields(fields).message)
         msg =>
           match self.dispatch(msg) {
             Ready => return

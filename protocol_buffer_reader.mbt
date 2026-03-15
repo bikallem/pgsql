@@ -26,13 +26,6 @@ fn BufferReader::remaining(self : BufferReader) -> Int {
 }
 
 ///|
-/// Get current offset (used by tests)
-#warnings("-1")
-fn BufferReader::position(self : BufferReader) -> Int {
-  self.offset
-}
-
-///|
 /// Read a single byte
 fn BufferReader::byte(self : BufferReader) -> Byte raise BufferUnderflow {
   guard self.remaining() >= 1 else {

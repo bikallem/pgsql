@@ -58,13 +58,6 @@ fn BufferWriter::add_bytes(self : BufferWriter, value : Bytes) -> Unit {
 }
 
 ///|
-/// Convert to Bytes (used by tests)
-#warnings("-1")
-fn BufferWriter::to_bytes(self : BufferWriter) -> Bytes {
-  Bytes::from_array(self.data)
-}
-
-///|
 /// Flush the buffer as a complete message with type code
 /// The length field includes itself (4 bytes) but not the type code
 fn BufferWriter::flush(self : BufferWriter, code : Byte) -> Bytes {
