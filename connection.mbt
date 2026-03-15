@@ -227,18 +227,43 @@ fn unexpected_message(context : String, qm : QueryMessage) -> String {
 }
 
 ///|
+/// Drain all messages until ReadyForQuery, discarding errors.
+/// Used for error recovery paths where we need to get the connection
+/// back to a clean state.
+async fn Connection::drain_until_ready(self : Connection) -> Unit {
+  while true {
+    let messages = self.receive() catch { _ => return }
+    for msg in messages {
+      match self.dispatch(msg) {
+        Ready => return
+        Consumed | Error(_) | Message(_) => ()
+      }
+    }
+  }
+}
+
+///|
 /// Receive messages until ReadyForQuery
 async fn Connection::receive_until_ready(
   self : Connection,
 ) -> Array[QueryMessage] {
   let result : Array[QueryMessage] = []
+  let mut first_error : ServerErrorInfo? = None
   while true {
     let messages = self.receive()
     for msg in messages {
       match self.dispatch(msg) {
-        Ready => return result
+        Ready => {
+          match first_error {
+            Some(info) => raise ServerError(info)
+            None => return result
+          }
+        }
         Consumed => ()
-        Error(info) => raise ServerError(info)
+        Error(info) =>
+          if first_error is None {
+            first_error = Some(info)
+          }
         Message(qm) => result.push(qm)
       }
     }

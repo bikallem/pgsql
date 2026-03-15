@@ -154,9 +154,11 @@ pub async fn Client::copy_in(
     let copy_writer = CopyWriter::{ conn: self.conn }
     self.run_user_callback(async fn() { writer(copy_writer) }) catch {
       err => {
-        // On error, send CopyFail and wait for ReadyForQuery
+        // On error, send CopyFail and drain until ReadyForQuery.
+        // The server responds with ErrorResponse which we discard since
+        // we already have the real error from the callback.
         self.conn.send(CopyFail(err.to_string()))
-        ignore((self.conn.receive_until_ready() : Array[QueryMessage]))
+        self.conn.drain_until_ready()
         self.conn.copy_in_active = false
         raise CopyCallbackError(CopyCallbackFailure::{
           stage: "COPY IN writer",

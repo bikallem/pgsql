@@ -352,9 +352,7 @@ async fn Client::cleanup_failed_stream_setup(
   self.conn.send(Sync) catch {
     _ => ()
   }
-  ignore(
-    (self.conn.receive_until_ready() catch { _ => [] } : Array[QueryMessage]),
-  )
+  self.conn.drain_until_ready()
 
   // Then try to close portal/statement resources.
   self.conn.send_all([
@@ -364,9 +362,7 @@ async fn Client::cleanup_failed_stream_setup(
   ]) catch {
     _ => ()
   }
-  ignore(
-    (self.conn.receive_until_ready() catch { _ => [] } : Array[QueryMessage]),
-  )
+  self.conn.drain_until_ready()
 
   // Roll back auto-opened transaction if it was started.
   if auto_tx {
