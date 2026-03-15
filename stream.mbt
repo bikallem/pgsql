@@ -238,21 +238,11 @@ pub async fn Client::query_stream(
   // This runs under operation lock to avoid cross-task interleaving.
   let auto_tx = not(self.in_transaction())
   if auto_tx {
-    self.conn.send(@protocol.Query("BEGIN")) catch {
-      err => {
-        self.conn.operation_guard.release()
-        self.tx_guard.release()
-        raise err
-      }
-    }
-    let begin_msgs = self.conn.receive_until_ready() catch {
-      err => {
-        self.conn.operation_guard.release()
-        self.tx_guard.release()
-        raise err
-      }
-    }
-    check_error(begin_msgs) catch {
+    try {
+      self.conn.send(@protocol.Query("BEGIN"))
+      let begin_msgs = self.conn.receive_until_ready()
+      check_error(begin_msgs)
+    } catch {
       err => {
         self.conn.operation_guard.release()
         self.tx_guard.release()

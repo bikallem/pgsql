@@ -167,12 +167,10 @@ fn parse_text_value_inner(text : String, type_oid : UInt) -> Value {
 ///|
 /// Parse boolean value
 fn parse_bool(text : String) -> Value {
-  if text == "t" || text == "true" || text == "TRUE" || text == "1" {
-    Bool(true)
-  } else if text == "f" || text == "false" || text == "FALSE" || text == "0" {
-    Bool(false)
-  } else {
-    String(text)
+  match text {
+    "t" | "true" | "TRUE" | "1" => Bool(true)
+    "f" | "false" | "FALSE" | "0" => Bool(false)
+    _ => String(text)
   }
 }
 

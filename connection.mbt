@@ -43,18 +43,7 @@ fn NotificationQueue::drain(self : NotificationQueue) -> Array[Notification] {
     self.head = 0
     return []
   }
-  if self.head == 0 {
-    let result = self.items.copy()
-    self.items.clear()
-    self.head = 0
-    return result
-  }
-  let result : Array[Notification] = Array::new(
-    capacity=self.items.length() - self.head,
-  )
-  for i = self.head; i < self.items.length(); i = i + 1 {
-    result.push(self.items[i])
-  }
+  let result = self.items.drain(self.head, self.items.length())
   self.items.clear()
   self.head = 0
   result
@@ -108,30 +97,7 @@ priv struct Connection {
 }
 
 ///|
-/// Result of processing a backend control message with connection side effects.
-priv enum BackendDispatchAction {
-  QueueNotification(Notification)
-  UpdateParameter(String, String)
-  UpdateReady(@protocol.TransactionStatus)
-  Ignore
-}
-
-///|
-/// Classify backend messages that mutate connection state out of band.
-fn classify_backend_dispatch_message(
-  msg : @protocol.BackendMessage,
-) -> BackendDispatchAction {
-  match msg {
-    @protocol.NotificationResponse(pid, channel, payload) =>
-      QueueNotification(Notification::new(channel, payload, pid))
-    @protocol.ParameterStatus(name, value) => UpdateParameter(name, value)
-    @protocol.ReadyForQuery(status) => UpdateReady(status)
-    _ => Ignore
-  }
-}
-
-///|
-/// Result of applying backend dispatch action to connection state.
+/// Result of applying a backend message to connection state.
 priv enum BackendDispatchResult {
   Consumed
   Ready
@@ -281,20 +247,20 @@ fn Connection::dispatch_backend_message(
   self : Connection,
   msg : @protocol.BackendMessage,
 ) -> BackendDispatchResult {
-  match classify_backend_dispatch_message(msg) {
-    QueueNotification(notification) => {
-      self.notification_queue.enqueue(notification)
+  match msg {
+    @protocol.NotificationResponse(pid, channel, payload) => {
+      self.notification_queue.enqueue(Notification::new(channel, payload, pid))
       Consumed
     }
-    UpdateParameter(name, value) => {
+    @protocol.ParameterStatus(name, value) => {
       self.server_params[name] = value
       Consumed
     }
-    UpdateReady(status) => {
+    @protocol.ReadyForQuery(status) => {
       self.transaction_status = status
       Ready
     }
-    Ignore => Unhandled
+    _ => Unhandled
   }
 }
 
@@ -393,7 +359,7 @@ extern "C" fn getrandom_ffi(buf : FixedArray[Byte], len : Int) -> Int = "pgsql_g
 
 ///|
 /// Generate cryptographically secure random bytes using the OS CSPRNG.
-fn secure_random_bytes(len : Int) -> Bytes raise {
+fn secure_random_bytes(len : Int) -> Bytes raise AuthError {
   let buf = FixedArray::make(len, b'\x00')
   guard getrandom_ffi(buf, len) == 0 else {
     raise AuthError("getrandom failed")

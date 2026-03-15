@@ -122,10 +122,7 @@ pub fn Row::get(self : Row, index : Int) -> Value? {
 ///|
 /// Value by column name (O(1) via precomputed index)
 pub fn Row::by_name(self : Row, name : String) -> Value? {
-  match self.column_index.get(name) {
-    Some(i) => Some(self.values[i])
-    None => None
-  }
+  self.column_index.get(name).map(fn(i) { self.values[i] })
 }
 
 ///|

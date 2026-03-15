@@ -23,11 +23,7 @@ pub async fn CopyWriter::write_row(
   self : CopyWriter,
   values : Array[String],
 ) -> Unit {
-  let nullable_values : Array[String?] = Array::new(capacity=values.length())
-  for value in values {
-    nullable_values.push(Some(value))
-  }
-  self.write_row_nullable(nullable_values)
+  self.write_row_nullable(values.map(fn(v) { Some(v) }))
 }
 
 ///|

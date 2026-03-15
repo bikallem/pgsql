@@ -139,52 +139,6 @@ test "NotificationQueue compact preserves ordering" {
 }
 
 ///|
-test "classify_backend_dispatch_message handles notification" {
-  match
-    classify_backend_dispatch_message(
-      @protocol.NotificationResponse(77, "events", "hello"),
-    ) {
-    QueueNotification(notification) => {
-      assert_eq(notification.process_id(), 77)
-      assert_eq(notification.channel(), "events")
-      assert_eq(notification.payload(), "hello")
-    }
-    _ => fail("Expected QueueNotification action")
-  }
-}
-
-///|
-test "classify_backend_dispatch_message handles parameter status" {
-  match
-    classify_backend_dispatch_message(
-      @protocol.ParameterStatus("client_encoding", "UTF8"),
-    ) {
-    UpdateParameter(name, value) => {
-      assert_eq(name, "client_encoding")
-      assert_eq(value, "UTF8")
-    }
-    _ => fail("Expected UpdateParameter action")
-  }
-}
-
-///|
-test "classify_backend_dispatch_message handles ready-for-query" {
-  match
-    classify_backend_dispatch_message(@protocol.ReadyForQuery(@protocol.Failed)) {
-    UpdateReady(status) => assert_eq(status, @protocol.Failed)
-    _ => fail("Expected UpdateReady action")
-  }
-}
-
-///|
-test "classify_backend_dispatch_message ignores unrelated messages" {
-  match classify_backend_dispatch_message(@protocol.ParseComplete) {
-    Ignore => ()
-    _ => fail("Expected Ignore action")
-  }
-}
-
-///|
 test "encode_frontend_batch matches concatenated protocol encoding" {
   let msgs : Array[@protocol.FrontendMessage] = [
     @protocol.Query("SELECT 1"),

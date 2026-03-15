@@ -110,15 +110,9 @@ pub struct ServerErrorInfo {
 pub fn ServerErrorInfo::from_fields(
   fields : Map[String, String],
 ) -> ServerErrorInfo {
-  // Get severity from S or V field
-  let severity = match fields.get(@protocol.FIELD_SEVERITY) {
-    Some(s) => s
-    None =>
-      match fields.get(@protocol.FIELD_SEVERITY_NL) {
-        Some(v) => v
-        None => "ERROR"
-      }
-  }
+  let severity = fields.get(@protocol.FIELD_SEVERITY).unwrap_or_else(fn() {
+    fields.get(@protocol.FIELD_SEVERITY_NL).unwrap_or("ERROR")
+  })
   {
     severity,
     code: fields.get(@protocol.FIELD_CODE).unwrap_or(""),
