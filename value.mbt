@@ -204,9 +204,9 @@ pub fn ColumnInfo::type_size(self : ColumnInfo) -> Int {
 }
 
 ///|
-/// Convert protocol FieldDescription to public ColumnInfo
+/// Convert FieldDescription to user-facing ColumnInfo
 fn column_info_from_field(fd : FieldDescription) -> ColumnInfo {
-  { name: fd.name(), type_oid: fd.type_oid(), type_size: fd.type_size() }
+  ColumnInfo::new(fd.name(), fd.type_oid(), fd.type_size())
 }
 
 ///|
