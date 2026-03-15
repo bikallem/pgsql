@@ -1510,7 +1510,9 @@ async test "pool: max_size enforcement" {
 
   // Try to acquire another — should timeout and raise PoolError
   let mut got_pool_error = false
-  ignore((@pgsql.Pool::acquire(pool) : @pgsql.Client)) catch {
+  try {
+    ignore((pool.acquire() : @pgsql.Client))
+  } catch {
     @pgsql.PoolError(_) => got_pool_error = true
     _ => ()
   }

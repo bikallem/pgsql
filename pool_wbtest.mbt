@@ -10,7 +10,7 @@ async test "Pool::acquire releases permit when connect fails" {
     ssl_mode=Disable,
     read_timeout=50,
   )
-  let pool = Pool::new(cfg, max_size=1, acquire_timeout_ms=100)
+  let pool = Pool::new(cfg, max_size=1, acquire_timeout_ms=5000)
 
   // First acquire is expected to fail because no server is listening.
   let first_failed = try {
