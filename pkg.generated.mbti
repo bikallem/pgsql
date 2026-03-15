@@ -49,14 +49,9 @@ pub suberror TxError {
 pub impl Show for TxError
 
 // Types and methods
-type BackendMessage
-pub impl Show for BackendMessage
-
 type Client
-pub async fn Client::begin(Self) -> Unit
 pub async fn Client::cancel(Self) -> Unit
 pub async fn Client::close(Self) -> Unit
-pub async fn Client::commit(Self) -> Unit
 pub async fn Client::connect(Config) -> Self
 pub async fn Client::copy_in(Self, String, async (CopyWriter) -> Unit) -> Int
 pub async fn Client::copy_out(Self, String, async (Bytes) -> Unit) -> Int
@@ -66,12 +61,9 @@ pub fn Client::in_transaction(Self) -> Bool
 pub async fn Client::listen(Self, String) -> Unit
 pub fn Client::poll_notifications(Self) -> Array[Notification]
 pub async fn Client::prepare(Self, String) -> PreparedStatement
-pub fn Client::process_id(Self) -> Int
 pub async fn Client::query(Self, String) -> QueryResult
 pub async fn Client::query_params(Self, String, Array[Value]) -> QueryResult
 pub async fn Client::query_stream(Self, String, params? : Array[Value], batch_size? : Int) -> RowStream
-pub async fn Client::rollback(Self) -> Unit
-pub fn Client::secret_key(Self) -> Int
 pub fn Client::server_param(Self, String) -> String?
 pub async fn[T] Client::transaction(Self, async (Transaction) -> T) -> T
 pub fn Client::transaction_status(Self) -> TransactionStatus
@@ -80,7 +72,6 @@ pub async fn Client::wait_for_notification(Self) -> Notification
 
 type ColumnInfo
 pub fn ColumnInfo::name(Self) -> String
-pub fn ColumnInfo::new(String, UInt, Int) -> Self
 pub fn ColumnInfo::type_oid(Self) -> UInt
 pub fn ColumnInfo::type_size(Self) -> Int
 pub impl Eq for ColumnInfo
@@ -90,7 +81,6 @@ type Config
 pub fn Config::database(Self) -> String
 pub fn Config::host(Self) -> String
 pub fn Config::new(String, String, String, host? : String, port? : Int, ssl_mode? : SslMode, read_timeout? : Int) -> Self
-pub fn Config::password(Self) -> String
 pub fn Config::port(Self) -> Int
 pub fn Config::ssl_mode(Self) -> SslMode
 pub fn Config::user(Self) -> String
@@ -100,9 +90,6 @@ pub struct CopyCallbackFailure {
   stage : String
   message : String
 }
-pub fn CopyCallbackFailure::message(Self) -> String
-pub fn CopyCallbackFailure::new(String, String) -> Self
-pub fn CopyCallbackFailure::stage(Self) -> String
 pub impl Eq for CopyCallbackFailure
 pub impl Show for CopyCallbackFailure
 
@@ -110,16 +97,6 @@ type CopyWriter
 pub async fn CopyWriter::write(Self, Bytes) -> Unit
 pub async fn CopyWriter::write_row(Self, Array[String]) -> Unit
 pub async fn CopyWriter::write_row_nullable(Self, Array[String?]) -> Unit
-
-type FieldDescription
-pub impl Show for FieldDescription
-
-type FormatCode
-pub impl Eq for FormatCode
-pub impl Show for FormatCode
-
-type FrontendMessage
-pub impl Show for FrontendMessage
 
 type Notification
 pub fn Notification::channel(Self) -> String
@@ -186,15 +163,6 @@ pub struct ServerErrorInfo {
   column : String?
   constraint : String?
 }
-pub fn ServerErrorInfo::code(Self) -> String
-pub fn ServerErrorInfo::column(Self) -> String?
-pub fn ServerErrorInfo::constraint(Self) -> String?
-pub fn ServerErrorInfo::detail(Self) -> String?
-pub fn ServerErrorInfo::from_fields(Map[String, String]) -> Self
-pub fn ServerErrorInfo::hint(Self) -> String?
-pub fn ServerErrorInfo::message(Self) -> String
-pub fn ServerErrorInfo::severity(Self) -> String
-pub fn ServerErrorInfo::table(Self) -> String?
 pub impl Eq for ServerErrorInfo
 pub impl Show for ServerErrorInfo
 
