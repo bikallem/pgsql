@@ -1130,3 +1130,460 @@ async test "connect with ssl_mode=Disable (plain SCRAM)" {
   assert_eq(result.row(0).unwrap().int(0), Some(1))
   client.close()
 }
+
+///|
+async test "client: transaction_status transitions" {
+  let client = @pgsql.Client::connect(get_config())
+
+  // Initially idle
+  assert_eq(client.transaction_status(), @pgsql.Idle)
+
+  client.transaction(async fn(tx) {
+    // Inside transaction
+    assert_eq(client.transaction_status(), @pgsql.InTransaction)
+    ignore((tx.execute("SELECT 1") : Int))
+  })
+
+  // After commit, back to idle
+  assert_eq(client.transaction_status(), @pgsql.Idle)
+  client.close()
+}
+
+///|
+async test "client: server_param retrieves server_version" {
+  let client = @pgsql.Client::connect(get_config())
+
+  let version = client.server_param("server_version")
+  assert_true(version is Some(_))
+  // server_version contains the version number, e.g. "16.2"
+  assert_true(version.unwrap().length() > 0)
+
+  // Non-existent parameter should return None
+  let missing = client.server_param("nonexistent_param_xyz")
+  assert_true(missing is None)
+
+  client.close()
+}
+
+///|
+async test "row: by_name column access" {
+  let client = @pgsql.Client::connect(get_config())
+
+  let result = client.query("SELECT 1 AS num, 'hello' AS txt")
+  let row = result.row(0).unwrap()
+
+  // Access by name
+  assert_eq(row.by_name("num"), Some(@pgsql.Int(1)))
+  assert_eq(row.by_name("txt"), Some(@pgsql.String("hello")))
+
+  // Non-existent column returns None
+  assert_eq(row.by_name("nonexistent"), None)
+
+  client.close()
+}
+
+///|
+async test "query result: iter, column_count, command_tag" {
+  let client = @pgsql.Client::connect(get_config())
+  ignore((client.execute(
+    "CREATE TABLE IF NOT EXISTS test_qr_meta (id SERIAL PRIMARY KEY, val TEXT)",
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_qr_meta") : Int))
+
+  // Check command_tag on INSERT
+  let insert_result = client.query_params(
+    "INSERT INTO test_qr_meta (val) VALUES ($1)",
+    [@pgsql.String("a")],
+  )
+  assert_true(insert_result.command_tag().contains("INSERT"))
+
+  // Insert more rows
+  ignore((client.execute_params(
+    "INSERT INTO test_qr_meta (val) VALUES ($1)",
+    [@pgsql.String("b")],
+  ) : Int))
+  ignore((client.execute_params(
+    "INSERT INTO test_qr_meta (val) VALUES ($1)",
+    [@pgsql.String("c")],
+  ) : Int))
+
+  // Query and check column_count
+  let result = client.query("SELECT id, val FROM test_qr_meta ORDER BY id")
+  assert_eq(result.column_count(), 2)
+
+  // Iterate with iter() and fold to collect values
+  let vals = result.iter().fold(init=Array::new(), fn(acc, row) {
+    acc.push(row.string(1).unwrap())
+    acc
+  })
+  assert_eq(vals.length(), 3)
+  assert_eq(vals[0], "a")
+  assert_eq(vals[1], "b")
+  assert_eq(vals[2], "c")
+
+  ignore((client.execute("DROP TABLE test_qr_meta") : Int))
+  client.close()
+}
+
+///|
+async test "bytea: binary data round-trip" {
+  let client = @pgsql.Client::connect(get_config())
+  ignore((client.execute(
+    "CREATE TABLE IF NOT EXISTS test_bytea (id INT PRIMARY KEY, data BYTEA)",
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_bytea") : Int))
+
+  // Create binary data with various byte values including nulls
+  let binary_data = Bytes::from_array([
+    b'\x00', b'\x01', b'\x02', b'\xFF', b'\xFE', b'\x80', b'\x7F', b'\x42',
+  ])
+
+  ignore((client.execute_params(
+    "INSERT INTO test_bytea (id, data) VALUES ($1, $2)",
+    [@pgsql.Int(1), @pgsql.Bytes(binary_data)],
+  ) : Int))
+
+  let result = client.query_params(
+    "SELECT data FROM test_bytea WHERE id = $1",
+    [@pgsql.Int(1)],
+  )
+  let row = result.row(0).unwrap()
+  match row.get(0) {
+    Some(@pgsql.Bytes(returned_data)) => {
+      assert_eq(returned_data.length(), binary_data.length())
+      for i = 0; i < binary_data.length(); i = i + 1 {
+        assert_eq(returned_data[i], binary_data[i])
+      }
+    }
+    other => fail("Expected Bytes value, got: \{other}")
+  }
+
+  ignore((client.execute("DROP TABLE test_bytea") : Int))
+  client.close()
+}
+
+///|
+async test "ssl mode: Prefer falls back to plain" {
+  let prefer_config = @pgsql.Config::new(
+    "postgres",
+    "postgres",
+    "postgres",
+    host="127.0.0.1",
+    port=5433,
+    ssl_mode=Prefer,
+  )
+  let client = @pgsql.Client::connect(prefer_config)
+  let result = client.query("SELECT 1 AS val")
+  assert_eq(result.row(0).unwrap().int(0), Some(1))
+  client.close()
+}
+
+///|
+async test "transaction: explicit rollback" {
+  let client = @pgsql.Client::connect(get_config())
+  ignore((client.execute(
+    "CREATE TABLE IF NOT EXISTS test_tx_explicit_rb (id SERIAL PRIMARY KEY, val TEXT)",
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_tx_explicit_rb") : Int))
+
+  // Insert a baseline row
+  ignore((client.execute_params(
+    "INSERT INTO test_tx_explicit_rb (val) VALUES ($1)",
+    [@pgsql.String("baseline")],
+  ) : Int))
+
+  // Transaction with explicit rollback
+  client.transaction(async fn(tx) {
+    ignore((tx.execute_params(
+      "INSERT INTO test_tx_explicit_rb (val) VALUES ($1)",
+      [@pgsql.String("should_vanish")],
+    ) : Int))
+    tx.rollback()
+  })
+
+  // Only the baseline row should exist
+  let result = client.query("SELECT val FROM test_tx_explicit_rb ORDER BY id")
+  assert_eq(result.row_count(), 1)
+  assert_eq(result.row(0).unwrap().string(0), Some("baseline"))
+
+  ignore((client.execute("DROP TABLE test_tx_explicit_rb") : Int))
+  client.close()
+}
+
+///|
+async test "prepared statement: name and sql accessors" {
+  let client = @pgsql.Client::connect(get_config())
+
+  let sql = "SELECT $1::int AS val"
+  let stmt = client.prepare(sql)
+
+  // name should be non-empty (server-assigned or driver-generated)
+  assert_true(stmt.name().length() > 0)
+
+  // sql should match the original query
+  assert_eq(stmt.sql(), sql)
+
+  stmt.close()
+  client.close()
+}
+
+///|
+async test "large result set: 1000 rows" {
+  let client = @pgsql.Client::connect(get_config())
+  ignore((client.execute(
+    "CREATE TABLE IF NOT EXISTS test_large (id INT)",
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_large") : Int))
+  ignore((client.execute(
+    "INSERT INTO test_large SELECT generate_series(1, 1000)",
+  ) : Int))
+
+  let stream = client.query_stream(
+    "SELECT id FROM test_large ORDER BY id",
+    batch_size=100,
+  )
+
+  let mut count = 0
+  let mut last_id = 0
+  stream.for_each(fn(row) {
+    count += 1
+    last_id = row.int(0).unwrap()
+  })
+  assert_eq(count, 1000)
+  assert_eq(last_id, 1000)
+
+  ignore((client.execute("DROP TABLE test_large") : Int))
+  client.close()
+}
+
+///|
+async test "pool: max_size enforcement" {
+  let pool = @pgsql.Pool::new(get_config(), max_size=1, acquire_timeout_ms=500)
+
+  // Acquire the only connection
+  let client1 = pool.acquire()
+  let result = client1.query("SELECT 1 AS val")
+  assert_eq(result.row(0).unwrap().int(0), Some(1))
+
+  // Try to acquire another — should timeout and raise PoolError
+  let mut got_pool_error = false
+  try {
+    ignore((@pgsql.Pool::acquire(pool) : @pgsql.Client))
+  } catch {
+    @pgsql.PoolError(_) => got_pool_error = true
+    _ => ()
+  }
+  assert_true(got_pool_error)
+
+  pool.release(client1)
+  pool.close()
+}
+
+///|
+async test "numeric type: decimal precision" {
+  let client = @pgsql.Client::connect(get_config())
+  ignore((client.execute(
+    "CREATE TABLE IF NOT EXISTS test_numeric (id INT PRIMARY KEY, val NUMERIC(10,4))",
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_numeric") : Int))
+
+  ignore((client.execute(
+    "INSERT INTO test_numeric (id, val) VALUES (1, '123.4567')",
+  ) : Int))
+
+  let result = client.query("SELECT val FROM test_numeric WHERE id = 1")
+  let row = result.row(0).unwrap()
+  // NUMERIC is returned as a string representation
+  let val = row.string(0)
+  assert_eq(val, Some("123.4567"))
+
+  ignore((client.execute("DROP TABLE test_numeric") : Int))
+  client.close()
+}
+
+///|
+async test "error details: ServerErrorInfo fields" {
+  let client = @pgsql.Client::connect(get_config())
+  ignore((client.execute(
+    "CREATE TABLE IF NOT EXISTS test_err_info (id INT PRIMARY KEY)",
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_err_info") : Int))
+
+  ignore((client.execute_params(
+    "INSERT INTO test_err_info (id) VALUES ($1)",
+    [@pgsql.Int(1)],
+  ) : Int))
+
+  // Duplicate key violation
+  let mut got_server_error = false
+  try {
+    ignore((client.execute_params(
+      "INSERT INTO test_err_info (id) VALUES ($1)",
+      [@pgsql.Int(1)],
+    ) : Int))
+  } catch {
+    @pgsql.ServerError(info) => {
+      got_server_error = true
+      // 23505 = unique_violation
+      assert_eq(info.code, "23505")
+      assert_true(info.constraint is Some(_))
+      assert_true(info.detail is Some(_))
+      assert_eq(info.severity, "ERROR")
+    }
+    _ => ()
+  }
+  assert_true(got_server_error)
+
+  ignore((client.execute("DROP TABLE test_err_info") : Int))
+  client.close()
+}
+
+///|
+async test "nested savepoints" {
+  let client = @pgsql.Client::connect(get_config())
+  ignore((client.execute(
+    "CREATE TABLE IF NOT EXISTS test_nested_sp (id SERIAL PRIMARY KEY, val TEXT)",
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_nested_sp") : Int))
+
+  client.transaction(async fn(tx) {
+    // Insert before any savepoint
+    ignore((tx.execute_params(
+      "INSERT INTO test_nested_sp (val) VALUES ($1)",
+      [@pgsql.String("outer")],
+    ) : Int))
+
+    // Outer savepoint
+    tx.savepoint("sp_outer")
+
+    ignore((tx.execute_params(
+      "INSERT INTO test_nested_sp (val) VALUES ($1)",
+      [@pgsql.String("in_outer_sp")],
+    ) : Int))
+
+    // Inner savepoint
+    tx.savepoint("sp_inner")
+
+    ignore((tx.execute_params(
+      "INSERT INTO test_nested_sp (val) VALUES ($1)",
+      [@pgsql.String("in_inner_sp")],
+    ) : Int))
+
+    // Rollback inner savepoint — "in_inner_sp" is undone
+    tx.rollback_to("sp_inner")
+
+    // Release inner savepoint
+    tx.release("sp_inner")
+
+    // Release outer savepoint — "in_outer_sp" persists
+    tx.release("sp_outer")
+  })
+
+  let result = client.query(
+    "SELECT val FROM test_nested_sp ORDER BY id",
+  )
+  assert_eq(result.row_count(), 2)
+  assert_eq(result.row(0).unwrap().string(0), Some("outer"))
+  assert_eq(result.row(1).unwrap().string(0), Some("in_outer_sp"))
+
+  ignore((client.execute("DROP TABLE test_nested_sp") : Int))
+  client.close()
+}
+
+///|
+async test "stream: batch_size equals result set size" {
+  let client = @pgsql.Client::connect(get_config())
+  ignore((client.execute(
+    "CREATE TABLE IF NOT EXISTS test_stream_exact (id INT)",
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_stream_exact") : Int))
+  ignore((client.execute(
+    "INSERT INTO test_stream_exact SELECT generate_series(1, 25)",
+  ) : Int))
+
+  let stream = client.query_stream(
+    "SELECT id FROM test_stream_exact ORDER BY id",
+    batch_size=25,
+  )
+
+  let mut count = 0
+  stream.for_each(fn(row) {
+    count += 1
+    ignore((row.int(0) : Int?))
+  })
+  assert_eq(count, 25)
+
+  ignore((client.execute("DROP TABLE test_stream_exact") : Int))
+  client.close()
+}
+
+///|
+async test "empty query returns empty result" {
+  let client = @pgsql.Client::connect(get_config())
+
+  let result = client.query("")
+  assert_eq(result.row_count(), 0)
+
+  // Client remains usable
+  let result2 = client.query("SELECT 1 AS val")
+  assert_eq(result2.row(0).unwrap().int(0), Some(1))
+
+  client.close()
+}
+
+///|
+async test "stream: batch_size larger than result set" {
+  let client = @pgsql.Client::connect(get_config())
+  ignore((client.execute(
+    "CREATE TABLE IF NOT EXISTS test_stream_large_batch (id INT)",
+  ) : Int))
+  ignore((client.execute("DELETE FROM test_stream_large_batch") : Int))
+  ignore((client.execute(
+    "INSERT INTO test_stream_large_batch VALUES (1), (2), (3)",
+  ) : Int))
+
+  let stream = client.query_stream(
+    "SELECT id FROM test_stream_large_batch ORDER BY id",
+    batch_size=100,
+  )
+
+  let seen : Array[Int] = []
+  stream.for_each(fn(row) { seen.push(row.int(0).unwrap()) })
+  assert_eq(seen.length(), 3)
+  assert_eq(seen[0], 1)
+  assert_eq(seen[1], 2)
+  assert_eq(seen[2], 3)
+
+  ignore((client.execute("DROP TABLE test_stream_large_batch") : Int))
+  client.close()
+}
+
+///|
+async test "notification: multiple channels" {
+  let listener = @pgsql.Client::connect(get_config())
+  let notifier = @pgsql.Client::connect(get_config())
+
+  listener.listen("multi_ch_a")
+  listener.listen("multi_ch_b")
+
+  // Send to both channels
+  ignore((notifier.execute("NOTIFY multi_ch_a, 'msg_a'") : Int))
+  ignore((notifier.execute("NOTIFY multi_ch_b, 'msg_b'") : Int))
+
+  // Collect both notifications
+  let n1 = listener.wait_for_notification()
+  let n2 = listener.wait_for_notification()
+
+  // Verify both channels received (order may vary)
+  let channels = [n1.channel(), n2.channel()]
+  let payloads = [n1.payload(), n2.payload()]
+  assert_true(channels.contains("multi_ch_a"))
+  assert_true(channels.contains("multi_ch_b"))
+  assert_true(payloads.contains("msg_a"))
+  assert_true(payloads.contains("msg_b"))
+
+  listener.unlisten("multi_ch_a")
+  listener.unlisten("multi_ch_b")
+  listener.close()
+  notifier.close()
+}
