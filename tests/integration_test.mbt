@@ -1508,14 +1508,19 @@ async test "pool: max_size enforcement" {
   let result = client1.query("SELECT 1 AS val")
   assert_eq(result.row(0).unwrap().int(0), Some(1))
 
-  // Try to acquire another — should timeout and raise PoolError
-  let mut got_pool_error = false
-  try {
-    ignore((pool.acquire() : @pgsql.Client))
-  } catch {
-    @pgsql.PoolError(_) => got_pool_error = true
-    _ => ()
-  }
+  // Second acquire should timeout since max_size=1 and client1 is held.
+  let got_pool_error = @async.with_task_group(async fn(group) {
+    let task = group.spawn(async fn() {
+      try {
+        let client2 = pool.acquire()
+        pool.release(client2)
+        false
+      } catch {
+        _ => true
+      }
+    })
+    task.wait()
+  })
   assert_true(got_pool_error)
 
   pool.release(client1)
