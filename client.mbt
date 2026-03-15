@@ -282,8 +282,7 @@ pub async fn Client::wait_for_notification(self : Client) -> Notification {
       let raw_messages = self.conn.receive()
       for raw in raw_messages {
         match self.conn.dispatch(raw) {
-          Message(QueryMessage::ErrorResponse(fields)) =>
-            raise ServerError(ServerErrorInfo::from_fields(fields))
+          Error(info) => raise ServerError(info)
           Ready | Consumed | Message(_) => ()
         }
       }
@@ -324,7 +323,6 @@ async fn Client::bind_execute(
 async fn Client::query_unlocked(self : Client, sql : String) -> QueryResult {
   self.conn.send(Query(sql))
   let messages = self.conn.receive_until_ready()
-  check_error(messages)
   build_query_result(messages)
 }
 
@@ -338,7 +336,6 @@ async fn Client::prepare_unlocked(
   let name = "__prep_" + self.stmt_counter.to_string()
   self.conn.send_all([Parse(name, sql, []), Sync])
   let messages = self.conn.receive_until_ready()
-  check_error(messages)
   { client: self, name, sql, closed: false, tx_scoped: false }
 }
 
@@ -361,7 +358,6 @@ async fn Client::bind_execute_unlocked(
   self.conn.send_all(msgs)
 
   let messages = self.conn.receive_until_ready()
-  check_error(messages)
   messages
 }
 
@@ -432,8 +428,6 @@ fn build_query_result(
       // Expected protocol acks from extended query flow
       EmptyQueryResponse | ParseComplete | BindComplete | NoData |
       PortalSuspended | ParameterDescription(_) => ()
-      // ErrorResponse already handled by check_error before build_query_result
-      ErrorResponse(_) => ()
       // These should never appear in query results
       CopyInResponse | CopyOutResponse | CopyData(_) | CopyDone =>
         raise ProtocolError(unexpected_message("query result", msg))

@@ -1,31 +1,4 @@
 ///|
-/// Regression: check_error raises ServerError for ErrorResponse.
-test "check_error raises ServerError" {
-  let fields : Map[String, String] = {}
-  fields[FIELD_MESSAGE] = "decoder hardening failure"
-  fields[FIELD_CODE] = "XX000"
-
-  let mut message = ""
-  let failed = try {
-    check_error([QueryMessage::ErrorResponse(fields)])
-    false
-  } catch {
-    ServerError(info) => {
-      message = info.message
-      true
-    }
-  }
-
-  assert_true(failed)
-  assert_eq(message, "decoder hardening failure")
-}
-
-///|
-test "check_error ignores non-error messages" {
-  check_error([QueryMessage::CommandComplete("SELECT 1")])
-}
-
-///|
 /// Regression: re-entrant callback operations must fail fast before lock wait.
 test "raise_if_reentrant_user_callback raises usage error" {
   let mut message = ""

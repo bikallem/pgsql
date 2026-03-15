@@ -101,12 +101,13 @@ priv struct Connection {
 ///|
 /// Query-relevant messages passed through by dispatch after connection-level
 /// messages have been consumed. This is the narrower type that callers work with.
+/// Query-relevant messages after connection-level dispatch and error checking.
+/// ErrorResponse is NOT included — errors are raised by receive_until_ready.
 priv enum QueryMessage {
   RowDescription(Array[FieldDescription])
   DataRow(Array[Bytes?])
   CommandComplete(String)
   EmptyQueryResponse
-  ErrorResponse(Map[String, String])
   ParseComplete
   BindComplete
   NoData
@@ -125,6 +126,8 @@ priv enum DispatchResult {
   Consumed
   /// ReadyForQuery received — stop receiving
   Ready
+  /// Server error
+  Error(ServerErrorInfo)
   /// Query-relevant message passed through for caller processing
   Message(QueryMessage)
 }
@@ -210,7 +213,6 @@ fn unexpected_message(context : String, qm : QueryMessage) -> String {
     DataRow(_) => "DataRow"
     CommandComplete(_) => "CommandComplete"
     EmptyQueryResponse => "EmptyQueryResponse"
-    ErrorResponse(_) => "ErrorResponse"
     ParseComplete => "ParseComplete"
     BindComplete => "BindComplete"
     NoData => "NoData"
@@ -236,25 +238,12 @@ async fn Connection::receive_until_ready(
       match self.dispatch(msg) {
         Ready => return result
         Consumed => ()
+        Error(info) => raise ServerError(info)
         Message(qm) => result.push(qm)
       }
     }
   } nobreak {
     result
-  }
-}
-
-///|
-/// Raise ServerError if query messages contain an error.
-fn check_error(messages : Array[QueryMessage]) -> Unit raise ServerError {
-  for msg in messages {
-    match msg {
-      ErrorResponse(fields) => raise ServerError(ServerErrorInfo::from_fields(fields))
-      RowDescription(_) | DataRow(_) | CommandComplete(_) |
-      EmptyQueryResponse | ParseComplete | BindComplete | NoData |
-      PortalSuspended | ParameterDescription(_) |
-      CopyInResponse | CopyOutResponse | CopyData(_) | CopyDone => ()
-    }
   }
 }
 
@@ -291,7 +280,7 @@ fn Connection::dispatch(
     DataRow(v) => Message(QueryMessage::DataRow(v))
     CommandComplete(tag) => Message(QueryMessage::CommandComplete(tag))
     EmptyQueryResponse => Message(QueryMessage::EmptyQueryResponse)
-    ErrorResponse(f) => Message(QueryMessage::ErrorResponse(f))
+    ErrorResponse(f) => Error(ServerErrorInfo::from_fields(f))
     ParseComplete => Message(QueryMessage::ParseComplete)
     BindComplete => Message(QueryMessage::BindComplete)
     NoData => Message(QueryMessage::NoData)
@@ -506,6 +495,7 @@ async fn Connection::authenticate(self : Connection) -> Unit {
         msg =>
           match self.dispatch(msg) {
             Ready => return
+            Error(info) => raise AuthError(info.message)
             Consumed | Message(_) => ()
           }
       }

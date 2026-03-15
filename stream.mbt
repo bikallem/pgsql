@@ -114,8 +114,7 @@ pub async fn RowStream::close(self : RowStream) -> Unit {
     // unrelated query can execute inside the stream-owned transaction.
     if self.auto_tx {
       self.client.conn.send(Query("COMMIT"))
-      let commit_msgs = self.client.conn.receive_until_ready()
-      check_error(commit_msgs)
+      ignore((self.client.conn.receive_until_ready() : Array[QueryMessage]))
     }
   } catch {
     err => {
@@ -147,6 +146,13 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
         match self.client.conn.dispatch(raw) {
           Consumed => ()
           Ready => ()
+          Error(info) => {
+            self.client.conn.send(Sync)
+            ignore(
+              (self.client.conn.receive_until_ready() : Array[QueryMessage]),
+            )
+            raise ServerError(info)
+          }
           Message(qm) =>
             match qm {
               QueryMessage::DataRow(values) => {
@@ -159,18 +165,10 @@ async fn RowStream::fetch_batch(self : RowStream) -> Unit {
               QueryMessage::CommandComplete(_) => {
                 self.exhausted = true
                 self.client.conn.send(Sync)
-                let rfq_msgs = self.client.conn.receive_until_ready()
-                check_error(rfq_msgs)
+                ignore((self.client.conn.receive_until_ready() : Array[QueryMessage]))
                 self.client.conn.operation_guard.release()
                 self.lock_held = false
                 return
-              }
-              QueryMessage::ErrorResponse(fields) => {
-                self.client.conn.send(Sync)
-                ignore(
-                  (self.client.conn.receive_until_ready() : Array[QueryMessage]),
-                )
-                raise ServerError(ServerErrorInfo::from_fields(fields))
               }
               qm =>
                 raise ProtocolError(
@@ -241,8 +239,7 @@ pub async fn Client::query_stream(
   if auto_tx {
     try {
       self.conn.send(Query("BEGIN"))
-      let begin_msgs = self.conn.receive_until_ready()
-      check_error(begin_msgs)
+      ignore((self.conn.receive_until_ready() : Array[QueryMessage]))
     } catch {
       err => {
         self.conn.operation_guard.release()
@@ -279,6 +276,7 @@ pub async fn Client::query_stream(
         match self.conn.dispatch(raw) {
           Consumed => ()
           Ready => ()
+          Error(info) => raise ServerError(info)
           Message(qm) =>
             match qm {
               QueryMessage::ParseComplete | QueryMessage::BindComplete => ()
@@ -298,8 +296,6 @@ pub async fn Client::query_stream(
                 ignore((self.conn.receive_until_ready() : Array[QueryMessage]))
                 done = true
               }
-              QueryMessage::ErrorResponse(fields) =>
-                raise ServerError(ServerErrorInfo::from_fields(fields))
               qm =>
                 raise ProtocolError(
                   unexpected_message("stream setup", qm),
