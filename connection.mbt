@@ -253,17 +253,13 @@ async fn Connection::receive_until_ready(
     let messages = self.receive()
     for msg in messages {
       match self.dispatch(msg) {
-        Ready => {
+        Ready =>
           match first_error {
             Some(info) => raise ServerError(info)
             None => return result
           }
-        }
         Consumed => ()
-        Error(info) =>
-          if first_error is None {
-            first_error = Some(info)
-          }
+        Error(info) => if first_error is None { first_error = Some(info) }
         Message(qm) => result.push(qm)
       }
     }
