@@ -1,11 +1,12 @@
 {
   "name": "bikallem/pgsql",
   "version": "0.1.0",
+  "source": "src",
   "deps": {
     "moonbitlang/async": "0.16.7",
     "moonbitlang/x": "0.4.40"
   },
-  "readme": "README.mbt.md",
+  "readme": "README.md",
   "repository": "https://github.com/bikallem/pgsql.mbt.git",
   "license": "Apache-2.0",
   "keywords": [
