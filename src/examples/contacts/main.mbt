@@ -21,17 +21,17 @@ async fn main {
     return
   }
 
-  let config = @pgsql.Config::new(
-    "postgres",
-    "postgres",
-    "postgres",
-    host="localhost",
-    port=5432,
-    // Local dev default for many installs without TLS configured.
-    ssl_mode=@pgsql.Disable,
-  )
-
-  let client = @pgsql.connect(config) catch {
+  let client = @pgsql.connect(
+    @pgsql.config(
+      "postgres",
+      "postgres",
+      "postgres",
+      host="localhost",
+      port=5432,
+      // Local dev default for many installs without TLS configured.
+      ssl_mode=@pgsql.Disable,
+    ),
+  ) catch {
     e => {
       println("Failed to connect: \{e}")
       return

@@ -65,6 +65,20 @@ pub fn Config::new(
 }
 
 ///|
+/// Create a new Config with default values
+pub fn config(
+  user : String,
+  password : String,
+  database : String,
+  host? : String = "localhost",
+  port? : Int = 5432,
+  ssl_mode? : SslMode = Require,
+  read_timeout? : Int = 0,
+) -> Config {
+  Config::new(user, password, database, host~, port~, ssl_mode~, read_timeout~)
+}
+
+///|
 /// Host
 pub fn Config::host(self : Config) -> String {
   self.host

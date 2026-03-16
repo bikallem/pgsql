@@ -64,11 +64,9 @@ import {
 
 ```moonbit
 async fn main() -> Unit {
-  let config = @pgsql.Config::new(
-    "postgres", "password", "mydb",
-    host="127.0.0.1", port=5432,
+  let client = @pgsql.connect(
+    @pgsql.config("postgres", "password", "mydb", host="127.0.0.1", port=5432),
   )
-  let client = @pgsql.connect(config)
 
   // Simple query
   let result = client.query("SELECT id, name FROM users")
@@ -87,17 +85,16 @@ async fn main() -> Unit {
 ### Connection
 
 ```moonbit
-// Configure connection
-let config = @pgsql.Config::new(
-  "user", "password", "database",
-  host="localhost",       // default: "localhost"
-  port=5432,              // default: 5432
-  ssl_mode=Require,       // default: Require
-  read_timeout=30000,     // milliseconds, 0 = no timeout
+// Configure and connect
+let client = @pgsql.connect(
+  @pgsql.config(
+    "user", "password", "database",
+    host="localhost",       // default: "localhost"
+    port=5432,              // default: 5432
+    ssl_mode=Require,       // default: Require
+    read_timeout=30000,     // milliseconds, 0 = no timeout
+  ),
 )
-
-// Connect
-let client = @pgsql.connect(config)
 
 // Server info
 let version = client.server_param("server_version") // Some("16.2")
@@ -282,6 +279,7 @@ client.unlisten("events")
 ### Connection Pool
 
 ```moonbit
+let config = @pgsql.config("user", "password", "database")
 let pool = @pgsql.Pool::new(
   config,
   max_size=10,             // default: 10

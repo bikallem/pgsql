@@ -2,6 +2,7 @@
 package "bikallem/pgsql"
 
 // Values
+pub fn config(String, String, String, host? : String, port? : Int, ssl_mode? : SslMode, read_timeout? : Int) -> Config
 
 // Errors
 pub suberror AuthError {
