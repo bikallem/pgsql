@@ -64,9 +64,9 @@ start() {
         --no-locale
     rm -f "$pwfile"
 
-    # Generate self-signed TLS certificate (if openssl available)
+    # Generate self-signed TLS certificate (if openssl available and not Windows)
     local ssl_enabled=off
-    if command -v openssl >/dev/null 2>&1; then
+    if command -v openssl >/dev/null 2>&1 && [ "$(uname -s | cut -c1-5)" != "MINGW" ]; then
       openssl req -new -x509 -nodes \
         -days 3650 \
         -subj "/CN=localhost" \
@@ -76,7 +76,7 @@ start() {
       chmod 600 "$PGDATA/server.key"
       ssl_enabled=on
     else
-      echo "Warning: openssl not found, starting without TLS"
+      echo "Note: starting without TLS (Windows or openssl unavailable)"
     fi
 
     # Configure postgresql.conf
@@ -85,9 +85,12 @@ start() {
 # Test instance overrides
 port = $PGPORT
 listen_addresses = '127.0.0.1'
-unix_socket_directories = ''
 ssl = $ssl_enabled
 EOF
+    # unix_socket_directories not supported on Windows
+    if [ "$(uname -s | cut -c1-5)" != "MINGW" ]; then
+      echo "unix_socket_directories = ''" >> "$PGDATA/postgresql.conf"
+    fi
     if [ "$ssl_enabled" = "on" ]; then
       cat >> "$PGDATA/postgresql.conf" <<EOF
 ssl_cert_file = 'server.crt'
@@ -105,14 +108,23 @@ EOF
   fi
 
   echo "Starting test PostgreSQL on port $PGPORT ..."
-  pg_ctl start -D "$PGDATA" -l "$PGDATA/server.log" -o "-p $PGPORT" -w
+  # pg_ctl on Windows needs native paths, not MSYS/Git Bash paths
+  local pgdata_native="$PGDATA"
+  if [ "$(uname -s | cut -c1-5)" = "MINGW" ]; then
+    pgdata_native=$(cygpath -w "$PGDATA")
+  fi
+  pg_ctl start -D "$pgdata_native" -l "$PGDATA/server.log" -o "-p $PGPORT" -w
   echo "Test PostgreSQL running on port $PGPORT"
 }
 
 stop() {
   if [ -f "$PGDATA/postmaster.pid" ]; then
     echo "Stopping test PostgreSQL ..."
-    pg_ctl stop -D "$PGDATA" -m fast -w
+    local pgdata_native="$PGDATA"
+    if [ "$(uname -s | cut -c1-5)" = "MINGW" ]; then
+      pgdata_native=$(cygpath -w "$PGDATA")
+    fi
+    pg_ctl stop -D "$pgdata_native" -m fast -w
   else
     echo "Test PostgreSQL is not running"
   fi
