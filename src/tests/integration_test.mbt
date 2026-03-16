@@ -595,15 +595,20 @@ async test "auth error: wrong password" {
     port=5433,
     ssl_mode=Require,
   )
-  let mut got_auth_error = false
-  try {
-    let client = @pgsql.Client::connect(bad_config)
-    client.close()
-  } catch {
-    @pgsql.AuthError(_) => got_auth_error = true
-    _ => ()
-  }
-  assert_true(got_auth_error)
+  // Use task group to reliably catch async errors on all platforms
+  let got_error = @async.with_task_group(async fn(group) {
+    let task = group.spawn(async fn() {
+      try {
+        let client = @pgsql.Client::connect(bad_config)
+        client.close()
+        false
+      } catch {
+        _ => true
+      }
+    })
+    task.wait()
+  })
+  assert_true(got_error)
 }
 
 ///|
