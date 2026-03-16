@@ -77,6 +77,7 @@ start() {
       ssl_enabled=on
     else
       echo "Note: starting without TLS (Windows or openssl unavailable)"
+      export PGSQL_TEST_NO_SSL=1
     fi
 
     # Configure postgresql.conf

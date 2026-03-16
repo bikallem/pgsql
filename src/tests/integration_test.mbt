@@ -7,13 +7,18 @@
 /// Start with: ./tests/setup-pg.sh start
 /// Run with:   moon test --target native tests/
 fn get_config() -> @pgsql.Config {
+  // Use Disable when PGSQL_TEST_NO_SSL is set (e.g. Windows CI without TLS)
+  let ssl_mode : @pgsql.SslMode = match @sys.get_env_var("PGSQL_TEST_NO_SSL") {
+    Some(_) => Disable
+    None => Require
+  }
   @pgsql.Config::new(
     "postgres",
     "postgres",
     "postgres",
     host="127.0.0.1",
     port=5433,
-    ssl_mode=Require,
+    ssl_mode~,
   )
 }
 
@@ -593,7 +598,7 @@ async test "auth error: wrong password" {
     "postgres",
     host="127.0.0.1",
     port=5433,
-    ssl_mode=Require,
+    ssl_mode=get_config().ssl_mode(),
   )
   let mut got_auth_error = false
   ignore((@pgsql.Client::connect(bad_config) : @pgsql.Client)) catch {

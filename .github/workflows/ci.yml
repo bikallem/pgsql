@@ -101,4 +101,6 @@ jobs:
       - name: Integration tests (Windows)
         if: runner.os == 'Windows'
         shell: bash
+        env:
+          PGSQL_TEST_NO_SSL: "1"
         run: make test-integration
