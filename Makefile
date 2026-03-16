@@ -21,10 +21,10 @@ test-integration: pg-start
 test-all: test test-integration
 
 pg-start:
-	./tests/setup-pg.sh start
+	./src/tests/setup-pg.sh start
 
 pg-stop:
-	./tests/setup-pg.sh stop
+	./src/tests/setup-pg.sh stop
 
 clean:
-	./tests/setup-pg.sh clean
+	./src/tests/setup-pg.sh clean

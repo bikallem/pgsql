@@ -56,7 +56,12 @@ start() {
       --username="$PGUSER" \
       --pwfile="$pwfile" \
       --locale=C \
-      > /dev/null
+      || initdb \
+        --pgdata="$PGDATA" \
+        --auth=scram-sha-256 \
+        --username="$PGUSER" \
+        --pwfile="$pwfile" \
+        --no-locale
     rm -f "$pwfile"
 
     # Generate self-signed TLS certificate (if openssl available)
