@@ -103,7 +103,7 @@ fn BufferReader::cstring(self : BufferReader) -> String raise BufferUnderflow {
   }
   // Decode UTF-8 payload between start and null terminator.
   let utf8_bytes : Array[Byte] = Array::new(capacity=self.offset - start)
-  for i = start; i < self.offset; i = i + 1 {
+  for i in start..<self.offset {
     utf8_bytes.push(self.data[i])
   }
   // Skip the null terminator
@@ -126,7 +126,7 @@ fn BufferReader::bytes(
     )
   }
   let arr : Array[Byte] = Array::new(capacity=len)
-  for i = 0; i < len; i = i + 1 {
+  for i in 0..<len {
     arr.push(self.data[self.offset + i])
   }
   self.offset += len

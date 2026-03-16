@@ -20,10 +20,10 @@ fn md5_password(password : String, username : String, salt : Bytes) -> String {
     inner_hex_bytes.length() + salt.length(),
     b'\x00',
   )
-  for i = 0; i < inner_hex_bytes.length(); i = i + 1 {
+  for i in 0..<inner_hex_bytes.length() {
     outer_input[i] = inner_hex_bytes[i]
   }
-  for i = 0; i < salt.length(); i = i + 1 {
+  for i in 0..<salt.length() {
     outer_input[inner_hex_bytes.length() + i] = salt[i]
   }
   let outer_hash = md5(outer_input.unsafe_reinterpret_as_bytes())

@@ -90,7 +90,7 @@ fn scram_client_final(
 
   // ClientProof = ClientKey XOR ClientSignature
   let client_proof_arr : FixedArray[Byte] = FixedArray::make(32, b'\x00')
-  for i = 0; i < 32; i = i + 1 {
+  for i in 0..<32 {
     client_proof_arr[i] = (client_key[i].to_int() ^ client_signature[i].to_int()).to_byte()
   }
   let client_proof = client_proof_arr.unsafe_reinterpret_as_bytes()
@@ -143,9 +143,11 @@ fn scram_verify_server(
 /// Constant-time byte comparison to prevent timing side-channels.
 /// Both slices must have the same length (caller must check).
 fn constant_time_bytes_equal(a : Bytes, b : Bytes) -> Bool {
-  let diff = for i = 0, diff = 0; i < a.length(); i = i + 1, diff = diff | (a[i].to_int() ^ b[i].to_int()) {
+  let diff = for i = 0, diff = 0
+                 i < a.length()
+                 i = i + 1, diff = diff | (a[i].to_int() ^ b[i].to_int()) {
 
-  } else {
+  } nobreak {
     diff
   }
   diff == 0
@@ -211,7 +213,7 @@ fn parse_scram_attributes(
     }
     let key = String::from_array([chars[0]])
     let value_chars : Array[Char] = []
-    for i = 2; i < chars.length(); i = i + 1 {
+    for i in 2..<chars.length() {
       value_chars.push(chars[i])
     }
     let value = String::from_array(value_chars)
@@ -244,16 +246,18 @@ fn require_scram_attr(
 /// Parse SCRAM iteration count strictly and enforce a hard upper bound.
 fn parse_scram_iteration_count(raw : String) -> Int raise ScramError {
   guard raw.length() > 0 else { raise ScramError("Invalid iteration count") }
-  let mut result = 0
-  for c in raw {
-    let digit = c.to_int() - '0'.to_int()
+  let chars : Array[Char] = Array::from_iter(raw.iter())
+  let result = for i = 0, result = 0; i < chars.length(); i = i + 1 {
+    let digit = chars[i].to_int() - '0'.to_int()
     guard digit >= 0 && digit <= 9 else {
       raise ScramError("Invalid iteration count")
     }
     guard result <= (MAX_SCRAM_ITERATIONS - digit) / 10 else {
       raise ScramError("Iteration count exceeds limit")
     }
-    result = result * 10 + digit
+    continue i + 1, result * 10 + digit
+  } nobreak {
+    result
   }
   guard result > 0 else { raise ScramError("Invalid iteration count") }
   guard result <= MAX_SCRAM_ITERATIONS else {

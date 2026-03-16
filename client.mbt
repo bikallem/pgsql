@@ -476,22 +476,22 @@ fn parse_affected_rows(tag : String) -> Int {
   let len = chars.length()
   // Find the start of the trailing number by scanning backwards
   let end = for end = len
-    end > 0 && chars[end - 1] >= '0' && chars[end - 1] <= '9'
-    end = end - 1 {
+                end > 0 && chars[end - 1] >= '0' && chars[end - 1] <= '9'
+                end = end - 1 {
 
-  } else {
+  } nobreak {
     end
   }
   if end == len {
     return 0
   }
   for i = len - 1, result = 0, multiplier = 1
-    i >= end
-    i = i - 1,
-    result = result + (chars[i].to_int() - '0'.to_int()) * multiplier,
-    multiplier = multiplier * 10 {
+      i >= end
+      i = i - 1, result = result +
+        (chars[i].to_int() - '0'.to_int()) * multiplier, multiplier = multiplier *
+        10 {
 
-  } else {
+  } nobreak {
     result
   }
 }

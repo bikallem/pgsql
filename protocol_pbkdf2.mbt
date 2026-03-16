@@ -28,7 +28,7 @@ fn pbkdf2_sha256(password : Bytes, salt : Bytes, iterations : Int) -> Bytes {
   let result : FixedArray[Byte] = FixedArray::make(32, b'\x00')
 
   // Initialize result with U1
-  for i = 0; i < 32; i = i + 1 {
+  for i in 0..<32 {
     result[i] = u_prev[i]
   }
 
@@ -36,7 +36,7 @@ fn pbkdf2_sha256(password : Bytes, salt : Bytes, iterations : Int) -> Bytes {
   for _iter = 1; _iter < iterations; _iter = _iter + 1 {
     let u_curr = hmac_sha256(password, u_prev)
     // XOR into result
-    for i = 0; i < 32; i = i + 1 {
+    for i in 0..<32 {
       result[i] = (result[i].to_int() ^ u_curr[i].to_int()).to_byte()
     }
     u_prev = u_curr

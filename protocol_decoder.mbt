@@ -81,7 +81,7 @@ fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
 
     // Extract message bytes
     let msg_arr : Array[Byte] = Array::new(capacity=len - 4)
-    for i = 0; i < len - 4; i = i + 1 {
+    for i in 0..<(len - 4) {
       msg_arr.push(self.buffer[offset + HEADER_SIZE + i])
     }
     let msg_bytes = Bytes::from_array(msg_arr)
@@ -124,7 +124,7 @@ fn Decoder::compact_if_needed(self : Decoder) -> Unit {
   }
 
   let compacted : Array[Byte] = Array::new(capacity=len - self.start)
-  for i = self.start; i < len; i = i + 1 {
+  for i in self.start..<len {
     compacted.push(self.buffer[i])
   }
   self.buffer = compacted
@@ -272,7 +272,7 @@ fn parse_row_description(
   }
   let fields : Array[FieldDescription] = Array::new(capacity=field_count)
 
-  for i = 0; i < field_count; i = i + 1 {
+  for _i in 0..<field_count {
     let name = reader.cstring()
     let table_oid = reader.uint32()
     let column_id = reader.int16()
@@ -303,7 +303,7 @@ fn parse_data_row(
   }
   let values : Array[Bytes?] = Array::new(capacity=column_count)
 
-  for i = 0; i < column_count; i = i + 1 {
+  for _i in 0..<column_count {
     let len = reader.int32()
     if len == -1 {
       values.push(None) // NULL
@@ -363,7 +363,7 @@ fn parse_parameter_description(
   }
   let type_oids : Array[UInt] = Array::new(capacity=param_count)
 
-  for i = 0; i < param_count; i = i + 1 {
+  for _i in 0..<param_count {
     type_oids.push(reader.uint32())
   }
 
@@ -396,7 +396,7 @@ fn parse_copy_response(
   }
   let column_formats : Array[FormatCode] = Array::new(capacity=column_count)
 
-  for i = 0; i < column_count; i = i + 1 {
+  for _i in 0..<column_count {
     let fmt = reader.int16()
     column_formats.push(if fmt == 0 { Text } else { Binary })
   }
@@ -421,7 +421,7 @@ fn parse_negotiate_protocol_version(
     )
   }
   let options : Array[String] = Array::new(capacity=count)
-  for i = 0; i < count; i = i + 1 {
+  for _i in 0..<count {
     options.push(reader.cstring())
   }
   NegotiateProtocolVersion(newest_minor, options)
