@@ -81,26 +81,15 @@ jobs:
       - name: Unit tests
         run: moon test --target native -p bikallem/pgsql
 
-      # --- Integration tests (require PostgreSQL) ---
+      # --- Integration tests ---
+      - name: Setup PostgreSQL
+        uses: ikalnytskyi/action-setup-postgres@v7
+        with:
+          username: postgres
+          password: postgres
+          database: postgres
+          port: 5433
+          ssl: true
 
-      - name: Install PostgreSQL (macOS)
-        if: runner.os == 'macOS'
-        run: brew install postgresql@17
-
-      - name: Install PostgreSQL (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          choco install postgresql17 --params '/Password:postgres' -y --no-progress
-          echo "C:\Program Files\PostgreSQL\17\bin" | Out-File -Append -FilePath $env:GITHUB_PATH
-
-      - name: Integration tests (Unix)
-        if: runner.os != 'Windows'
-        run: make test-integration
-
-      - name: Integration tests (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        env:
-          PGSQL_TEST_NO_SSL: "1"
-        run: make test-integration
+      - name: Integration tests
+        run: moon test --target native src/tests/
