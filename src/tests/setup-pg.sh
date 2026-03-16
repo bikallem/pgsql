@@ -21,7 +21,9 @@ ensure_pg_tools() {
     /usr/local/opt/postgresql@*/bin \
     /opt/homebrew/opt/postgresql/bin \
     /opt/homebrew/opt/postgresql@*/bin \
-    /nix/store/*-postgresql-*/bin
+    /nix/store/*-postgresql-*/bin \
+    "/c/Program Files/PostgreSQL"/*/bin \
+    "/mnt/c/Program Files/PostgreSQL"/*/bin
   do
     if [ -x "$dir/initdb" ] && [ -x "$dir/pg_ctl" ]; then
       export PATH="$dir:$PATH"
@@ -53,14 +55,20 @@ start() {
       --locale=C \
       > /dev/null
 
-    # Generate self-signed TLS certificate
-    openssl req -new -x509 -nodes \
-      -days 3650 \
-      -subj "/CN=localhost" \
-      -keyout "$PGDATA/server.key" \
-      -out "$PGDATA/server.crt" \
-      2>/dev/null
-    chmod 600 "$PGDATA/server.key"
+    # Generate self-signed TLS certificate (if openssl available)
+    local ssl_enabled=off
+    if command -v openssl >/dev/null 2>&1; then
+      openssl req -new -x509 -nodes \
+        -days 3650 \
+        -subj "/CN=localhost" \
+        -keyout "$PGDATA/server.key" \
+        -out "$PGDATA/server.crt" \
+        2>/dev/null
+      chmod 600 "$PGDATA/server.key"
+      ssl_enabled=on
+    else
+      echo "Warning: openssl not found, starting without TLS"
+    fi
 
     # Configure postgresql.conf
     cat >> "$PGDATA/postgresql.conf" <<EOF
@@ -69,10 +77,14 @@ start() {
 port = $PGPORT
 listen_addresses = '127.0.0.1'
 unix_socket_directories = ''
-ssl = on
+ssl = $ssl_enabled
+EOF
+    if [ "$ssl_enabled" = "on" ]; then
+      cat >> "$PGDATA/postgresql.conf" <<EOF
 ssl_cert_file = 'server.crt'
 ssl_key_file = 'server.key'
 EOF
+    fi
 
     # Configure pg_hba.conf — SCRAM-SHA-256 for both TLS and plain
     cat > "$PGDATA/pg_hba.conf" <<EOF
