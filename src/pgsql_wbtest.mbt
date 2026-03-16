@@ -4,7 +4,7 @@ test "raise_if_reentrant raises usage error for user callback" {
   let mut message = ""
   let failed = try {
     raise_if_reentrant(
-      true, "Re-entrant operations on the same Client are not allowed inside stream/COPY callbacks",
+      true, "Re-entrant operations on the same Pgsql are not allowed inside stream/COPY callbacks",
     )
     false
   } catch {
@@ -24,12 +24,12 @@ test "raise_if_reentrant allows non-callback calls" {
 }
 
 ///|
-/// Regression: direct Client operations inside transaction callback fail fast.
+/// Regression: direct Pgsql operations inside transaction callback fail fast.
 test "raise_if_reentrant raises usage error for transaction callback" {
   let mut message = ""
   let failed = try {
     raise_if_reentrant(
-      true, "Direct Client operations inside transaction callback are not allowed; use the Transaction handle",
+      true, "Direct Pgsql operations inside transaction callback are not allowed; use the Transaction handle",
     )
     false
   } catch {

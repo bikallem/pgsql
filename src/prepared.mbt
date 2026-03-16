@@ -3,11 +3,11 @@
 /// Provides reusable prepared statements for prepare-once, execute-many semantics.
 
 ///|
-/// A reusable prepared statement. Created via Client::prepare or Transaction::prepare.
+/// A reusable prepared statement. Created via Pgsql::prepare or Transaction::prepare.
 /// Must be closed when no longer needed to release server resources.
 struct PreparedStatement {
   /// Reference to the client
-  client : Client
+  client : Pgsql
   /// Server-side statement name
   name : String
   /// Original SQL
@@ -30,7 +30,7 @@ pub async fn PreparedStatement::query(
     raise PreparedStmtError("PreparedStatement is closed")
   }
   guard not(self.client.closed) else {
-    raise PreparedStmtError("Client connection is closed")
+    raise PreparedStmtError("Pgsql connection is closed")
   }
 
   // Transaction-scoped prepared statements execute under tx-owned operation path.
@@ -67,7 +67,7 @@ pub async fn PreparedStatement::close(self : PreparedStatement) -> Unit {
   guard not(self.closed) else { return }
   self.closed = true
   guard not(self.client.closed) else {
-    // Client already closed; server resources are already released.
+    // Pgsql already closed; server resources are already released.
     return
   }
   let close_stmt = async fn() {

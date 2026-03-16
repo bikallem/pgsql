@@ -68,7 +68,7 @@ async fn main() -> Unit {
     "postgres", "password", "mydb",
     host="127.0.0.1", port=5432,
   )
-  let client = @pgsql.Client::connect(config)
+  let client = @pgsql.connect(config)
 
   // Simple query
   let result = client.query("SELECT id, name FROM users")
@@ -97,7 +97,7 @@ let config = @pgsql.Config::new(
 )
 
 // Connect
-let client = @pgsql.Client::connect(config)
+let client = @pgsql.connect(config)
 
 // Server info
 let version = client.server_param("server_version") // Some("16.2")

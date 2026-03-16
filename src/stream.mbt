@@ -6,7 +6,7 @@
 ///|
 /// A streaming cursor over query results
 struct RowStream {
-  client : Client
+  client : Pgsql
   portal_name : String
   stmt_name : String
   batch_size : Int
@@ -212,8 +212,8 @@ fn RowStream::release_tx_guard(self : RowStream) -> Unit {
 /// Create a streaming query.
 /// Uses a named portal with Execute(max_rows) for batch fetching.
 /// Automatically wraps in a transaction if not already in one.
-pub async fn Client::query_stream(
-  self : Client,
+pub async fn Pgsql::query_stream(
+  self : Pgsql,
   sql : String,
   params? : Array[Value] = [],
   batch_size? : Int = 100,
@@ -338,8 +338,8 @@ pub async fn Client::query_stream(
 
 ///|
 /// Best-effort cleanup for query_stream setup failures while operation lock is held.
-async fn Client::cleanup_failed_stream_setup(
-  self : Client,
+async fn Pgsql::cleanup_failed_stream_setup(
+  self : Pgsql,
   portal_name : String,
   stmt_name : String,
   auto_tx : Bool,

@@ -56,8 +56,8 @@ pub async fn CopyWriter::write_row_nullable(
 ///|
 /// Execute COPY TO STDOUT, calling handler for each data chunk.
 /// Returns the number of rows copied.
-pub async fn Client::copy_out(
-  self : Client,
+pub async fn Pgsql::copy_out(
+  self : Pgsql,
   sql : String,
   handler : async (Bytes) -> Unit,
 ) -> Int {
@@ -115,8 +115,8 @@ pub async fn Client::copy_out(
 ///|
 /// Execute COPY FROM STDIN, calling writer callback to send data.
 /// Returns the number of rows copied.
-pub async fn Client::copy_in(
-  self : Client,
+pub async fn Pgsql::copy_in(
+  self : Pgsql,
   sql : String,
   writer : async (CopyWriter) -> Unit,
 ) -> Int {

@@ -54,28 +54,6 @@ pub suberror TxError {
 pub impl Show for TxError
 
 // Types and methods
-type Client
-pub async fn Client::cancel(Self) -> Unit
-pub async fn Client::close(Self) -> Unit
-pub async fn Client::connect(Config) -> Self
-pub async fn Client::copy_in(Self, String, async (CopyWriter) -> Unit) -> Int
-pub async fn Client::copy_out(Self, String, async (Bytes) -> Unit) -> Int
-pub async fn Client::execute(Self, String) -> Int
-pub async fn Client::execute_params(Self, String, Array[Value]) -> Int
-pub fn Client::in_transaction(Self) -> Bool
-pub async fn Client::listen(Self, String) -> Unit
-pub fn Client::poll_notices(Self) -> Array[ServerErrorInfo]
-pub fn Client::poll_notifications(Self) -> Array[Notification]
-pub async fn Client::prepare(Self, String) -> PreparedStatement
-pub async fn Client::query(Self, String) -> QueryResult
-pub async fn Client::query_params(Self, String, Array[Value]) -> QueryResult
-pub async fn Client::query_stream(Self, String, params? : Array[Value], batch_size? : Int) -> RowStream
-pub fn Client::server_param(Self, String) -> String?
-pub async fn[T] Client::transaction(Self, async (Transaction) -> T) -> T
-pub fn Client::transaction_status(Self) -> TransactionStatus
-pub async fn Client::unlisten(Self, String) -> Unit
-pub async fn Client::wait_for_notification(Self) -> Notification
-
 type ColumnInfo
 pub fn ColumnInfo::column_id(Self) -> Int
 pub fn ColumnInfo::is_binary(Self) -> Bool
@@ -115,12 +93,35 @@ pub fn Notification::process_id(Self) -> Int
 pub impl Eq for Notification
 pub impl Show for Notification
 
+type Pgsql
+pub async fn Pgsql::cancel(Self) -> Unit
+pub async fn Pgsql::close(Self) -> Unit
+#as_free_fn
+pub async fn Pgsql::connect(Config) -> Self
+pub async fn Pgsql::copy_in(Self, String, async (CopyWriter) -> Unit) -> Int
+pub async fn Pgsql::copy_out(Self, String, async (Bytes) -> Unit) -> Int
+pub async fn Pgsql::execute(Self, String) -> Int
+pub async fn Pgsql::execute_params(Self, String, Array[Value]) -> Int
+pub fn Pgsql::in_transaction(Self) -> Bool
+pub async fn Pgsql::listen(Self, String) -> Unit
+pub fn Pgsql::poll_notices(Self) -> Array[ServerErrorInfo]
+pub fn Pgsql::poll_notifications(Self) -> Array[Notification]
+pub async fn Pgsql::prepare(Self, String) -> PreparedStatement
+pub async fn Pgsql::query(Self, String) -> QueryResult
+pub async fn Pgsql::query_params(Self, String, Array[Value]) -> QueryResult
+pub async fn Pgsql::query_stream(Self, String, params? : Array[Value], batch_size? : Int) -> RowStream
+pub fn Pgsql::server_param(Self, String) -> String?
+pub async fn[T] Pgsql::transaction(Self, async (Transaction) -> T) -> T
+pub fn Pgsql::transaction_status(Self) -> TransactionStatus
+pub async fn Pgsql::unlisten(Self, String) -> Unit
+pub async fn Pgsql::wait_for_notification(Self) -> Notification
+
 type Pool
-pub async fn Pool::acquire(Self) -> Client
+pub async fn Pool::acquire(Self) -> Pgsql
 pub async fn Pool::close(Self) -> Unit
 pub fn Pool::new(Config, max_size? : Int, acquire_timeout_ms? : Int) -> Self
-pub async fn Pool::release(Self, Client) -> Unit
-pub async fn[T] Pool::with_connection(Self, async (Client) -> T) -> T
+pub async fn Pool::release(Self, Pgsql) -> Unit
+pub async fn[T] Pool::with_connection(Self, async (Pgsql) -> T) -> T
 
 type PreparedStatement
 pub async fn PreparedStatement::close(Self) -> Unit

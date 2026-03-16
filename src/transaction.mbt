@@ -6,7 +6,7 @@
 /// Transaction handle for executing queries within a transaction
 struct Transaction {
   /// Reference to the client
-  client : Client
+  client : Pgsql
   /// Whether the transaction is still active
   mut active : Bool
 }
@@ -14,8 +14,8 @@ struct Transaction {
 ///|
 /// Execute a function within a transaction
 /// Automatically commits on success and rolls back on failure
-pub async fn[T] Client::transaction(
-  self : Client,
+pub async fn[T] Pgsql::transaction(
+  self : Pgsql,
   f : async (Transaction) -> T,
 ) -> T {
   self.check_not_in_user_callback()

@@ -31,7 +31,7 @@ async fn main {
     ssl_mode=@pgsql.Disable,
   )
 
-  let client = @pgsql.Client::connect(config) catch {
+  let client = @pgsql.connect(config) catch {
     e => {
       println("Failed to connect: \{e}")
       return
@@ -77,14 +77,14 @@ fn print_usage() -> Unit {
 }
 
 ///|
-async fn cmd_setup(client : @pgsql.Client) -> Unit {
+async fn cmd_setup(client : @pgsql.Pgsql) -> Unit {
   let sql = "CREATE TABLE IF NOT EXISTS contacts (id SERIAL PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, phone TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
   ignore((client.execute(sql) : Int))
   println("Contacts table created.")
 }
 
 ///|
-async fn cmd_list(client : @pgsql.Client) -> Unit {
+async fn cmd_list(client : @pgsql.Pgsql) -> Unit {
   let result = client.query(
     "SELECT id, name, email, phone FROM contacts ORDER BY id",
   )
@@ -107,7 +107,7 @@ async fn cmd_list(client : @pgsql.Client) -> Unit {
 }
 
 ///|
-async fn cmd_add(client : @pgsql.Client, args : Array[String]) -> Unit {
+async fn cmd_add(client : @pgsql.Pgsql, args : Array[String]) -> Unit {
   if args.length() < 4 {
     println("Usage: add <name> <email> [phone]")
     return
@@ -136,7 +136,7 @@ async fn cmd_add(client : @pgsql.Client, args : Array[String]) -> Unit {
 }
 
 ///|
-async fn cmd_update(client : @pgsql.Client, args : Array[String]) -> Unit {
+async fn cmd_update(client : @pgsql.Pgsql, args : Array[String]) -> Unit {
   if args.length() < 5 {
     println("Usage: update <id> <field> <value>")
     return
@@ -170,7 +170,7 @@ async fn cmd_update(client : @pgsql.Client, args : Array[String]) -> Unit {
 }
 
 ///|
-async fn cmd_delete(client : @pgsql.Client, args : Array[String]) -> Unit {
+async fn cmd_delete(client : @pgsql.Pgsql, args : Array[String]) -> Unit {
   if args.length() < 3 {
     println("Usage: delete <id>")
     return
@@ -188,7 +188,7 @@ async fn cmd_delete(client : @pgsql.Client, args : Array[String]) -> Unit {
 }
 
 ///|
-async fn cmd_search(client : @pgsql.Client, args : Array[String]) -> Unit {
+async fn cmd_search(client : @pgsql.Pgsql, args : Array[String]) -> Unit {
   if args.length() < 3 {
     println("Usage: search <term>")
     return

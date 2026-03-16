@@ -6,7 +6,7 @@
 /// Connection pool for PostgreSQL
 struct Pool {
   config : Config
-  idle : @async.Queue[Client]
+  idle : @async.Queue[Pgsql]
   semaphore : @async.Semaphore
   acquire_timeout_ms : Int
   mut closed : Bool
@@ -38,7 +38,7 @@ pub fn Pool::new(
 /// Acquire a connection from the pool.
 /// Returns an idle connection if available, otherwise creates a new one.
 /// Blocks if the pool is at maximum capacity, with a timeout.
-pub async fn Pool::acquire(self : Pool) -> Client {
+pub async fn Pool::acquire(self : Pool) -> Pgsql {
   guard not(self.closed) else { raise PoolError("Pool is closed") }
   @async.with_timeout(
     self.acquire_timeout_ms,
@@ -73,9 +73,9 @@ pub async fn Pool::acquire(self : Pool) -> Client {
 ///|
 /// Acquire path after a semaphore permit has already been acquired.
 /// Caller is responsible for releasing the permit on failure.
-async fn Pool::acquire_after_permit(self : Pool) -> Client {
+async fn Pool::acquire_after_permit(self : Pool) -> Pgsql {
   // Try to get an idle connection
-  let idle_client : Client? = self.idle.try_get() catch {
+  let idle_client : Pgsql? = self.idle.try_get() catch {
     // Queue closed (pool shutting down) — treat as no idle connection available
     _queue_closed => None
   }
@@ -84,19 +84,19 @@ async fn Pool::acquire_after_permit(self : Pool) -> Client {
       // Verify the connection is still usable
       if client.closed {
         // Discard and create a new one
-        Client::connect(self.config)
+        Pgsql::connect(self.config)
       } else {
         client
       }
     _ =>
       // No idle connections, create a new one
-      Client::connect(self.config)
+      Pgsql::connect(self.config)
   }
 }
 
 ///|
 /// Release a connection back to the pool
-pub async fn Pool::release(self : Pool, client : Client) -> Unit {
+pub async fn Pool::release(self : Pool, client : Pgsql) -> Unit {
   if self.closed || client.closed {
     if not(client.closed) {
       client.close()
@@ -122,7 +122,7 @@ pub async fn Pool::close(self : Pool) -> Unit {
   self.wake_acquire_waiters()
   // Drain idle connections before closing the queue
   while true {
-    let client : Client? = self.idle.try_get() catch {
+    let client : Pgsql? = self.idle.try_get() catch {
       // Queue may already be closed — treat as empty
       _queue_closed => None
     }
@@ -185,10 +185,7 @@ fn Pool::wake_one_acquire_waiter(self : Pool) -> Bool {
 
 ///|
 /// Execute a function with a connection, automatically releasing it afterwards
-pub async fn[T] Pool::with_connection(
-  self : Pool,
-  f : async (Client) -> T,
-) -> T {
+pub async fn[T] Pool::with_connection(self : Pool, f : async (Pgsql) -> T) -> T {
   let client = self.acquire()
   let result = f(client) catch {
     err => {

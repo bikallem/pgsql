@@ -19,7 +19,7 @@ fn get_config() -> @pgsql.Config {
 
 ///|
 async test "connect and query version" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   let result = client.query("SELECT version()")
   assert_true(result.row_count() > 0)
   let version = result.row(0).unwrap().string(0).unwrap()
@@ -29,7 +29,7 @@ async test "connect and query version" {
 
 ///|
 async test "full CRUD lifecycle" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   // Create table
   ignore(
@@ -98,7 +98,7 @@ async test "full CRUD lifecycle" {
 
 ///|
 async test "transaction commit" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -127,7 +127,7 @@ async test "transaction commit" {
 
 ///|
 async test "transaction rollback on error" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -174,9 +174,9 @@ async test "transaction rollback on error" {
 }
 
 ///|
-/// Regression: direct Client operations in transaction callback must fail fast.
+/// Regression: direct Pgsql operations in transaction callback must fail fast.
 async test "transaction callback: direct client query fails fast" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   let mut saw_usage_error = false
   let failed = try {
@@ -194,17 +194,17 @@ async test "transaction callback: direct client query fails fast" {
 
   assert_true(failed)
   assert_true(saw_usage_error)
-  // Client remains usable after fail-fast rejection.
+  // Pgsql remains usable after fail-fast rejection.
   let result = client.query("SELECT 1 AS ok")
   assert_eq(result.row(0).unwrap().int(0), Some(1))
   client.close()
 }
 
 ///|
-/// Regression: concurrent Client operations are rejected while tx callback owns
+/// Regression: concurrent Pgsql operations are rejected while tx callback owns
 /// the connection lease.
 async test "transaction callback: concurrent client query fails fast" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute("CREATE TABLE IF NOT EXISTS test_tx_exclusive (id INT)") :
@@ -254,7 +254,7 @@ async test "transaction callback: concurrent client query fails fast" {
 
 ///|
 async test "parameterized queries with all Value types" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -297,7 +297,7 @@ async test "parameterized queries with all Value types" {
 
 ///|
 async test "UTF-8 text round-trip via parameters and row decoding" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -331,13 +331,13 @@ async test "UTF-8 text round-trip via parameters and row decoding" {
 
 ///|
 async test "error handling: invalid SQL" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   let mut got_error = false
   ignore((client.query("SELCT invalid syntax") : @pgsql.QueryResult)) catch {
     _ => got_error = true
   }
   assert_true(got_error)
-  // Client should still be usable after error
+  // Pgsql should still be usable after error
   let result = client.query("SELECT 1 AS val")
   assert_eq(result.row(0).unwrap().int(0), Some(1))
   client.close()
@@ -345,7 +345,7 @@ async test "error handling: invalid SQL" {
 
 ///|
 async test "prepared statement: insert and select" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -381,7 +381,7 @@ async test "prepared statement: insert and select" {
 
 ///|
 async test "prepared statement: close idempotency" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   let stmt = client.prepare("SELECT 1")
   stmt.close()
@@ -394,7 +394,7 @@ async test "prepared statement: close idempotency" {
 
 ///|
 async test "prepared statement: use after close raises error" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   let stmt = client.prepare("SELECT $1::int")
   stmt.close()
@@ -411,7 +411,7 @@ async test "prepared statement: use after close raises error" {
 
 ///|
 async test "prepared statement: inside transaction" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -438,7 +438,7 @@ async test "prepared statement: inside transaction" {
 
 ///|
 async test "unnamed statement regression: many parameterized queries" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -467,7 +467,7 @@ async test "unnamed statement regression: many parameterized queries" {
 
 ///|
 async test "savepoint: commit through savepoint" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -516,7 +516,7 @@ async test "savepoint: commit through savepoint" {
 
 ///|
 async test "transaction: TxError on inactive transaction" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   client.transaction(async fn(tx) {
     // Explicitly commit, marking transaction as inactive
@@ -536,7 +536,7 @@ async test "transaction: TxError on inactive transaction" {
 
 ///|
 async test "client: query after close raises error" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   // Verify the connection works
   let result = client.query("SELECT 1 AS val")
   assert_eq(result.row(0).unwrap().int(0), Some(1))
@@ -553,7 +553,7 @@ async test "client: query after close raises error" {
 
 ///|
 async test "error handling: constraint violation" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -603,7 +603,7 @@ async test "auth error: wrong password" {
   )
   let mut got_auth_error = false
   try {
-    let client = @pgsql.Client::connect(bad_config)
+    let client = @pgsql.connect(bad_config)
     client.close()
   } catch {
     @pgsql.AuthError(_) => got_auth_error = true
@@ -614,7 +614,7 @@ async test "auth error: wrong password" {
 
 ///|
 async test "date, time, timestamp, json, uuid types" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   let result = client.query(
     "SELECT CURRENT_DATE, CURRENT_TIME, CURRENT_TIMESTAMP, '2024-03-15 14:30:00'::timestamp, '1 day'::interval, '{\"k\":\"v\"}'::json, '{\"a\":1}'::jsonb, gen_random_uuid()",
   )
@@ -664,7 +664,7 @@ async test "date, time, timestamp, json, uuid types" {
 
 ///|
 async test "COPY OUT: export rows" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -699,7 +699,7 @@ async test "COPY OUT: export rows" {
 
 ///|
 async test "COPY IN: import rows" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -727,7 +727,7 @@ async test "COPY IN: import rows" {
 
 ///|
 async test "COPY IN: write_row escapes COPY text special characters" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -755,7 +755,7 @@ async test "COPY IN: write_row escapes COPY text special characters" {
 
 ///|
 async test "COPY IN: write_row_nullable supports NULL values" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -780,7 +780,7 @@ async test "COPY IN: write_row_nullable supports NULL values" {
 
 ///|
 async test "COPY IN: writer rejects writes after callback return" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -818,7 +818,7 @@ async test "COPY IN: writer rejects writes after callback return" {
 
 ///|
 async test "COPY OUT: re-entrant callback operation fails fast" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   let mut saw_usage_error = false
   let failed = try {
@@ -851,7 +851,7 @@ async test "COPY OUT: re-entrant callback operation fails fast" {
 
 ///|
 async test "COPY IN: re-entrant callback operation fails fast" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -895,8 +895,8 @@ async test "COPY IN: re-entrant callback operation fails fast" {
 
 ///|
 async test "LISTEN/NOTIFY: basic notification" {
-  let listener = @pgsql.Client::connect(get_config())
-  let notifier = @pgsql.Client::connect(get_config())
+  let listener = @pgsql.connect(get_config())
+  let notifier = @pgsql.connect(get_config())
 
   listener.listen("test_channel")
 
@@ -916,8 +916,8 @@ async test "LISTEN/NOTIFY: basic notification" {
 
 ///|
 async test "LISTEN/NOTIFY: poll_notifications" {
-  let listener = @pgsql.Client::connect(get_config())
-  let notifier = @pgsql.Client::connect(get_config())
+  let listener = @pgsql.connect(get_config())
+  let notifier = @pgsql.connect(get_config())
 
   listener.listen("poll_ch")
 
@@ -944,8 +944,8 @@ async test "LISTEN/NOTIFY: poll_notifications" {
 
 ///|
 async test "LISTEN/NOTIFY: UTF-8 payload round-trip" {
-  let listener = @pgsql.Client::connect(get_config())
-  let notifier = @pgsql.Client::connect(get_config())
+  let listener = @pgsql.connect(get_config())
+  let notifier = @pgsql.connect(get_config())
 
   listener.listen("utf8_ch")
 
@@ -1010,7 +1010,7 @@ async test "pool: with_connection auto-release" {
 
 ///|
 async test "stream: basic row streaming" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (client.execute("CREATE TABLE IF NOT EXISTS test_stream (id INT)") : Int),
   )
@@ -1042,7 +1042,7 @@ async test "stream: basic row streaming" {
 
 ///|
 async test "stream: close before exhaustion" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute("CREATE TABLE IF NOT EXISTS test_stream_close (id INT)") :
@@ -1074,7 +1074,7 @@ async test "stream: close before exhaustion" {
   // Close the stream early
   stream.close()
 
-  // Client should still be usable
+  // Pgsql should still be usable
   let result = client.query("SELECT 1 AS val")
   assert_eq(result.row(0).unwrap().int(0), Some(1))
 
@@ -1085,7 +1085,7 @@ async test "stream: close before exhaustion" {
 ///|
 /// Regression: stream auto-transaction commit must occur before lock release.
 async test "stream: close commits before allowing concurrent query" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   let stream = client.query_stream(
     "SELECT txid_current()::bigint AS xid, g FROM generate_series(1, 8) AS g",
@@ -1113,7 +1113,7 @@ async test "stream: close commits before allowing concurrent query" {
 
 ///|
 async test "stream: parameterized streaming" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -1144,7 +1144,7 @@ async test "stream: parameterized streaming" {
 
 ///|
 async test "stream: invalid batch_size rejected" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   let mut got_error = false
   ignore((client.query_stream("SELECT 1", batch_size=0) : @pgsql.RowStream)) catch {
@@ -1161,7 +1161,7 @@ async test "stream: invalid batch_size rejected" {
 
 ///|
 async test "stream: next() exhausts and auto-closes resources" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -1200,7 +1200,7 @@ async test "stream: next() exhausts and auto-closes resources" {
 
 ///|
 async test "stream: re-entrant callback operation fails fast" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -1252,7 +1252,7 @@ async test "connect with ssl_mode=Disable (plain SCRAM)" {
     port=5433,
     ssl_mode=Disable,
   )
-  let client = @pgsql.Client::connect(plain_config)
+  let client = @pgsql.connect(plain_config)
   let result = client.query("SELECT 1 AS val")
   assert_eq(result.row(0).unwrap().int(0), Some(1))
   client.close()
@@ -1260,7 +1260,7 @@ async test "connect with ssl_mode=Disable (plain SCRAM)" {
 
 ///|
 async test "client: transaction_status transitions" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   // Initially idle
   assert_eq(client.transaction_status(), @pgsql.Idle)
@@ -1278,7 +1278,7 @@ async test "client: transaction_status transitions" {
 
 ///|
 async test "client: server_param retrieves server_version" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   let version = client.server_param("server_version")
   assert_true(version is Some(_))
@@ -1294,7 +1294,7 @@ async test "client: server_param retrieves server_version" {
 
 ///|
 async test "row: by_name column access" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   let result = client.query("SELECT 1 AS num, 'hello' AS txt")
   let row = result.row(0).unwrap()
@@ -1311,7 +1311,7 @@ async test "row: by_name column access" {
 
 ///|
 async test "query result: iter, column_count, command_tag" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -1363,7 +1363,7 @@ async test "query result: iter, column_count, command_tag" {
 
 ///|
 async test "bytea: binary data round-trip" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -1414,7 +1414,7 @@ async test "ssl mode: Prefer falls back to plain" {
     port=5433,
     ssl_mode=Prefer,
   )
-  let client = @pgsql.Client::connect(prefer_config)
+  let client = @pgsql.connect(prefer_config)
   let result = client.query("SELECT 1 AS val")
   assert_eq(result.row(0).unwrap().int(0), Some(1))
   client.close()
@@ -1422,7 +1422,7 @@ async test "ssl mode: Prefer falls back to plain" {
 
 ///|
 async test "transaction: explicit rollback" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -1462,7 +1462,7 @@ async test "transaction: explicit rollback" {
 
 ///|
 async test "prepared statement: name and sql accessors" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   let sql = "SELECT $1::int AS val"
   let stmt = client.prepare(sql)
@@ -1479,7 +1479,7 @@ async test "prepared statement: name and sql accessors" {
 
 ///|
 async test "large result set: 1000 rows" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (client.execute("CREATE TABLE IF NOT EXISTS test_large (id INT)") : Int),
   )
@@ -1514,7 +1514,7 @@ async test "large result set: 1000 rows" {
 
 ///|
 async test "numeric type: decimal precision" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -1542,7 +1542,7 @@ async test "numeric type: decimal precision" {
 
 ///|
 async test "error details: ServerErrorInfo fields" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -1584,7 +1584,7 @@ async test "error details: ServerErrorInfo fields" {
 
 ///|
 async test "nested savepoints" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -1643,7 +1643,7 @@ async test "nested savepoints" {
 
 ///|
 async test "stream: batch_size equals result set size" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute("CREATE TABLE IF NOT EXISTS test_stream_exact (id INT)") :
@@ -1675,12 +1675,12 @@ async test "stream: batch_size equals result set size" {
 
 ///|
 async test "empty query returns empty result" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
 
   let result = client.query("")
   assert_eq(result.row_count(), 0)
 
-  // Client remains usable
+  // Pgsql remains usable
   let result2 = client.query("SELECT 1 AS val")
   assert_eq(result2.row(0).unwrap().int(0), Some(1))
 
@@ -1689,7 +1689,7 @@ async test "empty query returns empty result" {
 
 ///|
 async test "stream: batch_size larger than result set" {
-  let client = @pgsql.Client::connect(get_config())
+  let client = @pgsql.connect(get_config())
   ignore(
     (
       client.execute(
@@ -1721,8 +1721,8 @@ async test "stream: batch_size larger than result set" {
 
 ///|
 async test "notification: multiple channels" {
-  let listener = @pgsql.Client::connect(get_config())
-  let notifier = @pgsql.Client::connect(get_config())
+  let listener = @pgsql.connect(get_config())
+  let notifier = @pgsql.connect(get_config())
 
   listener.listen("multi_ch_a")
   listener.listen("multi_ch_b")

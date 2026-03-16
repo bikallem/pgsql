@@ -392,7 +392,7 @@ async fn Connection::close(self : Connection) -> Unit {
 
 ///|
 /// Connect to PostgreSQL server
-async fn connect(config : Config) -> Connection {
+async fn open_connection(config : Config) -> Connection {
   // Resolve address
   let addr = @socket.Addr::resolve(config.host, port=config.port)
 

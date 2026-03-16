@@ -4,7 +4,7 @@
 
 ///|
 /// PostgreSQL client
-struct Client {
+struct Pgsql {
   /// Underlying connection
   conn : Connection
   /// Statement counter for PreparedStatement naming
@@ -15,14 +15,15 @@ struct Client {
   tx_guard : @async.Semaphore
   /// True while executing a user callback under this client's operation lock
   mut in_user_callback : Bool
-  /// True while executing a Client::transaction user callback.
+  /// True while executing a Pgsql::transaction user callback.
   mut in_transaction_callback : Bool
 }
 
 ///|
 /// Create a new client by connecting to PostgreSQL
-pub async fn Client::connect(config : Config) -> Client {
-  let conn = connect(config)
+#as_free_fn
+pub async fn Pgsql::connect(config : Config) -> Pgsql {
+  let conn = open_connection(config)
   {
     conn,
     stmt_counter: 0,
@@ -35,39 +36,39 @@ pub async fn Client::connect(config : Config) -> Client {
 
 ///|
 /// Guard: raises ConnectionClosedError if the client has been closed
-fn Client::check_open(self : Client) -> Unit raise ConnectionClosedError {
+fn Pgsql::check_open(self : Pgsql) -> Unit raise ConnectionClosedError {
   guard not(self.closed) else { raise ConnectionClosedError }
 }
 
 ///|
 /// Guard: prevent re-entrant operations from callbacks running under lock.
-fn Client::check_not_in_user_callback(
-  self : Client,
+fn Pgsql::check_not_in_user_callback(
+  self : Pgsql,
 ) -> Unit raise ClientUsageError {
   raise_if_reentrant(
     self.in_user_callback,
-    "Re-entrant operations on the same Client are not allowed inside stream/COPY callbacks",
+    "Re-entrant operations on the same Pgsql are not allowed inside stream/COPY callbacks",
   )
 }
 
 ///|
 /// Guard: prevent re-entrant client operations from transaction callbacks.
-fn Client::check_not_in_transaction_callback(
-  self : Client,
+fn Pgsql::check_not_in_transaction_callback(
+  self : Pgsql,
 ) -> Unit raise ClientUsageError {
   raise_if_reentrant(
     self.in_transaction_callback,
-    "Direct Client operations inside transaction callback are not allowed; use the Transaction handle",
+    "Direct Pgsql operations inside transaction callback are not allowed; use the Transaction handle",
   )
 }
 
 ///|
 /// Run a callback while a boolean flag is set. Resets the flag on both
 /// success and error, preventing stale flag state after exceptions.
-async fn[T] Client::with_flag(
-  self : Client,
-  set : (Client) -> Unit,
-  clear : (Client) -> Unit,
+async fn[T] Pgsql::with_flag(
+  self : Pgsql,
+  set : (Pgsql) -> Unit,
+  clear : (Pgsql) -> Unit,
   f : async () -> T,
 ) -> T {
   set(self)
@@ -83,7 +84,7 @@ async fn[T] Client::with_flag(
 
 ///|
 /// Execute user callback code while marking the client as callback-active.
-async fn[T] Client::run_user_callback(self : Client, f : async () -> T) -> T {
+async fn[T] Pgsql::run_user_callback(self : Pgsql, f : async () -> T) -> T {
   self.with_flag(
     fn(c) { c.in_user_callback = true },
     fn(c) { c.in_user_callback = false },
@@ -93,8 +94,8 @@ async fn[T] Client::run_user_callback(self : Client, f : async () -> T) -> T {
 
 ///|
 /// Execute transaction callback code while marking tx-callback-active.
-async fn[T] Client::run_transaction_callback(
-  self : Client,
+async fn[T] Pgsql::run_transaction_callback(
+  self : Pgsql,
   f : async () -> T,
 ) -> T {
   self.with_flag(
@@ -122,7 +123,7 @@ async fn[T] with_semaphore(sem : @async.Semaphore, f : async () -> T) -> T {
 /// Execute a protocol operation under the per-connection operation guard.
 /// Ensures only one in-flight operation can touch the socket/decoder for
 /// a client at a time.
-async fn[T] Client::with_operation(self : Client, f : async () -> T) -> T {
+async fn[T] Pgsql::with_operation(self : Pgsql, f : async () -> T) -> T {
   self.check_not_in_user_callback()
   self.check_not_in_transaction_callback()
   with_semaphore(self.tx_guard, async fn() {
@@ -139,8 +140,8 @@ async fn[T] Client::with_operation(self : Client, f : async () -> T) -> T {
 /// Execute an operation while transaction lifetime ownership is already held.
 /// This acquires only the connection operation lock and is intended for
 /// Transaction methods and transaction lifecycle statements.
-async fn[T] Client::with_transaction_operation(
-  self : Client,
+async fn[T] Pgsql::with_transaction_operation(
+  self : Pgsql,
   f : async () -> T,
 ) -> T {
   self.check_not_in_user_callback()
@@ -155,7 +156,7 @@ async fn[T] Client::with_transaction_operation(
 ///|
 /// Execute a simple query (non-parameterized)
 /// Returns query results
-pub async fn Client::query(self : Client, sql : String) -> QueryResult {
+pub async fn Pgsql::query(self : Pgsql, sql : String) -> QueryResult {
   self.with_operation(async fn() { self.query_unlocked(sql) })
 }
 
@@ -163,8 +164,8 @@ pub async fn Client::query(self : Client, sql : String) -> QueryResult {
 /// Execute a query with parameters using extended query protocol.
 /// Uses the unnamed prepared statement which PostgreSQL automatically
 /// replaces on each Parse, so no cleanup is needed.
-pub async fn Client::query_params(
-  self : Client,
+pub async fn Pgsql::query_params(
+  self : Pgsql,
   sql : String,
   params : Array[Value],
 ) -> QueryResult {
@@ -176,15 +177,15 @@ pub async fn Client::query_params(
 ///|
 /// Execute a statement without returning rows (INSERT, UPDATE, DELETE, etc.)
 /// Returns the number of affected rows
-pub async fn Client::execute(self : Client, sql : String) -> Int {
+pub async fn Pgsql::execute(self : Pgsql, sql : String) -> Int {
   let result = self.query(sql)
   parse_affected_rows(result.command_tag)
 }
 
 ///|
 /// Execute a parameterized statement without returning rows
-pub async fn Client::execute_params(
-  self : Client,
+pub async fn Pgsql::execute_params(
+  self : Pgsql,
   sql : String,
   params : Array[Value],
 ) -> Int {
@@ -197,25 +198,25 @@ pub async fn Client::execute_params(
 /// The statement is parsed on the server immediately.
 /// Use PreparedStatement::query/execute to run it with parameters,
 /// and PreparedStatement::close when done.
-pub async fn Client::prepare(self : Client, sql : String) -> PreparedStatement {
+pub async fn Pgsql::prepare(self : Pgsql, sql : String) -> PreparedStatement {
   self.with_operation(async fn() { self.prepare_unlocked(sql) })
 }
 
 ///|
 /// Check if in a transaction
-pub fn Client::in_transaction(self : Client) -> Bool {
+pub fn Pgsql::in_transaction(self : Pgsql) -> Bool {
   self.conn.transaction_status is (InTransaction | Failed)
 }
 
 ///|
 /// Transaction status
-pub fn Client::transaction_status(self : Client) -> TransactionStatus {
+pub fn Pgsql::transaction_status(self : Pgsql) -> TransactionStatus {
   self.conn.transaction_status
 }
 
 ///|
 /// Close the client connection
-pub async fn Client::close(self : Client) -> Unit {
+pub async fn Pgsql::close(self : Pgsql) -> Unit {
   if self.closed {
     return
   }
@@ -232,40 +233,40 @@ pub async fn Client::close(self : Client) -> Unit {
 
 ///|
 /// Server parameter
-pub fn Client::server_param(self : Client, name : String) -> String? {
+pub fn Pgsql::server_param(self : Pgsql, name : String) -> String? {
   self.conn.server_params.get(name)
 }
 
 ///|
 /// Request cancellation of the currently running operation.
 /// Sends a PostgreSQL CancelRequest on a separate TCP connection.
-pub async fn Client::cancel(self : Client) -> Unit {
+pub async fn Pgsql::cancel(self : Pgsql) -> Unit {
   self.check_open()
   cancel_request(self.conn.config, self.conn.process_id, self.conn.secret_key)
 }
 
 ///|
 /// Start listening on a notification channel
-pub async fn Client::listen(self : Client, channel : String) -> Unit {
+pub async fn Pgsql::listen(self : Pgsql, channel : String) -> Unit {
   ignore((self.execute("LISTEN " + quote_identifier(channel)) : Int))
 }
 
 ///|
 /// Stop listening on a notification channel
-pub async fn Client::unlisten(self : Client, channel : String) -> Unit {
+pub async fn Pgsql::unlisten(self : Pgsql, channel : String) -> Unit {
   ignore((self.execute("UNLISTEN " + quote_identifier(channel)) : Int))
 }
 
 ///|
 /// Return any queued notifications and clear the queue
-pub fn Client::poll_notifications(self : Client) -> Array[Notification] {
+pub fn Pgsql::poll_notifications(self : Pgsql) -> Array[Notification] {
   self.conn.notification_queue.drain()
 }
 
 ///|
 /// Return any queued server notices (warnings, informational messages)
 /// and clear the queue
-pub fn Client::poll_notices(self : Client) -> Array[ServerErrorInfo] {
+pub fn Pgsql::poll_notices(self : Pgsql) -> Array[ServerErrorInfo] {
   let notices = self.conn.notice_queue.copy()
   self.conn.notice_queue.clear()
   notices
@@ -274,7 +275,7 @@ pub fn Client::poll_notices(self : Client) -> Array[ServerErrorInfo] {
 ///|
 /// Wait until a notification arrives.
 /// First checks the queue, then loops on receive until one arrives.
-pub async fn Client::wait_for_notification(self : Client) -> Notification {
+pub async fn Pgsql::wait_for_notification(self : Pgsql) -> Notification {
   self.with_operation(async fn() {
     // Check queue first
     match self.conn.notification_queue.dequeue() {
@@ -311,8 +312,8 @@ pub async fn Client::wait_for_notification(self : Client) -> Notification {
 /// as a single batched write, receives all messages until ReadyForQuery,
 /// checks for server errors, and returns the messages for result building.
 /// The `prefix` parameter allows prepending messages (e.g. Parse) to the batch.
-async fn Client::bind_execute(
-  self : Client,
+async fn Pgsql::bind_execute(
+  self : Pgsql,
   stmt_name : String,
   params : Array[Value],
   prefix? : Array[FrontendMessage] = [],
@@ -324,7 +325,7 @@ async fn Client::bind_execute(
 
 ///|
 /// Execute simple-query path assuming operation serialization is already held.
-async fn Client::query_unlocked(self : Client, sql : String) -> QueryResult {
+async fn Pgsql::query_unlocked(self : Pgsql, sql : String) -> QueryResult {
   self.conn.send(Query(sql))
   let messages = self.conn.receive_until_ready()
   build_query_result(messages)
@@ -332,8 +333,8 @@ async fn Client::query_unlocked(self : Client, sql : String) -> QueryResult {
 
 ///|
 /// Execute prepare path assuming operation serialization is already held.
-async fn Client::prepare_unlocked(
-  self : Client,
+async fn Pgsql::prepare_unlocked(
+  self : Pgsql,
   sql : String,
 ) -> PreparedStatement {
   self.stmt_counter += 1
@@ -357,8 +358,8 @@ async fn Client::prepare_unlocked(
 
 ///|
 /// Shared bind-describe-execute-sync sequence assuming operation lock held.
-async fn Client::bind_execute_unlocked(
-  self : Client,
+async fn Pgsql::bind_execute_unlocked(
+  self : Pgsql,
   stmt_name : String,
   params : Array[Value],
   prefix? : Array[FrontendMessage] = [],
