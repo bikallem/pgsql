@@ -47,13 +47,17 @@ start() {
 
   if [ ! -d "$PGDATA" ]; then
     echo "Initializing test PostgreSQL in $PGDATA ..."
+    local pwfile
+    pwfile=$(mktemp)
+    echo "$PGPASSWORD" > "$pwfile"
     initdb \
       --pgdata="$PGDATA" \
       --auth=scram-sha-256 \
       --username="$PGUSER" \
-      --pwfile=<(echo "$PGPASSWORD") \
+      --pwfile="$pwfile" \
       --locale=C \
       > /dev/null
+    rm -f "$pwfile"
 
     # Generate self-signed TLS certificate (if openssl available)
     local ssl_enabled=off
