@@ -1,0 +1,45 @@
+name: Windows Debug
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_filter:
+        description: 'Test filter pattern (e.g. "*auth*wrong*")'
+        required: false
+        default: '*auth*wrong*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  debug:
+    runs-on: windows-latest
+    steps:
+      - name: Disable auto CRLF
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v6
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install MoonBit
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+          irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
+          "$env:USERPROFILE\.moon\bin" | Out-File -Append -FilePath $env:GITHUB_PATH
+
+      - name: Install deps
+        run: moon update
+
+      - name: Setup PostgreSQL
+        uses: ikalnytskyi/action-setup-postgres@v7
+        with:
+          username: postgres
+          password: postgres
+          database: postgres
+          port: 5433
+          ssl: true
+
+      - name: Run filtered test
+        run: moon test --target native src/tests/ --filter "${{ github.event.inputs.test_filter }}"
