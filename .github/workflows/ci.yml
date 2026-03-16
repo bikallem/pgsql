@@ -26,6 +26,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      # --- Cache MoonBit toolchain ---
+      - name: Cache MoonBit toolchain (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ~/.moon
+          key: moonbit-${{ runner.os }}-${{ hashFiles('moon.mod.json') }}
+          restore-keys: moonbit-${{ runner.os }}-
+
+      - name: Cache MoonBit toolchain (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: ~\.moon
+          key: moonbit-${{ runner.os }}-${{ hashFiles('moon.mod.json') }}
+          restore-keys: moonbit-${{ runner.os }}-
+
+      # --- Cache mooncakes dependencies ---
+      - name: Cache mooncakes
+        uses: actions/cache@v4
+        with:
+          path: .mooncakes
+          key: mooncakes-${{ runner.os }}-${{ hashFiles('moon.mod.json') }}
+          restore-keys: mooncakes-${{ runner.os }}-
+
+      # --- Install MoonBit ---
       - name: Set up MoonBit (Unix)
         if: runner.os != 'Windows'
         run: |
