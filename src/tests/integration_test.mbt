@@ -333,9 +333,7 @@ async test "UTF-8 text round-trip via parameters and row decoding" {
 async test "error handling: invalid SQL" {
   let client = @pgsql.Client::connect(get_config())
   let mut got_error = false
-  try {
-    ignore((client.query("SELCT invalid syntax") : @pgsql.QueryResult))
-  } catch {
+  ignore((client.query("SELCT invalid syntax") : @pgsql.QueryResult)) catch {
     _ => got_error = true
   }
   assert_true(got_error)
@@ -402,9 +400,7 @@ async test "prepared statement: use after close raises error" {
   stmt.close()
 
   let mut got_error = false
-  try {
-    ignore((stmt.query([@pgsql.Int(1)]) : @pgsql.QueryResult))
-  } catch {
+  ignore((stmt.query([@pgsql.Int(1)]) : @pgsql.QueryResult)) catch {
     @pgsql.PreparedStmtError(_) => got_error = true
     _ => ()
   }
@@ -528,9 +524,7 @@ async test "transaction: TxError on inactive transaction" {
 
     // Now operations on the inactive transaction should raise TxError
     let mut got_error = false
-    try {
-      ignore((tx.execute("SELECT 1") : Int))
-    } catch {
+    ignore((tx.execute("SELECT 1") : Int)) catch {
       @pgsql.TxError(_) => got_error = true
       _ => ()
     }
@@ -551,9 +545,7 @@ async test "client: query after close raises error" {
 
   // Operations on a closed client should raise an error
   let mut got_error = false
-  try {
-    ignore((client.query("SELECT 1") : @pgsql.QueryResult))
-  } catch {
+  ignore((client.query("SELECT 1") : @pgsql.QueryResult)) catch {
     _ => got_error = true
   }
   assert_true(got_error)
@@ -1149,9 +1141,7 @@ async test "stream: invalid batch_size rejected" {
   let client = @pgsql.Client::connect(get_config())
 
   let mut got_error = false
-  try {
-    ignore((client.query_stream("SELECT 1", batch_size=0) : @pgsql.RowStream))
-  } catch {
+  ignore((client.query_stream("SELECT 1", batch_size=0) : @pgsql.RowStream)) catch {
     @pgsql.StreamError(msg) => got_error = msg.contains("batch_size")
     _ => ()
   }
