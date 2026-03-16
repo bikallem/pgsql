@@ -77,9 +77,7 @@ test "QueryResult accessors" {
 
 ///|
 test "QueryResult::iter" {
-  let cols : Array[ColumnInfo] = [
-    test_col("x", 23, 4),
-  ]
+  let cols : Array[ColumnInfo] = [test_col("x", 23, 4)]
   let rows = [test_row([Int(1)], cols), test_row([Int(2)], cols)]
   let result = QueryResult::new(cols, rows, "SELECT 2")
   let mut sum = 0
@@ -91,9 +89,7 @@ test "QueryResult::iter" {
 
 ///|
 test "QueryResult::get_fields" {
-  let cols : Array[ColumnInfo] = [
-    test_col("id", 23, 4),
-  ]
+  let cols : Array[ColumnInfo] = [test_col("id", 23, 4)]
   let result = QueryResult::new(cols, [], "SELECT 0")
   inspect(result.fields().length(), content="1")
   inspect(result.fields()[0].name, content="id")
@@ -101,9 +97,7 @@ test "QueryResult::get_fields" {
 
 ///|
 test "Row::get" {
-  let cols : Array[ColumnInfo] = [
-    test_col("a", 25, -1),
-  ]
+  let cols : Array[ColumnInfo] = [test_col("a", 25, -1)]
   let row = test_row([String("hello")], cols)
   inspect(
     row.get(0),
@@ -134,9 +128,7 @@ test "Row::get_by_name" {
 
 ///|
 test "Row::get_string" {
-  let cols : Array[ColumnInfo] = [
-    test_col("s", 25, -1),
-  ]
+  let cols : Array[ColumnInfo] = [test_col("s", 25, -1)]
   let row = test_row([String("hello")], cols)
   inspect(
     row.string(0),
@@ -149,9 +141,7 @@ test "Row::get_string" {
 
 ///|
 test "Row::get_int" {
-  let cols : Array[ColumnInfo] = [
-    test_col("n", 23, 4),
-  ]
+  let cols : Array[ColumnInfo] = [test_col("n", 23, 4)]
   let row = test_row([Int(42)], cols)
   inspect(row.int(0), content="Some(42)")
   inspect(row.int(1), content="None")
@@ -159,37 +149,28 @@ test "Row::get_int" {
 
 ///|
 test "Row::get_int64" {
-  let cols : Array[ColumnInfo] = [
-    test_col("n", 20, 8),
-  ]
+  let cols : Array[ColumnInfo] = [test_col("n", 20, 8)]
   let row = test_row([Int64(9999999999L)], cols)
   inspect(row.int64(0), content="Some(9999999999)")
 }
 
 ///|
 test "Row::get_float" {
-  let cols : Array[ColumnInfo] = [
-    test_col("f", 701, 8),
-  ]
+  let cols : Array[ColumnInfo] = [test_col("f", 701, 8)]
   let row = test_row([Float(3.14)], cols)
   inspect(row.float(0), content="Some(3.14)")
 }
 
 ///|
 test "Row::get_bool" {
-  let cols : Array[ColumnInfo] = [
-    test_col("b", 16, 1),
-  ]
+  let cols : Array[ColumnInfo] = [test_col("b", 16, 1)]
   let row = test_row([Bool(true)], cols)
   inspect(row.bool(0), content="Some(true)")
 }
 
 ///|
 test "Row::is_null" {
-  let cols : Array[ColumnInfo] = [
-    test_col("a", 25, -1),
-    test_col("b", 25, -1),
-  ]
+  let cols : Array[ColumnInfo] = [test_col("a", 25, -1), test_col("b", 25, -1)]
   let row = test_row([Null, String("ok")], cols)
   inspect(row.is_null(0), content="true")
   inspect(row.is_null(1), content="false")
@@ -198,10 +179,7 @@ test "Row::is_null" {
 
 ///|
 test "Row::column_count" {
-  let cols : Array[ColumnInfo] = [
-    test_col("a", 25, -1),
-    test_col("b", 23, 4),
-  ]
+  let cols : Array[ColumnInfo] = [test_col("a", 25, -1), test_col("b", 23, 4)]
   let row = test_row([String("x"), Int(1)], cols)
   inspect(row.column_count(), content="2")
 }
@@ -305,10 +283,7 @@ test "build_column_index empty" {
 
 ///|
 test "build_column_index duplicate names uses last index" {
-  let cols : Array[ColumnInfo] = [
-    test_col("x", 23, 4),
-    test_col("x", 25, -1),
-  ]
+  let cols : Array[ColumnInfo] = [test_col("x", 23, 4), test_col("x", 25, -1)]
   let index = build_column_index(cols)
   inspect(index.get("x"), content="Some(1)")
 }

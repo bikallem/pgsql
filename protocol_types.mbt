@@ -190,10 +190,7 @@ fn parse_float(text : String) -> Value {
     "nan" => Float(0.0 / 0.0)
     "inf" => Float(1.0 / 0.0)
     "-inf" => Float(-1.0 / 0.0)
-    _ =>
-      Float(@strconv.parse_double(text[:])) catch {
-        _ => String(text)
-      }
+    _ => Float(@strconv.parse_double(text[:])) catch { _ => String(text) }
   }
 }
 

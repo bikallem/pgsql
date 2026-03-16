@@ -233,7 +233,7 @@ fn negotiate_version_error(
     severity: "WARNING",
     code: "01000",
     message: "Server only supports protocol minor version " +
-      server_minor.to_string(),
+    server_minor.to_string(),
     detail,
     hint: None,
     table: None,
