@@ -15,7 +15,7 @@ test:
 	moon test --target native -p bikallem/pgsql
 
 test-integration: pg-start
-	moon test --target native tests/ ; status=$$? ; \
+	moon test --target native src/tests/ ; status=$$? ; \
 	$(MAKE) pg-stop ; exit $$status
 
 test-all: test test-integration
