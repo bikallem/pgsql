@@ -475,18 +475,23 @@ fn parse_affected_rows(tag : String) -> Int {
   let chars : Array[Char] = Array::from_iter(tag.iter())
   let len = chars.length()
   // Find the start of the trailing number by scanning backwards
-  let mut end = len
-  while end > 0 && chars[end - 1] >= '0' && chars[end - 1] <= '9' {
-    end -= 1
+  let end = for end = len
+    end > 0 && chars[end - 1] >= '0' && chars[end - 1] <= '9'
+    end = end - 1 {
+
+  } else {
+    end
   }
   if end == len {
-    return 0 // no trailing digits
+    return 0
   }
-  let mut result = 0
-  let mut multiplier = 1
-  for i = len - 1; i >= end; i = i - 1 {
-    result += (chars[i].to_int() - '0'.to_int()) * multiplier
-    multiplier *= 10
+  for i = len - 1, result = 0, multiplier = 1
+    i >= end
+    i = i - 1,
+    result = result + (chars[i].to_int() - '0'.to_int()) * multiplier,
+    multiplier = multiplier * 10 {
+
+  } else {
+    result
   }
-  result
 }

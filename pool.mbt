@@ -163,12 +163,10 @@ fn Pool::release_permit(self : Pool) -> Unit {
 ///|
 /// Wake up to `count` blocked acquires while preserving permit accounting.
 fn Pool::wake_acquire_waiters(self : Pool, count? : Int = 1) -> Unit {
-  let mut remaining = count
-  while remaining > 0 {
+  for remaining = count; remaining > 0; remaining = remaining - 1 {
     if not(self.wake_one_acquire_waiter()) {
       break
     }
-    remaining -= 1
   }
 }
 

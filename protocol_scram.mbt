@@ -143,9 +143,10 @@ fn scram_verify_server(
 /// Constant-time byte comparison to prevent timing side-channels.
 /// Both slices must have the same length (caller must check).
 fn constant_time_bytes_equal(a : Bytes, b : Bytes) -> Bool {
-  let mut diff = 0
-  for i = 0; i < a.length(); i = i + 1 {
-    diff = diff | (a[i].to_int() ^ b[i].to_int())
+  let diff = for i = 0, diff = 0; i < a.length(); i = i + 1, diff = diff | (a[i].to_int() ^ b[i].to_int()) {
+
+  } else {
+    diff
   }
   diff == 0
 }
