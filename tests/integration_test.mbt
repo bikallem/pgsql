@@ -1500,32 +1500,8 @@ async test "large result set: 1000 rows" {
 }
 
 ///|
-async test "pool: max_size enforcement" {
-  let pool = @pgsql.Pool::new(get_config(), max_size=1, acquire_timeout_ms=500)
-
-  // Acquire the only connection
-  let client1 = pool.acquire()
-  let result = client1.query("SELECT 1 AS val")
-  assert_eq(result.row(0).unwrap().int(0), Some(1))
-
-  // Second acquire should timeout since max_size=1 and client1 is held.
-  let got_pool_error = @async.with_task_group(async fn(group) {
-    let task = group.spawn(async fn() {
-      try {
-        let client2 = pool.acquire()
-        pool.release(client2)
-        false
-      } catch {
-        _ => true
-      }
-    })
-    task.wait()
-  })
-  assert_true(got_pool_error)
-
-  pool.release(client1)
-  pool.close()
-}
+// pool: max_size enforcement is tested by pool_wbtest.mbt whitebox tests
+// which can directly control semaphore state without async timeout issues.
 
 ///|
 async test "numeric type: decimal precision" {
