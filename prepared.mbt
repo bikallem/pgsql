@@ -74,7 +74,7 @@ pub async fn PreparedStatement::close(self : PreparedStatement) -> Unit {
   }
   let close_stmt = async fn() {
     self.client.conn.send_all([Close(TARGET_STATEMENT, self.name), Sync])
-    ignore((self.client.conn.receive_until_ready() : Array[QueryMessage]))
+    self.client.conn.drain_until_ready()
   }
   if self.tx_scoped {
     if not(self.client.in_transaction_callback) {
@@ -109,5 +109,5 @@ pub fn PreparedStatement::sql(self : PreparedStatement) -> String {
 ///|
 /// Parameter type OIDs expected by this prepared statement.
 pub fn PreparedStatement::param_types(self : PreparedStatement) -> Array[UInt] {
-  self.param_types
+  self.param_types.copy()
 }

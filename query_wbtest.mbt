@@ -40,6 +40,20 @@ test "parse_affected_rows zero rows" {
 }
 
 ///|
+/// Helper to create a ColumnInfo with sensible defaults for tests.
+fn test_col(name : String, type_oid : UInt, type_size : Int) -> ColumnInfo {
+  {
+    name,
+    table_oid: 0,
+    column_id: 0,
+    type_oid,
+    type_size,
+    type_modifier: -1,
+    binary: false,
+  }
+}
+
+///|
 /// Helper to create a Row in tests (computes column_index automatically)
 fn test_row(values : Array[Value], cols : Array[ColumnInfo]) -> Row {
   Row::new(values, cols, build_column_index(cols))
@@ -48,24 +62,8 @@ fn test_row(values : Array[Value], cols : Array[ColumnInfo]) -> Row {
 ///|
 test "QueryResult accessors" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "id",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 23,
-      type_size: 4,
-      type_modifier: -1,
-      binary: false,
-    },
-    {
-      name: "name",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 25,
-      type_size: -1,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("id", 23, 4),
+    test_col("name", 25, -1),
   ]
   let row = test_row([Int(1), String("Alice")], cols)
   let result = QueryResult::new(cols, [row], "SELECT 1")
@@ -80,15 +78,7 @@ test "QueryResult accessors" {
 ///|
 test "QueryResult::iter" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "x",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 23,
-      type_size: 4,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("x", 23, 4),
   ]
   let rows = [test_row([Int(1)], cols), test_row([Int(2)], cols)]
   let result = QueryResult::new(cols, rows, "SELECT 2")
@@ -102,15 +92,7 @@ test "QueryResult::iter" {
 ///|
 test "QueryResult::get_fields" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "id",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 23,
-      type_size: 4,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("id", 23, 4),
   ]
   let result = QueryResult::new(cols, [], "SELECT 0")
   inspect(result.fields().length(), content="1")
@@ -120,15 +102,7 @@ test "QueryResult::get_fields" {
 ///|
 test "Row::get" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "a",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 25,
-      type_size: -1,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("a", 25, -1),
   ]
   let row = test_row([String("hello")], cols)
   inspect(
@@ -144,24 +118,8 @@ test "Row::get" {
 ///|
 test "Row::get_by_name" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "id",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 23,
-      type_size: 4,
-      type_modifier: -1,
-      binary: false,
-    },
-    {
-      name: "name",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 25,
-      type_size: -1,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("id", 23, 4),
+    test_col("name", 25, -1),
   ]
   let row = test_row([Int(1), String("Bob")], cols)
   inspect(
@@ -177,15 +135,7 @@ test "Row::get_by_name" {
 ///|
 test "Row::get_string" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "s",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 25,
-      type_size: -1,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("s", 25, -1),
   ]
   let row = test_row([String("hello")], cols)
   inspect(
@@ -200,15 +150,7 @@ test "Row::get_string" {
 ///|
 test "Row::get_int" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "n",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 23,
-      type_size: 4,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("n", 23, 4),
   ]
   let row = test_row([Int(42)], cols)
   inspect(row.int(0), content="Some(42)")
@@ -218,15 +160,7 @@ test "Row::get_int" {
 ///|
 test "Row::get_int64" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "n",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 20,
-      type_size: 8,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("n", 20, 8),
   ]
   let row = test_row([Int64(9999999999L)], cols)
   inspect(row.int64(0), content="Some(9999999999)")
@@ -235,15 +169,7 @@ test "Row::get_int64" {
 ///|
 test "Row::get_float" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "f",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 701,
-      type_size: 8,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("f", 701, 8),
   ]
   let row = test_row([Float(3.14)], cols)
   inspect(row.float(0), content="Some(3.14)")
@@ -252,15 +178,7 @@ test "Row::get_float" {
 ///|
 test "Row::get_bool" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "b",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 16,
-      type_size: 1,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("b", 16, 1),
   ]
   let row = test_row([Bool(true)], cols)
   inspect(row.bool(0), content="Some(true)")
@@ -269,24 +187,8 @@ test "Row::get_bool" {
 ///|
 test "Row::is_null" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "a",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 25,
-      type_size: -1,
-      type_modifier: -1,
-      binary: false,
-    },
-    {
-      name: "b",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 25,
-      type_size: -1,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("a", 25, -1),
+    test_col("b", 25, -1),
   ]
   let row = test_row([Null, String("ok")], cols)
   inspect(row.is_null(0), content="true")
@@ -297,24 +199,8 @@ test "Row::is_null" {
 ///|
 test "Row::column_count" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "a",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 25,
-      type_size: -1,
-      type_modifier: -1,
-      binary: false,
-    },
-    {
-      name: "b",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 23,
-      type_size: 4,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("a", 25, -1),
+    test_col("b", 23, 4),
   ]
   let row = test_row([String("x"), Int(1)], cols)
   inspect(row.column_count(), content="2")
@@ -377,24 +263,8 @@ test "build_query_result command only" {
 ///|
 test "convert_row_values null column" {
   let columns : Array[ColumnInfo] = [
-    {
-      name: "a",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 25,
-      type_size: -1,
-      type_modifier: -1,
-      binary: false,
-    },
-    {
-      name: "b",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 23,
-      type_size: 4,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("a", 25, -1),
+    test_col("b", 23, 4),
   ]
   let raw : Array[Bytes?] = [None, Some(Bytes::from_array([b'4', b'2']))]
   let values = convert_row_values(raw, columns)
@@ -416,33 +286,9 @@ test "serialize_params mixed types" {
 ///|
 test "build_column_index maps names to indices" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "id",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 23,
-      type_size: 4,
-      type_modifier: -1,
-      binary: false,
-    },
-    {
-      name: "name",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 25,
-      type_size: -1,
-      type_modifier: -1,
-      binary: false,
-    },
-    {
-      name: "email",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 25,
-      type_size: -1,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("id", 23, 4),
+    test_col("name", 25, -1),
+    test_col("email", 25, -1),
   ]
   let index = build_column_index(cols)
   inspect(index.get("id"), content="Some(0)")
@@ -460,24 +306,8 @@ test "build_column_index empty" {
 ///|
 test "build_column_index duplicate names uses last index" {
   let cols : Array[ColumnInfo] = [
-    {
-      name: "x",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 23,
-      type_size: 4,
-      type_modifier: -1,
-      binary: false,
-    },
-    {
-      name: "x",
-      table_oid: 0,
-      column_id: 0,
-      type_oid: 25,
-      type_size: -1,
-      type_modifier: -1,
-      binary: false,
-    },
+    test_col("x", 23, 4),
+    test_col("x", 25, -1),
   ]
   let index = build_column_index(cols)
   inspect(index.get("x"), content="Some(1)")

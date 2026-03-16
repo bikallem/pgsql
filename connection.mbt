@@ -206,6 +206,43 @@ async fn Connection::receive(self : Connection) -> Array[BackendMessage] {
 }
 
 ///|
+fn binary_copy_error() -> ServerErrorInfo {
+  {
+    severity: "ERROR",
+    code: "0A000",
+    message: "Binary COPY format is not supported",
+    detail: None,
+    hint: Some("Use text format COPY or omit the BINARY option"),
+    table: None,
+    column: None,
+    constraint: None,
+  }
+}
+
+///|
+fn negotiate_version_error(
+  server_minor : Int,
+  unrecognized : Array[String],
+) -> ServerErrorInfo {
+  let detail = if unrecognized.length() > 0 {
+    Some("Unrecognized options: " + unrecognized.iter().join(", "))
+  } else {
+    None
+  }
+  {
+    severity: "WARNING",
+    code: "01000",
+    message: "Server only supports protocol minor version " +
+      server_minor.to_string(),
+    detail,
+    hint: None,
+    table: None,
+    column: None,
+    constraint: None,
+  }
+}
+
+///|
 /// Format an unexpected QueryMessage for error reporting.
 fn unexpected_message(context : String, qm : QueryMessage) -> String {
   let name = match qm {
@@ -309,65 +346,23 @@ fn Connection::dispatch(
     ParameterDescription(oids) =>
       Message(QueryMessage::ParameterDescription(oids))
     // COPY messages — validate text format, reject binary
-    CopyInResponse(fmt, _col_fmts) => {
-      guard fmt is Text else {
-        Error(ServerErrorInfo::{
-          severity: "ERROR",
-          code: "0A000",
-          message: "Binary COPY format is not supported",
-          detail: None,
-          hint: Some("Use text format COPY or omit the BINARY option"),
-          table: None,
-          column: None,
-          constraint: None,
-        })
+    CopyInResponse(fmt, _col_fmts) =>
+      if fmt is Binary {
+        Error(binary_copy_error())
+      } else {
+        Message(QueryMessage::CopyInResponse)
       }
-      Message(QueryMessage::CopyInResponse)
-    }
-    CopyOutResponse(fmt, _col_fmts) => {
-      guard fmt is Text else {
-        Error(ServerErrorInfo::{
-          severity: "ERROR",
-          code: "0A000",
-          message: "Binary COPY format is not supported",
-          detail: None,
-          hint: Some("Use text format COPY or omit the BINARY option"),
-          table: None,
-          column: None,
-          constraint: None,
-        })
+    CopyOutResponse(fmt, _col_fmts) =>
+      if fmt is Binary {
+        Error(binary_copy_error())
+      } else {
+        Message(QueryMessage::CopyOutResponse)
       }
-      Message(QueryMessage::CopyOutResponse)
-    }
     CopyData(data) => Message(QueryMessage::CopyData(data))
     CopyDone => Message(QueryMessage::CopyDone)
     // Protocol version negotiation — raise so the caller knows
-    NegotiateProtocolVersion(server_minor, unrecognized) => {
-      let msg = "Server only supports protocol minor version " +
-        server_minor.to_string()
-      let detail = if unrecognized.length() > 0 {
-        let mut opts = ""
-        for i, opt in unrecognized {
-          if i > 0 {
-            opts = opts + ", "
-          }
-          opts = opts + opt
-        }
-        Some("Unrecognized options: " + opts)
-      } else {
-        None
-      }
-      Error(ServerErrorInfo::{
-        severity: "WARNING",
-        code: "01000",
-        message: msg,
-        detail,
-        hint: None,
-        table: None,
-        column: None,
-        constraint: None,
-      })
-    }
+    NegotiateProtocolVersion(server_minor, unrecognized) =>
+      Error(negotiate_version_error(server_minor, unrecognized))
     // Authentication messages — only expected during startup, ignore elsewhere
     AuthenticationOk
     | AuthenticationCleartextPassword

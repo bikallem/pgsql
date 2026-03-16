@@ -369,8 +369,6 @@ async fn Client::cleanup_failed_stream_setup(
     self.conn.send(Query("ROLLBACK")) catch {
       _ => ()
     }
-    ignore(
-      (self.conn.receive_until_ready() catch { _ => [] } : Array[QueryMessage]),
-    )
+    self.conn.drain_until_ready()
   }
 }
