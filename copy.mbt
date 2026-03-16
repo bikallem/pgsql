@@ -11,7 +11,7 @@ struct CopyWriter {
 ///|
 /// Write raw data chunk to the COPY stream
 pub async fn CopyWriter::write(self : CopyWriter, data : Bytes) -> Unit {
-  if not(self.conn.copy_in_active) {
+  guard self.conn.copy_in_active else {
     raise CopyError("COPY writer is no longer active")
   }
   self.conn.send(CopyData(data))
@@ -33,7 +33,7 @@ pub async fn CopyWriter::write_row_nullable(
   self : CopyWriter,
   values : Array[String?],
 ) -> Unit {
-  if not(self.conn.copy_in_active) {
+  guard self.conn.copy_in_active else {
     raise CopyError("COPY writer is no longer active")
   }
   let buf : Array[Byte] = []

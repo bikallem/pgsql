@@ -16,8 +16,8 @@ fn pbkdf2_sha256(password : Bytes, salt : Bytes, iterations : Int) -> Bytes {
   // U1 = HMAC(password, salt || INT(1))
   // INT(1) = big-endian 32-bit encoding of 1
   let salt_with_int : Array[Byte] = Array::new(capacity=salt.length() + 4)
-  for i = 0; i < salt.length(); i = i + 1 {
-    salt_with_int.push(salt[i])
+  for b in salt {
+    salt_with_int.push(b)
   }
   salt_with_int.push(b'\x00')
   salt_with_int.push(b'\x00')

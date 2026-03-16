@@ -156,16 +156,18 @@ fn constant_time_bytes_equal(a : Bytes, b : Bytes) -> Bool {
 fn escape_scram_username(username : String) -> String {
   let escaped : Array[Char] = []
   for c in username {
-    if c == '=' {
-      escaped.push('=')
-      escaped.push('3')
-      escaped.push('D')
-    } else if c == ',' {
-      escaped.push('=')
-      escaped.push('2')
-      escaped.push('C')
-    } else {
-      escaped.push(c)
+    match c {
+      '=' => {
+        escaped.push('=')
+        escaped.push('3')
+        escaped.push('D')
+      }
+      ',' => {
+        escaped.push('=')
+        escaped.push('2')
+        escaped.push('C')
+      }
+      c => escaped.push(c)
     }
   }
   String::from_array(escaped)

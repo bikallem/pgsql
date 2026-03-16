@@ -43,8 +43,8 @@ fn BufferWriter::add_int32(self : BufferWriter, value : Int) -> Unit {
 /// Add a null-terminated C string (UTF-8 encoded)
 fn BufferWriter::add_cstring(self : BufferWriter, value : String) -> Unit {
   let bytes = @utf8.encode(value[:])
-  for i = 0; i < bytes.length(); i = i + 1 {
-    self.data.push(bytes[i])
+  for b in bytes {
+    self.data.push(b)
   }
   self.data.push(b'\x00') // null terminator
 }
@@ -52,8 +52,8 @@ fn BufferWriter::add_cstring(self : BufferWriter, value : String) -> Unit {
 ///|
 /// Add raw bytes
 fn BufferWriter::add_bytes(self : BufferWriter, value : Bytes) -> Unit {
-  for i = 0; i < value.length(); i = i + 1 {
-    self.data.push(value[i])
+  for b in value {
+    self.data.push(b)
   }
 }
 

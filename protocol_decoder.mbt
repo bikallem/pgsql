@@ -42,8 +42,8 @@ fn Decoder::parse(self : Decoder, data : Bytes) -> Array[BackendMessage] {
   }
 
   // Append new data to buffer
-  for i = 0; i < data.length(); i = i + 1 {
-    self.buffer.push(data[i])
+  for b in data {
+    self.buffer.push(b)
   }
 
   let messages : Array[BackendMessage] = []
@@ -174,10 +174,12 @@ fn parse_message(
     BACKEND_COPY_DATA => CopyData(data)
     BACKEND_COPY_DONE => CopyDone
     BACKEND_NEGOTIATE_VERSION => parse_negotiate_protocol_version(reader)
-    _ => {
+    // Intentional: parse() returns Array[BackendMessage] so it cannot raise errors.
+    // Represent unknown message types as ErrorResponse for the connection layer to handle.
+    unknown_code => {
       let fields : Map[String, String] = {}
       fields[FIELD_MESSAGE] = "Unknown message type: " +
-        code.to_int().to_string()
+        unknown_code.to_int().to_string()
       fields[FIELD_SEVERITY] = "ERROR"
       ErrorResponse(fields)
     }
@@ -243,10 +245,18 @@ fn parse_parameter_status(
 fn parse_ready_for_query(
   reader : BufferReader,
 ) -> BackendMessage raise BufferUnderflow {
-  let status = match reader.byte() {
+  let tx_byte = reader.byte()
+  let status = match tx_byte {
     TX_IDLE => Idle
     TX_IN_TRANSACTION => InTransaction
-    _ => Failed
+    b'E' => Failed
+    unknown => {
+      let fields : Map[String, String] = {}
+      fields[FIELD_MESSAGE] = "Unknown transaction status byte: " +
+        unknown.to_int().to_string()
+      fields[FIELD_SEVERITY] = "ERROR"
+      return ErrorResponse(fields)
+    }
   }
   ReadyForQuery(status)
 }

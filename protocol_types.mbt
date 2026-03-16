@@ -186,17 +186,14 @@ fn parse_int64(text : String) -> Value {
 /// Parse floating point value
 fn parse_float(text : String) -> Value {
   // Handle PostgreSQL-specific special values not in @strconv
-  if text == "nan" {
-    return Float(0.0 / 0.0)
-  }
-  if text == "inf" {
-    return Float(1.0 / 0.0)
-  }
-  if text == "-inf" {
-    return Float(-1.0 / 0.0)
-  }
-  Float(@strconv.parse_double(text[:])) catch {
-    _ => String(text)
+  match text {
+    "nan" => Float(0.0 / 0.0)
+    "inf" => Float(1.0 / 0.0)
+    "-inf" => Float(-1.0 / 0.0)
+    _ =>
+      Float(@strconv.parse_double(text[:])) catch {
+        _ => String(text)
+      }
   }
 }
 
@@ -280,11 +277,11 @@ fn serialize_value(value : Value) -> Bytes? {
 ///|
 /// Convert bytes to hex-encoded bytea format
 fn bytea_to_hex(data : Bytes) -> Bytes {
-  let result : Array[Byte] = []
+  let result : Array[Byte] = Array::new(capacity=data.length() * 2 + 2)
   result.push(b'\\')
   result.push(b'x')
-  for i = 0; i < data.length(); i = i + 1 {
-    let b = data[i].to_int()
+  for byte in data {
+    let b = byte.to_int()
     result.push(hex_byte((b >> 4) & 0xF))
     result.push(hex_byte(b & 0xF))
   }

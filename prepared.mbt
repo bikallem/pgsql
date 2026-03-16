@@ -26,10 +26,10 @@ pub async fn PreparedStatement::query(
   self : PreparedStatement,
   params : Array[Value],
 ) -> QueryResult {
-  if self.closed {
+  guard not(self.closed) else {
     raise PreparedStmtError("PreparedStatement is closed")
   }
-  if self.client.closed {
+  guard not(self.client.closed) else {
     raise PreparedStmtError("Client connection is closed")
   }
 
@@ -64,11 +64,9 @@ pub async fn PreparedStatement::execute(
 /// Close the prepared statement, releasing server resources.
 /// Idempotent — calling close on an already-closed statement is a no-op.
 pub async fn PreparedStatement::close(self : PreparedStatement) -> Unit {
-  if self.closed {
-    return
-  }
+  guard not(self.closed) else { return }
   self.closed = true
-  if self.client.closed {
+  guard not(self.client.closed) else {
     // Client already closed; server resources are already released.
     return
   }

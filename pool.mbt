@@ -75,7 +75,10 @@ pub async fn Pool::acquire(self : Pool) -> Client {
 /// Caller is responsible for releasing the permit on failure.
 async fn Pool::acquire_after_permit(self : Pool) -> Client {
   // Try to get an idle connection
-  let idle_client : Client? = self.idle.try_get() catch { _ => None }
+  let idle_client : Client? = self.idle.try_get() catch {
+    // Queue closed (pool shutting down) — treat as no idle connection available
+    _queue_closed => None
+  }
   match idle_client {
     Some(client) =>
       // Verify the connection is still usable
@@ -119,7 +122,10 @@ pub async fn Pool::close(self : Pool) -> Unit {
   self.wake_acquire_waiters()
   // Drain idle connections before closing the queue
   while true {
-    let client : Client? = self.idle.try_get() catch { _ => None }
+    let client : Client? = self.idle.try_get() catch {
+      // Queue may already be closed — treat as empty
+      _queue_closed => None
+    }
     match client {
       Some(c) => c.close()
       None => break

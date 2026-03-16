@@ -36,9 +36,7 @@ pub async fn Client::connect(config : Config) -> Client {
 ///|
 /// Guard: raises ConnectionClosedError if the client has been closed
 fn Client::check_open(self : Client) -> Unit raise ConnectionClosedError {
-  if self.closed {
-    raise ConnectionClosedError
-  }
+  guard not(self.closed) else { raise ConnectionClosedError }
 }
 
 ///|
@@ -46,7 +44,10 @@ fn Client::check_open(self : Client) -> Unit raise ConnectionClosedError {
 fn Client::check_not_in_user_callback(
   self : Client,
 ) -> Unit raise ClientUsageError {
-  raise_if_reentrant_user_callback(self.in_user_callback)
+  raise_if_reentrant(
+    self.in_user_callback,
+    "Re-entrant operations on the same Client are not allowed inside stream/COPY callbacks",
+  )
 }
 
 ///|
@@ -54,7 +55,10 @@ fn Client::check_not_in_user_callback(
 fn Client::check_not_in_transaction_callback(
   self : Client,
 ) -> Unit raise ClientUsageError {
-  raise_if_reentrant_transaction_callback(self.in_transaction_callback)
+  raise_if_reentrant(
+    self.in_transaction_callback,
+    "Direct Client operations inside transaction callback are not allowed; use the Transaction handle",
+  )
 }
 
 ///|
@@ -379,26 +383,11 @@ async fn Client::bind_execute_unlocked(
 
 ///|
 /// Raise ClientUsageError when entering a re-entrant callback operation.
-fn raise_if_reentrant_user_callback(
-  in_user_callback : Bool,
+fn raise_if_reentrant(
+  flag : Bool,
+  context : String,
 ) -> Unit raise ClientUsageError {
-  if in_user_callback {
-    raise ClientUsageError(
-      "Re-entrant operations on the same Client are not allowed inside stream/COPY callbacks",
-    )
-  }
-}
-
-///|
-/// Raise ClientUsageError for direct Client operations inside tx callback.
-fn raise_if_reentrant_transaction_callback(
-  in_transaction_callback : Bool,
-) -> Unit raise ClientUsageError {
-  if in_transaction_callback {
-    raise ClientUsageError(
-      "Direct Client operations inside transaction callback are not allowed; use the Transaction handle",
-    )
-  }
+  guard not(flag) else { raise ClientUsageError(context) }
 }
 
 ///|
@@ -482,11 +471,12 @@ fn serialize_params(params : Array[Value]) -> Array[Bytes?] {
 /// end to extract the trailing integer directly, avoiding intermediate
 /// string splits and allocations.
 fn parse_affected_rows(tag : String) -> Int {
-  let bytes = @utf8.encode(tag[:])
-  let len = bytes.length()
+  // Collect chars to allow backward scanning without UTF-8 encoding
+  let chars : Array[Char] = Array::from_iter(tag.iter())
+  let len = chars.length()
   // Find the start of the trailing number by scanning backwards
   let mut end = len
-  while end > 0 && bytes[end - 1] >= b'0' && bytes[end - 1] <= b'9' {
+  while end > 0 && chars[end - 1] >= '0' && chars[end - 1] <= '9' {
     end -= 1
   }
   if end == len {
@@ -495,7 +485,7 @@ fn parse_affected_rows(tag : String) -> Int {
   let mut result = 0
   let mut multiplier = 1
   for i = len - 1; i >= end; i = i - 1 {
-    result += (bytes[i].to_int() - b'0'.to_int()) * multiplier
+    result += (chars[i].to_int() - '0'.to_int()) * multiplier
     multiplier *= 10
   }
   result

@@ -178,8 +178,8 @@ fn encode_frontend_batch(msgs : Array[FrontendMessage]) -> Bytes {
   let buf : Array[Byte] = []
   for msg in msgs {
     let bytes = encode(msg)
-    for i = 0; i < bytes.length(); i = i + 1 {
-      buf.push(bytes[i])
+    for b in bytes {
+      buf.push(b)
     }
   }
   Bytes::from_array(buf)
@@ -269,7 +269,10 @@ fn unexpected_message(context : String, qm : QueryMessage) -> String {
 /// back to a clean state.
 async fn Connection::drain_until_ready(self : Connection) -> Unit {
   while true {
-    let messages = self.receive() catch { _ => return }
+    let messages = self.receive() catch {
+      ConnectionClosedError => return
+      _other => return // error recovery: swallow all errors during drain
+    }
     for msg in messages {
       match self.dispatch(msg) {
         Ready => return
@@ -562,8 +565,9 @@ async fn Connection::authenticate(self : Connection) -> Unit {
         }
         ErrorResponse(fields) =>
           raise AuthError(ServerErrorInfo::from_fields(fields).message)
-        msg =>
-          match self.dispatch(msg) {
+        other_msg =>
+          // Intentional: delegate non-auth messages (ReadyForQuery, ParameterStatus, etc.)
+          match self.dispatch(other_msg) {
             Ready => return
             Error(info) => raise AuthError(info.message)
             Consumed | Message(_) => ()

@@ -49,8 +49,8 @@ fn hex_byte(value : Int) -> Byte {
 /// Convert bytes to lowercase hex string
 fn bytes_to_hex(data : Bytes) -> String {
   let result : Array[Char] = []
-  for i = 0; i < data.length(); i = i + 1 {
-    let b = data[i].to_int()
+  for byte in data {
+    let b = byte.to_int()
     result.push(hex_byte((b >> 4) & 0xF).to_int().unsafe_to_char())
     result.push(hex_byte(b & 0xF).to_int().unsafe_to_char())
   }
